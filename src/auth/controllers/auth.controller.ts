@@ -18,4 +18,9 @@ export class AuthController {
       user,
     });
   }
+
+  @Post('/token')
+  async token(@Body() data: { username: string; refreshToken: string }) {
+    return await this.authService.getTokenWithRefresh(data);
+  }
 }

@@ -9,14 +9,12 @@ import { Module, ModuleDocument } from '../schemas/module.schema';
 import { Model } from 'mongoose';
 import { MenuService } from 'src/menu/services/menu.service';
 import { RoleDocument } from 'src/role/schemas/role.schema';
-import { ModuleOptionsDocument } from 'src/module-options/schemas/module-options.schema';
 
 @Injectable()
 export class ModuleService implements OnApplicationBootstrap {
   constructor(
     @InjectModel(Module.name) private moduleModel: Model<ModuleDocument>,
     @InjectModel('Role') private roleModel: Model<RoleDocument>,
-    @InjectModel('ModuleOptions') private moModel: Model<ModuleOptionsDocument>,
     //@InjectModel('User') private userModel: Model<UserDocument>,
     private readonly menuService: MenuService,
   ) {}
@@ -70,23 +68,6 @@ export class ModuleService implements OnApplicationBootstrap {
           module: findModules,
         }).save(),
         new this.roleModel({ name: 'ADMINISTRADOR', status: true }).save(),
-      ]);
-
-      //add resource
-      const getRole = await this.roleModel.findOne({
-        name: 'SUPER ADMINISTRADOR',
-      });
-
-      await Promise.all([
-        new this.moModel({
-          role: getRole._id,
-          status: true,
-          module: findModules[0],
-          canCreate: true,
-          canUpdate: true,
-          canRead: true,
-          canDelete: true,
-        }).save(),
       ]);
     } catch (e) {
       throw new Error(`Error en ModuleService.onModuleInit ${e}`);

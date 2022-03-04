@@ -9,10 +9,8 @@ import { UserSchema } from 'src/user/schemas/user.schema';
 import { UserService } from 'src/user/services/user.service';
 import { RoleService } from 'src/role/services/role.service';
 import { RoleSchema } from 'src/role/schemas/role.schema';
-import { ModuleOptionsSchema } from 'src/module-options/schemas/module-options.schema';
-import { ModuleOptionsService } from 'src/module-options/services/module-options.service';
-import { OptionSchema } from 'src/option/schemas/option.schema';
-import { OptionService } from 'src/option/services/option.service';
+import { ResourceSchema } from 'src/resource/schemas/resource.schema';
+import { ResourceService } from 'src/resource/services/resource.service';
 
 @Module({
   imports: [
@@ -21,8 +19,7 @@ import { OptionService } from 'src/option/services/option.service';
       { name: 'Menu', schema: MenuSchema },
       { name: 'User', schema: UserSchema },
       { name: 'Role', schema: RoleSchema },
-      { name: 'ModuleOptions', schema: ModuleOptionsSchema },
-      { name: 'Option', schema: OptionSchema },
+      { name: 'Resource', schema: ResourceSchema },
     ]),
   ],
   controllers: [ModuleController],
@@ -31,8 +28,7 @@ import { OptionService } from 'src/option/services/option.service';
     MenuService,
     UserService,
     RoleService,
-    ModuleOptionsService,
-    OptionService,
+    ResourceService,
   ],
 })
 export class ModuleModule {}

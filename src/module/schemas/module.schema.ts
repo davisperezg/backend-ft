@@ -15,6 +15,12 @@ export class Module {
     type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Menu' }],
   })
   menu?: Menu[];
+
+  @Prop({ trim: true, type: String })
+  color?: string;
+
+  @Prop({ trim: true, type: String })
+  icon?: string;
 }
 
 export const ModuleSchema = SchemaFactory.createForClass(Module);

@@ -1,15 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { OptionController } from './option.controller';
+import { ResourceController } from './resource.controller';
 
-describe('OptionController', () => {
-  let controller: OptionController;
+describe('ResourceController', () => {
+  let controller: ResourceController;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      controllers: [OptionController],
+      controllers: [ResourceController],
     }).compile();
 
-    controller = module.get<OptionController>(OptionController);
+    controller = module.get<ResourceController>(ResourceController);
   });
 
   it('should be defined', () => {

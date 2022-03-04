@@ -1,4 +1,3 @@
-import { ModuleOptionsService } from './../module-options/services/module-options.service';
 import { Module } from '@nestjs/common';
 import { AuthController } from './controllers/auth.controller';
 import { AuthService } from './services/auth.service';
@@ -14,9 +13,8 @@ import { ModuleSchema } from 'src/module/schemas/module.schema';
 import { ModuleService } from 'src/module/services/module.service';
 import { MenuSchema } from 'src/menu/schemas/menu.schema';
 import { MenuService } from 'src/menu/services/menu.service';
-import { ModuleOptionsSchema } from 'src/module-options/schemas/module-options.schema';
-import { OptionSchema } from 'src/option/schemas/option.schema';
-import { OptionService } from 'src/option/services/option.service';
+import { ResourceSchema } from 'src/resource/schemas/resource.schema';
+import { ResourceService } from 'src/resource/services/resource.service';
 
 @Module({
   imports: [
@@ -29,8 +27,7 @@ import { OptionService } from 'src/option/services/option.service';
       { name: 'Role', schema: RoleSchema },
       { name: 'Module', schema: ModuleSchema },
       { name: 'Menu', schema: MenuSchema },
-      { name: 'ModuleOptions', schema: ModuleOptionsSchema },
-      { name: 'Option', schema: OptionSchema },
+      { name: 'Resource', schema: ResourceSchema },
     ]),
   ],
   controllers: [AuthController],
@@ -41,8 +38,7 @@ import { OptionService } from 'src/option/services/option.service';
     RoleService,
     ModuleService,
     MenuService,
-    ModuleOptionsService,
-    OptionService,
+    ResourceService,
   ],
 })
 export class AuthModule {}

@@ -6,13 +6,12 @@ import { ModuleModule } from './module/module.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { UserModule } from './user/user.module';
 import { RoleModule } from './role/role.module';
-import { OptionModule } from './option/option.module';
-import { ModuleOptionsModule } from './module-options/module-options.module';
+import { ResourceModule } from './resource/resource.module';
 import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
-    MongooseModule.forRoot('mongodb://localhost/sisvilla', {
+    MongooseModule.forRoot('mongodb://localhost/adm-rpum', {
       useFindAndModify: false,
       useCreateIndex: true,
     }),
@@ -20,8 +19,7 @@ import { AuthModule } from './auth/auth.module';
     ModuleModule,
     UserModule,
     RoleModule,
-    OptionModule,
-    ModuleOptionsModule,
+    ResourceModule,
     AuthModule,
   ],
   controllers: [AppController],

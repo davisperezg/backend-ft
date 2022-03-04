@@ -108,9 +108,15 @@ export class RoleService {
     return result;
   }
 
+  async findRoleById(role: string): Promise<RoleDocument> {
+    return await this.roleModel.findOne({ _id: role, status: true });
+  }
+
   async findRoleByName(role: string): Promise<RoleDocument> {
-    return await this.roleModel.findOne({ name: role }).populate({
-      path: 'module',
-    });
+    return await this.roleModel.findOne({ name: role, status: true });
+  }
+
+  async findRoleByNames(name: string[]): Promise<RoleDocument[]> {
+    return await this.roleModel.find({ name: { $in: name }, status: true });
   }
 }
