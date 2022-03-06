@@ -1,3 +1,7 @@
+import {
+  Resource_RoleSchema,
+  Resource_Role,
+} from './../resources-roles/schemas/resources-role';
 import { Module } from '@nestjs/common';
 import { AuthController } from './controllers/auth.controller';
 import { AuthService } from './services/auth.service';
@@ -15,6 +19,7 @@ import { MenuSchema } from 'src/menu/schemas/menu.schema';
 import { MenuService } from 'src/menu/services/menu.service';
 import { ResourceSchema } from 'src/resource/schemas/resource.schema';
 import { ResourceService } from 'src/resource/services/resource.service';
+import { ResourcesRolesService } from 'src/resources-roles/services/resources-roles.service';
 
 @Module({
   imports: [
@@ -28,10 +33,12 @@ import { ResourceService } from 'src/resource/services/resource.service';
       { name: 'Module', schema: ModuleSchema },
       { name: 'Menu', schema: MenuSchema },
       { name: 'Resource', schema: ResourceSchema },
+      { name: Resource_Role.name, schema: Resource_RoleSchema },
     ]),
   ],
   controllers: [AuthController],
   providers: [
+    ResourcesRolesService,
     AuthService,
     UserService,
     JwtStrategy,

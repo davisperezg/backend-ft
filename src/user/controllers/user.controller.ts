@@ -14,6 +14,8 @@ import {
 import { User, UserDocument } from '../schemas/user.schema';
 import { CtxUser } from 'src/lib/decorators/ctx-user.decorators';
 import { JwtAuthGuard } from 'src/lib/guards/auth.guard';
+import PermissionGuard from 'src/lib/guards/resources.guard';
+import Permission from 'src/lib/type/permission.type';
 
 @Controller('api/v1/users')
 export class UserController {
@@ -21,6 +23,7 @@ export class UserController {
 
   // Get Users
   @Get()
+  @UseGuards(PermissionGuard(Permission.ReadUser))
   getUsers() {
     return this.userService.findAll();
   }
