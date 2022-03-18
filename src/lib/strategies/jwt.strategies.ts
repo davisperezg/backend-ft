@@ -23,15 +23,51 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JWType) {
-    const findUser: any = await this.authService.validateUser(payload.userId);
+    const myUser: any = await this.authService.validateUser(payload.userId);
+
+    //busca los modulos y menus activos
+    const modulesTrues = myUser.role.module
+      .filter((mod) => mod.status === true)
+      .map((mod) => {
+        return {
+          ...mod._doc,
+          menu: mod.menu.filter((filt) => filt.status === true),
+        };
+      });
+
+    const validaModules = [];
+    if (myUser.role.name !== 'OWNER') {
+      myUser._doc.creator.role.module.filter((mod) => {
+        modulesTrues.filter((mods) => {
+          if (mod.name === mods.name) {
+            validaModules.push(mods);
+          }
+        });
+      });
+    }
+
+    const findUser = [myUser._doc].map((format) => {
+      return {
+        ...format,
+        role: {
+          ...format.role._doc,
+          module:
+            myUser.role.name === 'OWNER' ||
+            myUser.role.name === 'SUPER ADMINISTRADOR'
+              ? modulesTrues
+              : validaModules,
+        },
+      };
+    })[0];
+
     const findResource = await this.rrService.findOneResourceByRol(
       findUser.role._id,
     );
+
     const user = {
       findUser,
       findResource,
     };
-    //const resources = test.resource.includes(permission);
 
     if (!findUser) {
       throw new UnauthorizedException();

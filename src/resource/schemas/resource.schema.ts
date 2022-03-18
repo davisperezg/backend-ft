@@ -7,10 +7,10 @@ export class Resource {
   @Prop({ requerid: true, type: Boolean })
   status: boolean;
 
-  @Prop({ requerid: true, type: String })
+  @Prop({ requerid: true, type: String, unique: true, trim: true })
   name: string;
 
-  @Prop({ requerid: true, type: String })
+  @Prop({ requerid: true, type: String, unique: true, trim: true })
   key: string;
 }
 

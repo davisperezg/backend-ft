@@ -24,7 +24,6 @@ export class ModuleService implements OnApplicationBootstrap {
     if (count > 0) return;
     try {
       //ADD MODULES
-
       const getMenus = await this.menuService.findbyName([
         'Usuarios',
         'Roles',
@@ -50,7 +49,6 @@ export class ModuleService implements OnApplicationBootstrap {
       ]);
 
       //ADD ROL
-
       const getModules = await this.findbyNames([
         'Administración de sistema',
         'Almacen',
@@ -63,9 +61,13 @@ export class ModuleService implements OnApplicationBootstrap {
 
       await Promise.all([
         new this.roleModel({
-          name: 'SUPER ADMINISTRADOR',
+          name: 'OWNER',
           status: true,
           module: findModules,
+        }).save(),
+        new this.roleModel({
+          name: 'SUPER ADMINISTRADOR',
+          status: true,
         }).save(),
         new this.roleModel({ name: 'ADMINISTRADOR', status: true }).save(),
       ]);
@@ -74,8 +76,21 @@ export class ModuleService implements OnApplicationBootstrap {
     }
   }
 
-  async findAll(): Promise<Module[]> {
-    return this.moduleModel.find({ status: true }).populate({
+  async findAll(user: any): Promise<Module[]> {
+    const { findUser } = user;
+    let modules = [];
+    if (findUser.role.name === 'OWNER') {
+      modules = await this.moduleModel.find().populate({
+        path: 'menu',
+      });
+    } else {
+      modules = findUser.role.module;
+    }
+    return modules;
+  }
+
+  async findOne(id: string): Promise<Module> {
+    return this.moduleModel.findOne({ _id: id }).populate({
       path: 'menu',
     });
   }
@@ -88,12 +103,41 @@ export class ModuleService implements OnApplicationBootstrap {
 
   //Find modules by names
   async findbyNames(name: any[]): Promise<ModuleDocument[]> {
-    return await this.moduleModel.find({ name: { $in: name } });
+    const modules = await this.moduleModel.find({
+      name: { $in: name },
+      status: true,
+    });
+
+    if (!modules || modules.length === 0) {
+      throw new HttpException(
+        {
+          status: HttpStatus.BAD_REQUEST,
+          type: 'BAD_REQUEST',
+          message: 'Hay un modulo inactivo o no existe.',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    return modules;
   }
 
   //Find modules by names
   async findbyName(name: string): Promise<ModuleDocument> {
-    return await this.moduleModel.findOne({ name });
+    const module = await this.moduleModel.findOne({ name, status: true });
+
+    if (!module) {
+      throw new HttpException(
+        {
+          status: HttpStatus.BAD_REQUEST,
+          type: 'BAD_REQUEST',
+          message: 'Hay un modulo inactivo o no existe.',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    return module;
   }
 
   //Add a single module
@@ -135,7 +179,7 @@ export class ModuleService implements OnApplicationBootstrap {
       await this.moduleModel.findByIdAndUpdate(id, { status: false });
       result = true;
     } catch (e) {
-      //throw new Error(`Error en ProductService.deleteProductById ${e}`);
+      throw new Error(`Error en ModuleService.delete ${e}`);
     }
 
     return result;
@@ -177,7 +221,7 @@ export class ModuleService implements OnApplicationBootstrap {
       await this.moduleModel.findByIdAndUpdate(id, { status: true });
       result = true;
     } catch (e) {
-      //throw new Error(`Error en ProductService.deleteProductById ${e}`);
+      throw new Error(`Error en ModuleService.restore ${e}`);
     }
 
     return result;

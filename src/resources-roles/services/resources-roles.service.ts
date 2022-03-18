@@ -2,14 +2,19 @@ import {
   Resource_Role,
   Resource_RoleDocument,
 } from './../schemas/resources-role';
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Injectable,
+  OnApplicationBootstrap,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { ResourceService } from 'src/resource/services/resource.service';
 import { RoleService } from 'src/role/services/role.service';
 import { Model } from 'mongoose';
 
 @Injectable()
-export class ResourcesRolesService {
+export class ResourcesRolesService implements OnApplicationBootstrap {
   constructor(
     @InjectModel(Resource_Role.name)
     private rrModel: Model<Resource_RoleDocument>,
@@ -17,8 +22,64 @@ export class ResourcesRolesService {
     private readonly resourceService: ResourceService,
   ) {}
 
-  async delete(id: string) {
-    return await this.rrModel.findByIdAndDelete(id);
+  async onApplicationBootstrap() {
+    const count = await this.rrModel.estimatedDocumentCount();
+    if (count > 0) return;
+    try {
+      const allResources = [
+        'canCreate_modules',
+        'canCreate_roles',
+        'canCreate_users',
+        'canEdit_modules',
+        'canEdit_roles',
+        'canEdit_users',
+        'canDelete_modules',
+        'canDelete_roles',
+        'canDelete_users',
+        'canPrint_roles',
+        'canRead_modules',
+        'canRead_roles',
+        'canRead_users',
+        'canChangePassword_users',
+        'canRestore_users',
+        'canRestore_modules',
+        'canRestore_roles',
+        'canRead_Resource',
+        'canCreate_Resource',
+        'canEdit_Resource',
+        'canRead_ResourceR',
+        'canCreate_ResourceR',
+        'canEdit_ResourceR',
+        'canReadRoleX_Resource',
+        'canRead_menus',
+        'canCreate_menus',
+        'canEdit_menus',
+        'canDelete_menus',
+        'canRestore_menus',
+      ];
+
+      const findResources = await this.resourceService.findResourceByKey(
+        allResources,
+      );
+
+      const getIdsResources = findResources.map((res) => res._id);
+
+      setTimeout(async () => {
+        const count = await this.rrModel.estimatedDocumentCount();
+        if (count > 0) return;
+        const getRole = await this.roleService.findRoleByName(String('OWNER'));
+
+        await this.rrModel.insertMany([
+          {
+            role: getRole._id,
+            resource: getIdsResources,
+            status: true,
+          },
+        ]);
+      }, 6000);
+    } catch (e) {
+      throw new Error(`Error en RRService.onModuleInit ${e}`);
+    }
   }
 
   async findAll(): Promise<Resource_Role[]> {
@@ -34,7 +95,10 @@ export class ResourcesRolesService {
   }
 
   //Add a single role
-  async create(createResource: Resource_Role): Promise<Resource_Role> {
+  async create(
+    createResource: Resource_Role,
+    user: any,
+  ): Promise<Resource_Role> {
     const { role, resource } = createResource;
 
     if (!role || !resource) {

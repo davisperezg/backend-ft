@@ -46,7 +46,19 @@ export class MenuService implements OnModuleInit {
     }
   }
 
-  async create(createMenu: Menu): Promise<Menu> {
+  async create(createMenu: Menu, user: any): Promise<Menu> {
+    const { findUser } = user;
+    console.log(findUser.role.name);
+    if (findUser.role.name !== 'OWNER') {
+      throw new HttpException(
+        {
+          status: HttpStatus.UNAUTHORIZED,
+          type: 'UNAUTHORIZED',
+          message: 'Unauthorized Exception',
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
     const { link } = createMenu;
     const modifyData = {
       ...createMenu,
@@ -58,8 +70,20 @@ export class MenuService implements OnModuleInit {
     return createdMenu.save();
   }
 
-  //Put a single menu
-  async update(id: string, bodyMenu: Menu): Promise<Menu> {
+  //Put
+  async update(id: string, bodyMenu: Menu, user: any): Promise<Menu> {
+    const { findUser } = user;
+    if (findUser.role.name !== 'OWNER') {
+      throw new HttpException(
+        {
+          status: HttpStatus.UNAUTHORIZED,
+          type: 'UNAUTHORIZED',
+          message: 'Unauthorized Exception',
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
     const { status } = bodyMenu;
 
     if (status) {
@@ -76,15 +100,27 @@ export class MenuService implements OnModuleInit {
     return await this.menuModel.findByIdAndUpdate(id, bodyMenu, { new: true });
   }
 
-  //Delete a single menu
-  async delete(id: string): Promise<boolean> {
+  //Delete
+  async delete(id: string, user: any): Promise<boolean> {
+    const { findUser } = user;
+    if (findUser.role.name !== 'OWNER') {
+      throw new HttpException(
+        {
+          status: HttpStatus.UNAUTHORIZED,
+          type: 'UNAUTHORIZED',
+          message: 'Unauthorized Exception',
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
     let result = false;
 
     try {
       await this.menuModel.findByIdAndUpdate(id, { status: false });
       result = true;
     } catch (e) {
-      //throw new Error(`Error en ProductService.deleteProductById ${e}`);
+      throw new Error(`Error en MenuService.delete ${e}`);
     }
 
     return result;
@@ -98,15 +134,27 @@ export class MenuService implements OnModuleInit {
     return await this.menuModel.find({ name: { $in: name } });
   }
 
-  //Restore a single module
-  async restore(id: string): Promise<boolean> {
+  //Restore
+  async restore(id: string, user: any): Promise<boolean> {
+    const { findUser } = user;
+    if (findUser.role.name !== 'OWNER') {
+      throw new HttpException(
+        {
+          status: HttpStatus.UNAUTHORIZED,
+          type: 'UNAUTHORIZED',
+          message: 'Unauthorized Exception',
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
     let result = false;
 
     try {
       await this.menuModel.findByIdAndUpdate(id, { status: true });
       result = true;
     } catch (e) {
-      //throw new Error(`Error en ProductService.deleteProductById ${e}`);
+      throw new Error(`Error en MenuService.restore ${e}`);
     }
 
     return result;

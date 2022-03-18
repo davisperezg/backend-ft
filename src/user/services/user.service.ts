@@ -22,31 +22,51 @@ export class UserService implements OnApplicationBootstrap {
     if (count > 0) return;
     try {
       const passwordHashed = await hashPassword('admin123');
-      const getRole = await this.roleService.findRoleByName(
-        String('SUPER ADMINISTRADOR'),
-      );
+      const getRole = await this.roleService.findRoleByName(String('OWNER'));
       await this.userModel.insertMany([
         {
-          name: 'Blas',
-          lastname: 'Solorzano',
+          name: 'El',
+          lastname: 'Duenio',
           tipDocument: 'DNI',
           nroDocument: '99999999',
-          email: 'admin@dev.kematechnology.com',
+          email: 'admin@dev.elduenio.com',
           username: '99999999',
           password: passwordHashed,
           status: true,
           role: getRole._id,
+          creator: null,
         },
       ]);
     } catch (e) {
-      throw new Error(`Error en ModuleService.onModuleInit ${e}`);
+      throw new Error(`Error en UserService.onApplicationBootstrap ${e}`);
     }
   }
 
-  async findAll(): Promise<User[]> {
-    return this.userModel.find({ status: true }).populate({
-      path: 'role',
-    });
+  async findAll(userToken: any): Promise<User[]> {
+    const { findUser } = userToken;
+    let users = [];
+    if (findUser.role.name === 'OWNER') {
+      const listusers = await this.userModel.find().populate([
+        {
+          path: 'role',
+        },
+        {
+          path: 'creator',
+        },
+      ]);
+      users = listusers.filter((user) => user.role.name !== 'OWNER');
+    } else {
+      users = await this.userModel.find({ creator: findUser._id }).populate([
+        {
+          path: 'role',
+        },
+        {
+          path: 'creator',
+        },
+      ]);
+    }
+
+    return users;
   }
 
   async findAllDeleted(): Promise<User[]> {
@@ -55,14 +75,65 @@ export class UserService implements OnApplicationBootstrap {
     });
   }
 
+  async changePassword(
+    id: string,
+    data: { password: string },
+    userToken: any,
+  ): Promise<boolean> {
+    const findForbidden = await this.userModel.findById(id).populate([
+      {
+        path: 'role',
+      },
+      {
+        path: 'creator',
+      },
+    ]);
+    const { findUser } = userToken;
+    const rolToken = findUser.role.name;
+
+    if (
+      (findForbidden.role.name === 'OWNER' && rolToken !== 'OWNER') ||
+      (findForbidden.role.name === 'SUPER ADMINISTRADOR' &&
+        rolToken !== 'OWNER') ||
+      (findForbidden.creator.username !== findUser.username &&
+        rolToken !== 'OWNER') ||
+      (findForbidden.creator.email !== findUser.email && rolToken !== 'OWNER')
+    ) {
+      throw new HttpException(
+        {
+          status: HttpStatus.UNAUTHORIZED,
+          type: 'UNAUTHORIZED',
+          message: 'Unauthorized Exception',
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    let result = false;
+    const { password } = data;
+    try {
+      const passwordHashed = await hashPassword(password);
+      await this.userModel.findByIdAndUpdate(
+        id,
+        { password: passwordHashed },
+        {
+          new: true,
+        },
+      );
+      result = true;
+    } catch (e) {
+      throw new Error(`Error en UserService.changePassword ${e}`);
+    }
+    return result;
+  }
+
   //Add a single user
-  async create(createUser: User): Promise<User> {
+  async create(createUser: User, userToken: any): Promise<User> {
     const { name, role, password } = createUser;
+    const { findUser } = userToken;
 
-    //const findModule = await this.userModel.findOne({ name });
-
+    //Si rol no existe
     if (!role) {
-      //Si rol no existe
       throw new HttpException(
         {
           status: HttpStatus.BAD_REQUEST,
@@ -76,11 +147,27 @@ export class UserService implements OnApplicationBootstrap {
 
     const getRole = await this.roleService.findRoleByName(String(role));
 
+    //Solo el owner puede regisrar otro owner y otro sa, si el token detecta que no es owner se valida y bota error
+    if (
+      (findUser.role.name !== 'OWNER' && getRole.name === 'OWNER') ||
+      (findUser.role.name !== 'OWNER' && getRole.name === 'SUPER ADMINISTRADOR')
+    ) {
+      throw new HttpException(
+        {
+          status: HttpStatus.UNAUTHORIZED,
+          type: 'UNAUTHORIZED',
+          message: 'Unauthorized Exception',
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
     const modifyData: User = {
       ...createUser,
       password: passwordHashed,
       role: getRole._id,
       status: true,
+      creator: findUser._id,
     };
 
     const createdUser = new this.userModel(modifyData);
@@ -88,24 +175,89 @@ export class UserService implements OnApplicationBootstrap {
   }
 
   //Delete a single user
-  async delete(id: string): Promise<boolean> {
+  async delete(id: string, user: any): Promise<boolean> {
     let result = false;
+    const { findUser } = user;
+    const userToken = findUser.role.name;
+    const findForbidden = await this.userModel.findById(id).populate([
+      {
+        path: 'role',
+      },
+      {
+        path: 'creator',
+      },
+    ]);
+
+    if (
+      (findForbidden.role.name === 'OWNER' && userToken !== 'OWNER') ||
+      (findForbidden.role.name === 'SUPER ADMINISTRADOR' &&
+        userToken !== 'OWNER') ||
+      (findForbidden.creator.username !== findUser.username &&
+        userToken !== 'OWNER') ||
+      (findForbidden.creator.email !== findUser.email && userToken !== 'OWNER')
+    ) {
+      throw new HttpException(
+        {
+          status: HttpStatus.UNAUTHORIZED,
+          type: 'UNAUTHORIZED',
+          message: 'Unauthorized Exception',
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
 
     try {
-      await this.userModel.findByIdAndUpdate(id, { status: false });
+      const user = await this.userModel.findByIdAndUpdate(
+        id,
+        { status: false },
+        { new: true },
+      );
+      await this.userModel.updateMany(
+        { creator: user._id },
+        { $set: { status: false } },
+        { multi: true },
+      );
       result = true;
     } catch (e) {
-      //throw new Error(`Error en ProductService.deleteProductById ${e}`);
+      throw new Error(`Error en UserService.delete ${e}`);
     }
 
     return result;
   }
 
   //Put a single user
-  async update(id: string, bodyUser: User): Promise<User> {
-    const { status, role } = bodyUser;
+  async update(id: string, bodyUser: User, userToken: any): Promise<User> {
+    const { status, role, password } = bodyUser;
+    const { findUser } = userToken;
+    const rolToken = findUser.role.name;
+    const findForbidden = await this.userModel.findById(id).populate([
+      {
+        path: 'role',
+      },
+      {
+        path: 'creator',
+      },
+    ]);
 
-    if (status) {
+    if (
+      (findForbidden.role.name === 'OWNER' && rolToken !== 'OWNER') ||
+      (findForbidden.role.name === 'SUPER ADMINISTRADOR' &&
+        rolToken !== 'OWNER') ||
+      (findForbidden.creator.username !== findUser.username &&
+        userToken !== 'OWNER') ||
+      (findForbidden.creator.email !== findUser.email && userToken !== 'OWNER')
+    ) {
+      throw new HttpException(
+        {
+          status: HttpStatus.UNAUTHORIZED,
+          type: 'UNAUTHORIZED',
+          message: 'Unauthorized Exception',
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    if (status === true || status === false || password) {
       throw new HttpException(
         {
           status: HttpStatus.UNAUTHORIZED,
@@ -117,6 +269,7 @@ export class UserService implements OnApplicationBootstrap {
     }
 
     const getRole = await this.roleService.findRoleByName(String(role));
+
     const modifyData: User = {
       ...bodyUser,
       role: getRole._id,
@@ -128,14 +281,50 @@ export class UserService implements OnApplicationBootstrap {
   }
 
   //Restore a single user
-  async restore(id: string): Promise<boolean> {
+  async restore(id: string, userToken: any): Promise<boolean> {
+    const { findUser } = userToken;
+    const rolToken = findUser.role.name;
+    const findForbidden = await this.userModel.findById(id).populate([
+      {
+        path: 'role',
+      },
+      {
+        path: 'creator',
+      },
+    ]);
+
+    if (
+      (findForbidden.role.name === 'OWNER' && rolToken !== 'OWNER') ||
+      (findForbidden.role.name === 'SUPER ADMINISTRADOR' &&
+        rolToken !== 'OWNER') ||
+      (findForbidden.creator.username !== findUser.username &&
+        userToken !== 'OWNER') ||
+      (findForbidden.creator.email !== findUser.email && userToken !== 'OWNER')
+    ) {
+      throw new HttpException(
+        {
+          status: HttpStatus.UNAUTHORIZED,
+          type: 'UNAUTHORIZED',
+          message: 'Unauthorized Exception',
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
     let result = false;
 
     try {
-      await this.userModel.findByIdAndUpdate(id, { status: true });
+      const user = await this.userModel.findByIdAndUpdate(id, { status: true });
+
+      await this.userModel.updateMany(
+        { creator: user._id },
+        { $set: { status: true } },
+        { multi: true },
+      );
+
       result = true;
     } catch (e) {
-      //throw new Error(`Error en ProductService.deleteProductById ${e}`);
+      throw new Error(`Error en UserService.restore ${e}`);
     }
 
     return result;
@@ -148,14 +337,25 @@ export class UserService implements OnApplicationBootstrap {
 
   //find user by id
   async findUserById(id: string): Promise<UserDocument> {
-    return await this.userModel.findById(id).populate({
-      path: 'role',
-      populate: [
-        {
-          path: 'module',
-          populate: [{ path: 'menu' }, { path: 'option' }],
+    return await this.userModel.findById(id).populate([
+      {
+        path: 'role',
+        populate: [
+          {
+            path: 'module',
+            populate: [{ path: 'menu' }],
+          },
+        ],
+      },
+      {
+        path: 'creator',
+        populate: {
+          path: 'role',
+          populate: {
+            path: 'module',
+          },
         },
-      ],
-    });
+      },
+    ]);
   }
 }

@@ -17,68 +17,116 @@ import { JwtAuthGuard } from 'src/lib/guards/auth.guard';
 import PermissionGuard from 'src/lib/guards/resources.guard';
 import Permission from 'src/lib/type/permission.type';
 
+//base: http://localhost:3000/api/v1/users
 @Controller('api/v1/users')
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-  // Get Users
+  // Get Users: http://localhost:3000/api/v1/users
   @Get()
   @UseGuards(PermissionGuard(Permission.ReadUser))
-  getUsers() {
-    return this.userService.findAll();
+  getUsers(@CtxUser() user: any) {
+    return this.userService.findAll(user);
   }
 
-  // Get Roles removes
+  // Get User: http://localhost:3000/api/v1/users/find/6223169df6066a084cef08c2
+  @Get('/find/:id')
+  getUser(@Param('id') id: string) {
+    return this.userService.findUserById(id);
+  }
+
+  // Get users removes: http://localhost:3000/api/v1/users/removes
   @Get('/removes')
   getUsersRemoves() {
     return this.userService.findAllDeleted();
   }
 
-  // Get Me
-  @UseGuards(JwtAuthGuard)
+  // Get Me: http://localhost:3000/api/v1/users/whois
   @Get('/whois')
-  whois(@Res() res, @CtxUser() user: UserDocument): Promise<UserDocument> {
-    return res.status(HttpStatus.OK).json(user);
+  @UseGuards(JwtAuthGuard)
+  whois(@Res() res, @CtxUser() user: any): Promise<UserDocument> {
+    const { findUser } = user;
+    return res.status(HttpStatus.OK).json({ user: findUser });
   }
 
-  // Add User
+  // Add User(POST): http://localhost:3000/api/v1/users
   @Post()
-  async createUser(@Res() res, @Body() createBody: User): Promise<User> {
-    const user = await this.userService.create(createBody);
+  @UseGuards(PermissionGuard(Permission.CreateUser))
+  async createUser(
+    @Res() res,
+    @Body() createBody: User,
+    @CtxUser() userToken: any,
+  ): Promise<User> {
+    const user = await this.userService.create(createBody, userToken);
     return res.status(HttpStatus.OK).json({
       message: 'User Successfully Created',
       user,
     });
   }
 
-  // Delete User: /modules/605ab8372ed8db2ad4839d87
+  // Delete User(DELETE): http://localhost:3000/api/v1/users/6223169df6066a084cef08c2
   @Delete(':id')
-  async deleteUser(@Res() res, @Param('id') id: string): Promise<boolean> {
-    const userDeleted = await this.userService.delete(id);
+  @UseGuards(PermissionGuard(Permission.DeleteUser))
+  async deleteUser(
+    @Res() res,
+    @Param('id') id: string,
+    @CtxUser() user: any,
+  ): Promise<boolean> {
+    const userDeleted = await this.userService.delete(id, user);
     return res.status(HttpStatus.OK).json({
       message: 'User Deleted Successfully',
       userDeleted,
     });
   }
 
-  // Update User: /users/605ab8372ed8db2ad4839d87
+  // Update User(PUT): http://localhost:3000/api/v1/users/6223169df6066a084cef08c2
   @Put(':id')
+  @UseGuards(PermissionGuard(Permission.UpdateUser))
   async updateUser(
     @Res() res,
     @Param('id') id: string,
     @Body() createBody: User,
+    @CtxUser() user: any,
   ): Promise<User> {
-    const userUpdated = await this.userService.update(id, createBody);
+    const userUpdated = await this.userService.update(id, createBody, user);
     return res.status(HttpStatus.OK).json({
       message: 'User Updated Successfully',
       userUpdated,
     });
   }
 
-  // Restore User: /users/restore/605ab8372ed8db2ad4839d87
+  // Update User(PUT): http://localhost:3000/api/v1/users/change-password/6223169df6066a084cef08c2
+  @Put('/change-password/:id')
+  @UseGuards(PermissionGuard(Permission.ChangePasswordUser))
+  async changeUser(
+    @Res() res,
+    @Param('id') id: string,
+    @Body()
+    data: {
+      password: string;
+    },
+    @CtxUser() userToken: any,
+  ): Promise<User> {
+    const passwordUpdated = await this.userService.changePassword(
+      id,
+      data,
+      userToken,
+    );
+    return res.status(HttpStatus.OK).json({
+      message: 'Password Updated Successfully',
+      passwordUpdated,
+    });
+  }
+
+  // Restore User: http://localhost:3000/api/v1/users/restore/6223169df6066a084cef08c2
   @Put('restore/:id')
-  async restoreUser(@Res() res, @Param('id') id: string): Promise<User> {
-    const userRestored = await this.userService.restore(id);
+  @UseGuards(PermissionGuard(Permission.RestoreUser))
+  async restoreUser(
+    @Res() res,
+    @Param('id') id: string,
+    @CtxUser() user: any,
+  ): Promise<User> {
+    const userRestored = await this.userService.restore(id, user);
     return res.status(HttpStatus.OK).json({
       message: 'User Restored Successfully',
       userRestored,
