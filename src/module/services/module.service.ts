@@ -28,7 +28,6 @@ export class ModuleService implements OnApplicationBootstrap {
         'Usuarios',
         'Roles',
         'Modulos',
-        'Permisos',
       ]);
 
       const findMenus = getMenus.map((men) => men._id);
@@ -64,12 +63,13 @@ export class ModuleService implements OnApplicationBootstrap {
           name: 'OWNER',
           status: true,
           module: findModules,
+          creator: null,
         }).save(),
         new this.roleModel({
           name: 'SUPER ADMINISTRADOR',
           status: true,
+          creator: null,
         }).save(),
-        new this.roleModel({ name: 'ADMINISTRADOR', status: true }).save(),
       ]);
     } catch (e) {
       throw new Error(`Error en ModuleService.onModuleInit ${e}`);
@@ -86,7 +86,44 @@ export class ModuleService implements OnApplicationBootstrap {
     } else {
       modules = findUser.role.module;
     }
-    return modules;
+
+    const formated = modules
+      .map((mod) => mod.name)
+      .sort((a, b) => {
+        if (a > b) {
+          return 1;
+        }
+        if (a < b) {
+          return -1;
+        }
+        // a must be equal to b
+        return 0;
+      });
+    return formated;
+  }
+
+  async listModules(user: any): Promise<Module[]> {
+    const { findUser } = user;
+    let modules = [];
+    if (findUser.role.name === 'OWNER') {
+      modules = await this.moduleModel.find().populate({
+        path: 'menu',
+      });
+    } else {
+      modules = findUser.role.module;
+    }
+
+    const formated = modules.sort((a, b) => {
+      if (a > b) {
+        return 1;
+      }
+      if (a < b) {
+        return -1;
+      }
+      // a must be equal to b
+      return 0;
+    });
+    return formated;
   }
 
   async findOne(id: string): Promise<Module> {

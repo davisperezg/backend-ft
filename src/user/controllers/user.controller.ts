@@ -30,9 +30,9 @@ export class UserController {
   }
 
   // Get User: http://localhost:3000/api/v1/users/find/6223169df6066a084cef08c2
-  @Get('/find/:id')
-  getUser(@Param('id') id: string) {
-    return this.userService.findUserById(id);
+  @Get('/find/:nro')
+  getUser(@Param('nro') nro: string) {
+    return this.userService.findUserByNroDocument(nro);
   }
 
   // Get users removes: http://localhost:3000/api/v1/users/removes

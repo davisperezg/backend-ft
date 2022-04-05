@@ -14,6 +14,8 @@ import {
 import { ModuleService } from 'src/module/services/module.service';
 import { Menu, MenuSchema } from 'src/menu/schemas/menu.schema';
 import { MenuService } from 'src/menu/services/menu.service';
+import { User, UserSchema } from 'src/user/schemas/user.schema';
+import { UserService } from 'src/user/services/user.service';
 
 @Module({
   imports: [
@@ -23,6 +25,7 @@ import { MenuService } from 'src/menu/services/menu.service';
       { name: Resource.name, schema: ResourceSchema },
       { name: ModuleE.name, schema: ModuleSchema },
       { name: Menu.name, schema: MenuSchema },
+      { name: User.name, schema: UserSchema },
     ]),
   ],
   providers: [
@@ -31,6 +34,7 @@ import { MenuService } from 'src/menu/services/menu.service';
     RoleService,
     ModuleService,
     MenuService,
+    UserService,
   ],
   controllers: [ResourcesRolesController],
 })

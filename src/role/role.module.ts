@@ -11,6 +11,8 @@ import {
   Resource_RoleSchema,
 } from 'src/resources-roles/schemas/resources-role';
 import { ResourcesRolesService } from 'src/resources-roles/services/resources-roles.service';
+import { User, UserSchema } from 'src/user/schemas/user.schema';
+import { UserService } from 'src/user/services/user.service';
 import { RoleController } from './controllers/role.controller';
 import { RoleSchema } from './schemas/role.schema';
 import { RoleService } from './services/role.service';
@@ -23,6 +25,7 @@ import { RoleService } from './services/role.service';
       { name: 'Resource', schema: ResourceSchema },
       { name: 'Menu', schema: MenuSchema },
       { name: Resource_Role.name, schema: Resource_RoleSchema },
+      { name: User.name, schema: UserSchema },
     ]),
   ],
   controllers: [RoleController],
@@ -32,6 +35,7 @@ import { RoleService } from './services/role.service';
     ResourceService,
     MenuService,
     ResourcesRolesService,
+    UserService,
   ],
 })
 export class RoleModule {}

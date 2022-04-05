@@ -18,11 +18,40 @@ export class RoleService {
   }
 
   //Add a single role
-  async create(createRole: Role): Promise<Role> {
+  async create(createRole: Role, userToken: any): Promise<Role> {
     const { module, name } = createRole;
+    const { findUser } = userToken;
+    //console.log(creator);
+    //Si el campo nombre no existe
+    if (!name) {
+      throw new HttpException(
+        {
+          status: HttpStatus.BAD_REQUEST,
+          type: 'BAD_REQUEST',
+          message: 'Completar el campo nombre.',
+        },
+        HttpStatus.CONFLICT,
+      );
+    }
 
-    const findName = await this.roleModel.findOne({ name });
-    if (findName) {
+    //Si no hay modulos ingresados
+    if (!module || module.length === 0) {
+      throw new HttpException(
+        {
+          status: HttpStatus.BAD_REQUEST,
+          type: 'BAD_REQUEST',
+          message: 'El rol debe tener al menos un modulo.',
+        },
+        HttpStatus.CONFLICT,
+      );
+    }
+
+    const findRoles = await this.roleModel.find({ name });
+    const getRolByCreator = findRoles.find(
+      (role) => String(role.creator) === String(findUser._id),
+    );
+    //Si encuentra el rol y es el mismo rol que ha creado el creador se valida y muestra mensaje
+    if (getRolByCreator) {
       throw new HttpException(
         {
           status: HttpStatus.BAD_REQUEST,
@@ -40,6 +69,7 @@ export class RoleService {
       ...createRole,
       status: true,
       module: findModules,
+      creator: findUser._id,
     };
 
     const createdRole = new this.roleModel(modifyData);
@@ -63,33 +93,34 @@ export class RoleService {
   //Put a single role
   async update(id: string, bodyRole: Role | any, user?: any): Promise<Role> {
     const { status, module, name } = bodyRole;
-    const { findUser } = user;
+    if (user) {
+      const { findUser } = user;
+      const findRole = await this.roleModel.findOne({ _id: id });
 
-    const findRole = await this.roleModel.findOne({ _id: id });
-
-    //no puedes editar el rol sa o owner
-    if (
-      (findUser.role.name === 'OWNER' &&
-        findRole.name === 'SUPER ADMINISTRADOR' &&
-        findRole.name !== name) ||
-      (findUser.role.name === 'OWNER' &&
-        findRole.name === 'OWNER' &&
-        findRole.name !== name) ||
-      (findUser.role.name !== 'OWNER' &&
-        findRole.name === 'SUPER ADMINISTRADOR' &&
-        findRole.name !== name) ||
-      (findUser.role.name !== 'OWNER' &&
-        findRole.name === 'OWNER' &&
-        findRole.name !== name)
-    ) {
-      throw new HttpException(
-        {
-          status: HttpStatus.UNAUTHORIZED,
-          type: 'UNAUTHORIZED',
-          message: 'No puedes modificar este rol.',
-        },
-        HttpStatus.UNAUTHORIZED,
-      );
+      //no puedes editar el rol sa o owner
+      if (
+        (findUser.role.name === 'OWNER' &&
+          findRole.name === 'SUPER ADMINISTRADOR' &&
+          findRole.name !== name) ||
+        (findUser.role.name === 'OWNER' &&
+          findRole.name === 'OWNER' &&
+          findRole.name !== name) ||
+        (findUser.role.name !== 'OWNER' &&
+          findRole.name === 'SUPER ADMINISTRADOR' &&
+          findRole.name !== name) ||
+        (findUser.role.name !== 'OWNER' &&
+          findRole.name === 'OWNER' &&
+          findRole.name !== name)
+      ) {
+        throw new HttpException(
+          {
+            status: HttpStatus.UNAUTHORIZED,
+            type: 'UNAUTHORIZED',
+            message: 'No puedes modificar este rol.',
+          },
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
     }
 
     if (status) {
@@ -133,18 +164,40 @@ export class RoleService {
   async findAll(user: any): Promise<Role[]> {
     const { findUser } = user;
     let listRoles = [];
+    let rolesFindDb = [];
 
-    const roles = await this.roleModel.find().populate({
-      path: 'module',
-    });
+    //Solo el owner puede ver todos lo roles
+    if (findUser.role.name === 'OWNER') {
+      rolesFindDb = await this.roleModel.find().populate([
+        {
+          path: 'module',
+        },
+        {
+          path: 'creator',
+        },
+      ]);
+    } else {
+      //Cualquier otro usuario puede ver sus roles creados por el mismo
+      rolesFindDb = await this.roleModel
+        .find({ creator: findUser._id })
+        .populate([
+          {
+            path: 'module',
+          },
+          {
+            path: 'creator',
+          },
+        ]);
+    }
 
     const myRol = findUser.role.name; //OWNER
 
     if (myRol === 'OWNER') {
-      listRoles = roles.filter((role) => role.name !== 'OWNER');
+      listRoles = rolesFindDb.filter((role) => role.name !== 'OWNER');
     } else {
       const rolPadre = findUser.creator.role.name;
-      listRoles = roles.filter(
+
+      listRoles = rolesFindDb.filter(
         (role) =>
           role.name !== 'OWNER' &&
           role.name !== 'SUPER ADMINISTRADOR' &&
@@ -169,40 +222,74 @@ export class RoleService {
         };
       });
 
-      findRolesFiltered.map((flts) => {
+      const promiseArray = findRolesFiltered.map(async (flts) => {
         const data = {
           module: flts.module.map((mod) => mod.name),
         };
-        this.update(flts._id, data);
+        await this.update(flts._id, data);
       });
+
+      await Promise.all(promiseArray);
     }
 
-    return findUser.role.name === 'OWNER' ? listRoles : findRolesFiltered;
+    //formatear modulos
+    const toListRoles = listRoles.map((format) => {
+      return {
+        ...format._doc,
+        module: format.module.map((format) => format.name),
+        creator: format.creator
+          ? format.creator.name + ' ' + format.creator.lastname
+          : 'NINGUNO',
+      };
+    });
+
+    //formatear modulos
+    const toListFiltered = findRolesFiltered.map((format) => {
+      return {
+        ...format,
+        module: format.module.map((format) => format.name),
+        creator: format.creator.name + ' ' + format.creator.lastname,
+      };
+    });
+
+    return findUser.role.name === 'OWNER' ? toListRoles : toListFiltered;
   }
 
-  async findRoleById(role: string, user: any): Promise<RoleDocument | any> {
+  async findRoleById(role: string, user?: any): Promise<RoleDocument | any> {
     const rol: any = await this.roleModel
-      .findOne({ _id: role })
-      .populate('module');
+      .findOne({ _id: role, status: true })
+      .populate({ path: 'module' });
+
+    //si no encuentra un rol de estado true, se valida y muestra mensaje
+    if (!rol) {
+      throw new HttpException(
+        {
+          status: HttpStatus.BAD_REQUEST,
+          type: 'BAD_REQUEST',
+          message: 'El rol no existe o está inactivo.',
+        },
+        HttpStatus.CONFLICT,
+      );
+    }
+
     const modules = rol.module;
-    const { findUser } = user;
-
-    //console.log(findUser); //super
-    //console.log(findUser.role.module);//super tiene solo sistema
-    //console.log(modules); // el rol buscad otiene almacen - compro- sistema
-
     const validaModules = [];
-    if (
-      findUser.role.name !== 'OWNER' ||
-      findUser.role.name !== 'SUPER ADMINISTRADOR'
-    ) {
-      findUser.role.module.filter((mod) => {
-        modules.filter((mods) => {
-          if (mod.name === mods.name) {
-            validaModules.push(mod);
-          }
+
+    if (user) {
+      const { findUser } = user;
+
+      if (
+        findUser.role.name !== 'OWNER' ||
+        findUser.role.name !== 'SUPER ADMINISTRADOR'
+      ) {
+        findUser.role.module.filter((mod) => {
+          modules.filter((mods) => {
+            if (mod.name === mods.name) {
+              validaModules.push(mod);
+            }
+          });
         });
-      });
+      }
     }
 
     const dataRol = {
@@ -210,7 +297,19 @@ export class RoleService {
       module: validaModules,
     };
 
-    return findUser.role.name === 'OWNER' ? rol : dataRol;
+    //formatear modulos
+    const toListRol = {
+      ...rol._doc,
+      module: rol._doc.module.map((format) => format.name),
+    };
+
+    //formatear modulos
+    const toListData = {
+      ...dataRol,
+      module: rol._doc.module.map((format) => format.name),
+    };
+
+    return user?.findUser.role.name === 'OWNER' ? toListRol : toListData;
   }
 
   async findRoleByName(role: string): Promise<RoleDocument> {

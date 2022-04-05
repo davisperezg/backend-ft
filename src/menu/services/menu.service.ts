@@ -35,11 +35,6 @@ export class MenuService implements OnModuleInit {
           status: true,
           link: 'modulos',
         }).save(),
-        new this.menuModel({
-          name: 'Permisos',
-          status: true,
-          link: 'permisos',
-        }).save(),
       ]);
     } catch (e) {
       throw new Error(`Error en MenuService.onModuleInit ${e}`);
@@ -48,7 +43,7 @@ export class MenuService implements OnModuleInit {
 
   async create(createMenu: Menu, user: any): Promise<Menu> {
     const { findUser } = user;
-    console.log(findUser.role.name);
+
     if (findUser.role.name !== 'OWNER') {
       throw new HttpException(
         {

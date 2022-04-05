@@ -7,12 +7,9 @@ export class AuthController {
 
   //Lgin
   @Post()
-  async login(
-    @Res() res,
-    @Body() data: { username: string; password: string },
-  ) {
-    const { username, password } = data;
-    const user = await this.authService.signIn(username, password);
+  async login(@Res() res, @Body() data: { email: string; password: string }) {
+    const { email, password } = data;
+    const user = await this.authService.signIn(email, password);
     return res.status(HttpStatus.OK).json({
       message: 'User Logged',
       user,
@@ -20,7 +17,7 @@ export class AuthController {
   }
 
   @Post('/token')
-  async token(@Body() data: { username: string; refreshToken: string }) {
+  async token(@Body() data: { email: string; refreshToken: string }) {
     return await this.authService.getTokenWithRefresh(data);
   }
 }

@@ -11,6 +11,11 @@ import { ResourceSchema } from 'src/resource/schemas/resource.schema';
 import { ResourceService } from 'src/resource/services/resource.service';
 import { MenuSchema } from 'src/menu/schemas/menu.schema';
 import { MenuService } from 'src/menu/services/menu.service';
+import {
+  Resource_RoleSchema,
+  Resource_Role,
+} from 'src/resources-roles/schemas/resources-role';
+import { ResourcesRolesService } from 'src/resources-roles/services/resources-roles.service';
 
 @Module({
   imports: [
@@ -20,6 +25,7 @@ import { MenuService } from 'src/menu/services/menu.service';
       { name: 'Module', schema: ModuleSchema },
       { name: 'Resource', schema: ResourceSchema },
       { name: 'Menu', schema: MenuSchema },
+      { name: Resource_Role.name, schema: Resource_RoleSchema },
     ]),
   ],
   controllers: [UserController],
@@ -29,6 +35,7 @@ import { MenuService } from 'src/menu/services/menu.service';
     ModuleService,
     ResourceService,
     MenuService,
+    ResourcesRolesService,
   ],
 })
 export class UserModule {}

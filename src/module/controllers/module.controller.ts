@@ -28,6 +28,13 @@ export class ModuleController {
     return this.moduleService.findAll(user);
   }
 
+  // Get Modules: http://localhost:3000/api/v1/modules/list
+  @Get('/list')
+  @UseGuards(PermissionGuard(Permission.ReadModule))
+  getModulesList(@CtxUser() user: any) {
+    return this.moduleService.listModules(user);
+  }
+
   // Get Module: http://localhost:3000/api/v1/modules/find/6223169df6066a084cef08c2
   @Get('/find/:id')
   getModule(@Param('id') id: string) {

@@ -1,3 +1,4 @@
+import { ResourcesRolesService } from 'src/resources-roles/services/resources-roles.service';
 import {
   HttpException,
   HttpStatus,
@@ -9,12 +10,15 @@ import { Model } from 'mongoose';
 import { hashPassword } from 'src/lib/helpers/auth.helper';
 import { RoleService } from 'src/role/services/role.service';
 import { User, UserDocument } from '../schemas/user.schema';
+import { ResourceService } from 'src/resource/services/resource.service';
 
 @Injectable()
 export class UserService implements OnApplicationBootstrap {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     private readonly roleService: RoleService, //@InjectModel('Role') private readonly roleModel: Model<RoleDocument>, //@InjectModel('User') private readonly userModel: Model<UserDocument>,
+    private readonly resourceService: ResourceService,
+    private readonly rrService: ResourcesRolesService,
   ) {}
 
   async onApplicationBootstrap() {
@@ -29,8 +33,7 @@ export class UserService implements OnApplicationBootstrap {
           lastname: 'Duenio',
           tipDocument: 'DNI',
           nroDocument: '99999999',
-          email: 'admin@dev.elduenio.com',
-          username: '99999999',
+          email: 'admin@admin.com',
           password: passwordHashed,
           status: true,
           role: getRole._id,
@@ -42,7 +45,7 @@ export class UserService implements OnApplicationBootstrap {
     }
   }
 
-  async findAll(userToken: any): Promise<User[]> {
+  async findAll(userToken: any): Promise<any[]> {
     const { findUser } = userToken;
     let users = [];
     if (findUser.role.name === 'OWNER') {
@@ -66,7 +69,24 @@ export class UserService implements OnApplicationBootstrap {
       ]);
     }
 
-    return users;
+    const formatUsers = users.map((user) => {
+      return {
+        _id: user._id,
+        name: user.name,
+        lastname: user.lastname,
+        fullname: user.name + ' ' + user.lastname,
+        tipDocument: user.tipDocument,
+        nroDocument: user.nroDocument,
+        status: user.status,
+        email: user.email,
+        owner: user.creator
+          ? user.creator.name + ' ' + user.creator.lastname
+          : 'Ninguno',
+        role: user.role.name,
+      };
+    });
+
+    return formatUsers;
   }
 
   async findAllDeleted(): Promise<User[]> {
@@ -94,8 +114,6 @@ export class UserService implements OnApplicationBootstrap {
     if (
       (findForbidden.role.name === 'OWNER' && rolToken !== 'OWNER') ||
       (findForbidden.role.name === 'SUPER ADMINISTRADOR' &&
-        rolToken !== 'OWNER') ||
-      (findForbidden.creator.username !== findUser.username &&
         rolToken !== 'OWNER') ||
       (findForbidden.creator.email !== findUser.email && rolToken !== 'OWNER')
     ) {
@@ -129,8 +147,34 @@ export class UserService implements OnApplicationBootstrap {
 
   //Add a single user
   async create(createUser: User, userToken: any): Promise<User> {
-    const { name, role, password } = createUser;
+    const { email, role, password, nroDocument } = createUser;
     const { findUser } = userToken;
+
+    const findEmailExists = await this.userModel.findOne({ email });
+    const findNroExists = await this.userModel.findOne({ nroDocument });
+    //verifica si existe el email
+    if (findEmailExists) {
+      throw new HttpException(
+        {
+          status: HttpStatus.BAD_REQUEST,
+          type: 'BAD_REQUEST',
+          message: 'No puedes crear un email ya registrado.',
+        },
+        HttpStatus.CONFLICT,
+      );
+    }
+
+    //verifica si existe el email
+    if (findNroExists) {
+      throw new HttpException(
+        {
+          status: HttpStatus.BAD_REQUEST,
+          type: 'BAD_REQUEST',
+          message: 'No puedes crear un Nro. de documento ya registrado.',
+        },
+        HttpStatus.CONFLICT,
+      );
+    }
 
     //Si rol no existe
     if (!role) {
@@ -138,14 +182,13 @@ export class UserService implements OnApplicationBootstrap {
         {
           status: HttpStatus.BAD_REQUEST,
           type: 'BAD_REQUEST',
-          message: 'Role is requerid',
+          message: 'Completar el campo rol.',
         },
         HttpStatus.CONFLICT,
       );
     }
     const passwordHashed = await hashPassword(password);
-
-    const getRole = await this.roleService.findRoleByName(String(role));
+    const getRole = await this.roleService.findRoleById(String(role));
 
     //Solo el owner puede regisrar otro owner y otro sa, si el token detecta que no es owner se valida y bota error
     if (
@@ -162,12 +205,24 @@ export class UserService implements OnApplicationBootstrap {
       );
     }
 
+    // const getRoleToResources = await this.roleService.findRoleByName(
+    //   String(findUser.role.name),
+    // );
+    const resourcesOfCreator = await this.rrService.findOneResourceByRol(
+      getRole._id,
+    );
+
+    const getIdsOfResources = resourcesOfCreator.resource.map(
+      (res: any) => res._id,
+    );
+
     const modifyData: User = {
       ...createUser,
       password: passwordHashed,
       role: getRole._id,
       status: true,
       creator: findUser._id,
+      resource: getIdsOfResources,
     };
 
     const createdUser = new this.userModel(modifyData);
@@ -191,8 +246,6 @@ export class UserService implements OnApplicationBootstrap {
     if (
       (findForbidden.role.name === 'OWNER' && userToken !== 'OWNER') ||
       (findForbidden.role.name === 'SUPER ADMINISTRADOR' &&
-        userToken !== 'OWNER') ||
-      (findForbidden.creator.username !== findUser.username &&
         userToken !== 'OWNER') ||
       (findForbidden.creator.email !== findUser.email && userToken !== 'OWNER')
     ) {
@@ -227,7 +280,7 @@ export class UserService implements OnApplicationBootstrap {
 
   //Put a single user
   async update(id: string, bodyUser: User, userToken: any): Promise<User> {
-    const { status, role, password } = bodyUser;
+    const { status, role, password, resource } = bodyUser;
     const { findUser } = userToken;
     const rolToken = findUser.role.name;
     const findForbidden = await this.userModel.findById(id).populate([
@@ -243,8 +296,6 @@ export class UserService implements OnApplicationBootstrap {
       (findForbidden.role.name === 'OWNER' && rolToken !== 'OWNER') ||
       (findForbidden.role.name === 'SUPER ADMINISTRADOR' &&
         rolToken !== 'OWNER') ||
-      (findForbidden.creator.username !== findUser.username &&
-        userToken !== 'OWNER') ||
       (findForbidden.creator.email !== findUser.email && userToken !== 'OWNER')
     ) {
       throw new HttpException(
@@ -270,9 +321,18 @@ export class UserService implements OnApplicationBootstrap {
 
     const getRole = await this.roleService.findRoleByName(String(role));
 
+    const resourceArrayOfString = Object.keys(resource).map(
+      (res) => resource[res],
+    );
+
+    const getIdsOfResource = await this.resourceService.findResourceByKey(
+      resourceArrayOfString,
+    );
+
     const modifyData: User = {
       ...bodyUser,
       role: getRole._id,
+      resource: getIdsOfResource,
     };
 
     return await this.userModel.findByIdAndUpdate(id, modifyData, {
@@ -297,9 +357,7 @@ export class UserService implements OnApplicationBootstrap {
       (findForbidden.role.name === 'OWNER' && rolToken !== 'OWNER') ||
       (findForbidden.role.name === 'SUPER ADMINISTRADOR' &&
         rolToken !== 'OWNER') ||
-      (findForbidden.creator.username !== findUser.username &&
-        userToken !== 'OWNER') ||
-      (findForbidden.creator.email !== findUser.email && userToken !== 'OWNER')
+      (findForbidden.creator.email !== findUser.email && rolToken !== 'OWNER')
     ) {
       throw new HttpException(
         {
@@ -330,9 +388,9 @@ export class UserService implements OnApplicationBootstrap {
     return result;
   }
 
-  //find user by username
-  async findUserByUsername(username: string): Promise<UserDocument> {
-    return await this.userModel.findOne({ username });
+  //find user by email
+  async findUserByUsername(email: string): Promise<UserDocument> {
+    return await this.userModel.findOne({ email });
   }
 
   //find user by id
@@ -357,5 +415,51 @@ export class UserService implements OnApplicationBootstrap {
         },
       },
     ]);
+  }
+
+  //find user by nroDocument
+  async findUserByNroDocument(nro: string): Promise<UserDocument | any> {
+    const user = await this.userModel.findOne({ nroDocument: nro }).populate([
+      {
+        path: 'role',
+        populate: [
+          {
+            path: 'module',
+            populate: [{ path: 'menu' }],
+          },
+        ],
+      },
+      {
+        path: 'resource',
+      },
+      {
+        path: 'creator',
+        populate: {
+          path: 'role',
+          populate: {
+            path: 'module',
+          },
+        },
+      },
+    ]);
+
+    const formatUsers = {
+      _id: user._id,
+      name: user.name,
+      lastname: user.lastname,
+      fullname: user.name + ' ' + user.lastname,
+      tipDocument: user.tipDocument,
+      nroDocument: user.nroDocument,
+      status: user.status,
+      email: user.email,
+      owner: user.creator
+        ? user.creator.name + ' ' + user.creator.lastname
+        : 'Ninguno',
+      role: user.role.name,
+      roleId: (<any>user.role)._id,
+      resource: user.resource.map((res) => res.name),
+    };
+
+    return formatUsers;
   }
 }

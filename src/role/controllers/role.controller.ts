@@ -52,11 +52,15 @@ export class RoleController {
   // Add Role(POST): http://localhost:3000/api/v1/roles/6223169df6066a084cef08c2
   @Post()
   @UseGuards(PermissionGuard(Permission.CreateRole))
-  async createRole(@Res() res, @Body() createBody: Role): Promise<Role> {
-    const user = await this.roleService.create(createBody);
+  async createRole(
+    @Res() res,
+    @Body() createBody: Role,
+    @CtxUser() user: any,
+  ): Promise<Role> {
+    const role = await this.roleService.create(createBody, user);
     return res.status(HttpStatus.OK).json({
       message: 'Role Successfully Created',
-      user,
+      role,
     });
   }
 

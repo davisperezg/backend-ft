@@ -15,11 +15,11 @@ export class AuthService {
   ) {}
 
   //login user
-  async signIn(username: string, password: string) {
+  async signIn(email: string, password: string) {
     const refresh_token = uid(256);
 
     //find user by username
-    const findUser = await this.userService.findUserByUsername(username);
+    const findUser = await this.userService.findUserByUsername(email);
 
     //if does not exist
     if (!findUser)
@@ -58,23 +58,23 @@ export class AuthService {
     }
 
     //email in refresh token
-    refreshTokens[refresh_token] = username;
+    refreshTokens[refresh_token] = email;
 
     //return {access_token and refresh_token}
     return { access_token: this.getToken(findUser._id), refresh_token };
   }
 
   //method to validate token with refresh-token v0.0.1
-  async getTokenWithRefresh(body: { username: string; refreshToken: string }) {
-    const username = body.username;
+  async getTokenWithRefresh(body: { email: string; refreshToken: string }) {
+    const email = body.email;
     const refreshToken = body.refreshToken;
 
-    const findUser = await this.userService.findUserByUsername(username);
+    const findUser = await this.userService.findUserByUsername(email);
 
     //verify if exist refresh token and email in refresh token, is correct  ?f
     if (
       refreshToken in refreshTokens &&
-      refreshTokens[refreshToken] === username
+      refreshTokens[refreshToken] === email
     ) {
       return { access_token: this.getToken(findUser._id) };
     } else {
