@@ -22,24 +22,48 @@ export class UserService implements OnApplicationBootstrap {
   ) {}
 
   async onApplicationBootstrap() {
+    //si haz creado una proiedad en el schema y vas actulizarla en la bd con un valor en especifico usamos el siguiente código:
+
+    // await this.userModel.updateMany(
+    //   {
+    //     updateResource: null,
+    //   },
+    //   { updateResource: false },
+    // );
+
     const count = await this.userModel.estimatedDocumentCount();
+
     if (count > 0) return;
+
     try {
       const passwordHashed = await hashPassword('admin123');
+
       const getRole = await this.roleService.findRoleByName(String('OWNER'));
-      await this.userModel.insertMany([
-        {
-          name: 'El',
-          lastname: 'Duenio',
-          tipDocument: 'DNI',
-          nroDocument: '99999999',
-          email: 'admin@admin.com',
-          password: passwordHashed,
-          status: true,
-          role: getRole._id,
-          creator: null,
-        },
-      ]);
+
+      setTimeout(async () => {
+        const count = await this.userModel.estimatedDocumentCount();
+
+        if (count > 0) return;
+
+        const resourcesOfCreator = await this.rrService.findOneResourceByRol(
+          getRole._id,
+        );
+
+        await this.userModel.insertMany([
+          {
+            name: 'El',
+            lastname: 'Duenio',
+            tipDocument: 'DNI',
+            nroDocument: '99999999',
+            email: 'admin@admin.com',
+            resource: resourcesOfCreator.resource,
+            password: passwordHashed,
+            status: true,
+            role: getRole._id,
+            creator: null,
+          },
+        ]);
+      }, 6000);
     } catch (e) {
       throw new Error(`Error en UserService.onApplicationBootstrap ${e}`);
     }

@@ -27,6 +27,9 @@ export class User {
   @Prop({ trim: true, requerid: true })
   status: boolean;
 
+  @Prop({ trim: true, requerid: true })
+  updateResource: boolean;
+
   @Prop({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Role',
