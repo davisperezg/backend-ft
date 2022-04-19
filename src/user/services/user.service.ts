@@ -1,3 +1,7 @@
+import {
+  Resource_Role,
+  Resource_RoleDocument,
+} from './../../resources-roles/schemas/resources-role';
 import { ResourcesRolesService } from 'src/resources-roles/services/resources-roles.service';
 import {
   HttpException,
@@ -6,11 +10,15 @@ import {
   OnApplicationBootstrap,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { hashPassword } from 'src/lib/helpers/auth.helper';
 import { RoleService } from 'src/role/services/role.service';
 import { User, UserDocument } from '../schemas/user.schema';
 import { ResourceService } from 'src/resource/services/resource.service';
+import {
+  Resource_UserDocument,
+  Resource_User,
+} from 'src/resources-users/schemas/resources-user';
 
 @Injectable()
 export class UserService implements OnApplicationBootstrap {
@@ -19,6 +27,10 @@ export class UserService implements OnApplicationBootstrap {
     private readonly roleService: RoleService, //@InjectModel('Role') private readonly roleModel: Model<RoleDocument>, //@InjectModel('User') private readonly userModel: Model<UserDocument>,
     private readonly resourceService: ResourceService,
     private readonly rrService: ResourcesRolesService,
+    @InjectModel(Resource_User.name)
+    private ruModel: Model<Resource_UserDocument>,
+    @InjectModel(Resource_Role.name)
+    private rrModel: Model<Resource_RoleDocument>,
   ) {}
 
   async onApplicationBootstrap() {
@@ -56,7 +68,6 @@ export class UserService implements OnApplicationBootstrap {
             tipDocument: 'DNI',
             nroDocument: '99999999',
             email: 'admin@admin.com',
-            resource: resourcesOfCreator.resource,
             password: passwordHashed,
             status: true,
             role: getRole._id,
@@ -176,6 +187,7 @@ export class UserService implements OnApplicationBootstrap {
 
     const findEmailExists = await this.userModel.findOne({ email });
     const findNroExists = await this.userModel.findOne({ nroDocument });
+
     //verifica si existe el email
     if (findEmailExists) {
       throw new HttpException(
@@ -229,27 +241,31 @@ export class UserService implements OnApplicationBootstrap {
       );
     }
 
-    // const getRoleToResources = await this.roleService.findRoleByName(
-    //   String(findUser.role.name),
-    // );
-    const resourcesOfCreator = await this.rrService.findOneResourceByRol(
-      getRole._id,
-    );
-
-    const getIdsOfResources = resourcesOfCreator.resource.map(
-      (res: any) => res._id,
-    );
-
-    const modifyData: User = {
+    //data a enviar para el registro de usuario
+    const sendDataUser: User = {
       ...createUser,
       password: passwordHashed,
       role: getRole._id,
       status: true,
       creator: findUser._id,
-      resource: getIdsOfResources,
     };
 
-    const createdUser = new this.userModel(modifyData);
+    //crea usuario
+    const createdUser = new this.userModel(sendDataUser);
+
+    //busco a los recursos del rol para asignarlo al usuario
+    const resourcesOfRol = await this.rrModel.findOne({ role: getRole._id });
+
+    //data a enviar para el recurso del usuario
+    const sendDataResource: Resource_User = {
+      status: true,
+      resource: resourcesOfRol.resource,
+      user: createdUser._id,
+    };
+
+    //crea recursos
+    await new this.ruModel(sendDataResource).save();
+
     return createdUser.save();
   }
 
@@ -304,7 +320,7 @@ export class UserService implements OnApplicationBootstrap {
 
   //Put a single user
   async update(id: string, bodyUser: User, userToken: any): Promise<User> {
-    const { status, role, password, resource } = bodyUser;
+    const { status, role, password } = bodyUser;
     const { findUser } = userToken;
     const rolToken = findUser.role.name;
     const findForbidden = await this.userModel.findById(id).populate([
@@ -343,20 +359,9 @@ export class UserService implements OnApplicationBootstrap {
       );
     }
 
-    const getRole = await this.roleService.findRoleByName(String(role));
-
-    const resourceArrayOfString = Object.keys(resource).map(
-      (res) => resource[res],
-    );
-
-    const getIdsOfResource = await this.resourceService.findResourceByKey(
-      resourceArrayOfString,
-    );
-
     const modifyData: User = {
       ...bodyUser,
-      role: getRole._id,
-      resource: getIdsOfResource,
+      role: role,
     };
 
     return await this.userModel.findByIdAndUpdate(id, modifyData, {
@@ -442,8 +447,8 @@ export class UserService implements OnApplicationBootstrap {
   }
 
   //find user by nroDocument
-  async findUserByNroDocument(nro: string): Promise<UserDocument | any> {
-    const user = await this.userModel.findOne({ nroDocument: nro }).populate([
+  async findUserByCodApi(nro: string): Promise<UserDocument | any> {
+    const user = await this.userModel.findById(nro).populate([
       {
         path: 'role',
         populate: [
@@ -481,9 +486,16 @@ export class UserService implements OnApplicationBootstrap {
         : 'Ninguno',
       role: user.role.name,
       roleId: (<any>user.role)._id,
-      resource: user.resource.map((res) => res.name),
     };
 
     return formatUsers;
+  }
+
+  async findUserByIdRol(id: string): Promise<UserDocument> {
+    const user = await this.userModel.findOne({
+      role: id as any,
+    });
+
+    return user;
   }
 }

@@ -282,7 +282,7 @@ export class RoleService {
         findUser.role.name !== 'OWNER' ||
         findUser.role.name !== 'SUPER ADMINISTRADOR'
       ) {
-        findUser.role.module.filter((mod) => {
+        findUser.role.modules.filter((mod) => {
           modules.filter((mods) => {
             if (mod.name === mods.name) {
               validaModules.push(mod);

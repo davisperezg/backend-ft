@@ -1,6 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import * as mongoose from 'mongoose';
-import { Resource } from 'src/resource/schemas/resource.schema';
 import { Role } from 'src/role/schemas/role.schema';
 export type UserDocument = User & mongoose.Document;
 
@@ -27,9 +26,6 @@ export class User {
   @Prop({ trim: true, requerid: true })
   status: boolean;
 
-  @Prop({ trim: true, requerid: true })
-  updateResource: boolean;
-
   @Prop({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Role',
@@ -40,13 +36,6 @@ export class User {
 
   @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'User' })
   creator: User;
-
-  @Prop({
-    type: [
-      { type: mongoose.Schema.Types.ObjectId, ref: 'Resource', required: true },
-    ],
-  })
-  resource: Resource[];
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

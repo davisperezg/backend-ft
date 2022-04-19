@@ -8,11 +8,8 @@ const PermissionGuard = (permission: Permission): Type<CanActivate> => {
       await super.canActivate(context);
 
       const request = context.switchToHttp().getRequest<any>();
-
       const user = request.user.findResource;
-      const resources = user.resource.map((res: any) => res.key);
-
-      return resources.includes(permission);
+      return user.includes(permission);
     }
   }
 

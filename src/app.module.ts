@@ -9,6 +9,7 @@ import { RoleModule } from './role/role.module';
 import { ResourceModule } from './resource/resource.module';
 import { AuthModule } from './auth/auth.module';
 import { ResourcesRolesModule } from './resources-roles/resources-roles.module';
+import { ResourcesUsersModule } from './resources-users/resources-users.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { ResourcesRolesModule } from './resources-roles/resources-roles.module';
     RoleModule,
     AuthModule,
     UserModule,
+    ResourcesUsersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

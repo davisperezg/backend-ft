@@ -18,7 +18,8 @@ export class ResourceService implements OnModuleInit {
     const count = await this.resourceModel.estimatedDocumentCount();
     if (count > 0) return;
     try {
-      await this.resourceModel.insertMany([
+      //todos los recursos
+      const mysResources = [
         {
           name: 'Leer Modulos', //add
           key: 'canRead_modules',
@@ -165,7 +166,10 @@ export class ResourceService implements OnModuleInit {
           key: 'canRestore_menus',
           status: true,
         },
-      ]);
+      ];
+
+      //inserta los recursos para los roles
+      await this.resourceModel.insertMany(mysResources);
     } catch (e) {
       throw new Error(`Error en ResourceService.onModuleInit ${e}`);
     }
@@ -175,7 +179,7 @@ export class ResourceService implements OnModuleInit {
   //   return await this.resourceModel.findByIdAndDelete(id);
   // }
 
-  async findAll(): Promise<Resource[]> {
+  async findAll(): Promise<Resource[] | any[]> {
     const resources = await this.resourceModel.find({ status: true });
     const order = resources.sort((a, b) => {
       if (a.name > b.name) {
@@ -188,7 +192,14 @@ export class ResourceService implements OnModuleInit {
       return 0;
     });
 
-    return order;
+    const formatResourcesToFront = order.map((res) => {
+      return {
+        label: res.name,
+        value: res.key,
+      };
+    });
+
+    return formatResourcesToFront;
   }
 
   //Add a single role
@@ -230,15 +241,28 @@ export class ResourceService implements OnModuleInit {
   }
 
   //Put a single role
-  async update(id: string, bodyRole: Resource): Promise<Resource> {
-    return await this.resourceModel.findByIdAndUpdate(id, bodyRole, {
+  async update(
+    id: string,
+    bodyRole: Resource | { updateResource: boolean },
+  ): Promise<Resource> {
+    console.log('update-bodu', bodyRole);
+    const update = await this.resourceModel.findByIdAndUpdate(id, bodyRole, {
       new: true,
     });
+    console.log(update);
+    return update;
   }
 
   async findResourceByKey(key: string[]): Promise<ResourceDocument[]> {
     return await this.resourceModel.find({
       key: { $in: key },
+      status: true,
+    });
+  }
+
+  async findResourcesById(id: string[]): Promise<ResourceDocument[]> {
+    return await this.resourceModel.find({
+      _id: { $in: id },
       status: true,
     });
   }

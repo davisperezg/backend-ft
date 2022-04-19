@@ -2,7 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { AuthService } from 'src/auth/services/auth.service';
-import { ResourcesRolesService } from 'src/resources-roles/services/resources-roles.service';
+import { ResourcesUsersService } from 'src/resources-users/services/resources-users.service';
 import { jwtConstants } from '../const/consts';
 
 interface JWType {
@@ -13,7 +13,7 @@ interface JWType {
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     private readonly authService: AuthService,
-    private readonly rrService: ResourcesRolesService,
+    private readonly ruService: ResourcesUsersService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -60,8 +60,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       };
     })[0];
 
-    const findResource = await this.rrService.findOneResourceByRol(
-      findUser.role._id,
+    const findResource = await this.ruService.findOneResourceByUser(
+      findUser._id,
     );
 
     const user = {
