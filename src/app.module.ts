@@ -10,6 +10,7 @@ import { ResourceModule } from './resource/resource.module';
 import { AuthModule } from './auth/auth.module';
 import { ResourcesRolesModule } from './resources-roles/resources-roles.module';
 import { ResourcesUsersModule } from './resources-users/resources-users.module';
+import { ServicesUsersModule } from './services-users/services-users.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { ResourcesUsersModule } from './resources-users/resources-users.module';
     AuthModule,
     UserModule,
     ResourcesUsersModule,
+    ServicesUsersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

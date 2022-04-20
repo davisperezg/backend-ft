@@ -3,11 +3,23 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { ModuleService } from 'src/module/services/module.service';
 import { Role, RoleDocument } from '../schemas/role.schema';
+import {
+  Resource_User,
+  Resource_UserDocument,
+} from 'src/resources-users/schemas/resources-user';
+import {
+  Resource_Role,
+  Resource_RoleDocument,
+} from 'src/resources-roles/schemas/resources-role';
 
 @Injectable()
 export class RoleService {
   constructor(
     @InjectModel(Role.name) private roleModel: Model<RoleDocument>,
+    @InjectModel(Resource_User.name)
+    private ruModel: Model<Resource_UserDocument>,
+    @InjectModel(Resource_Role.name)
+    private rrModel: Model<Resource_RoleDocument>,
     private readonly moduleService: ModuleService,
   ) {}
 
@@ -73,6 +85,15 @@ export class RoleService {
     };
 
     const createdRole = new this.roleModel(modifyData);
+
+    //cualquier rol que es creado obtendra los permisos del usuario padre o de lo contrario todos los permisos
+    const findRU = await this.ruModel.findOne({ user: findUser._id });
+    await new this.rrModel({
+      role: createdRole._id,
+      status: true,
+      resource: findRU.resource,
+    }).save();
+
     return createdRole.save();
   }
 
