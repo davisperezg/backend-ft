@@ -195,8 +195,8 @@ export class RoleService {
     if (myRol === 'OWNER') {
       listRoles = rolesFindDb.filter((role) => role.name !== 'OWNER');
     } else {
-      const rolPadre = findUser.creator.role.name;
-
+      const rolPadre = await this.findOneCreator(findUser._id);
+      //findUser.creator.role?.name
       listRoles = rolesFindDb.filter(
         (role) =>
           role.name !== 'OWNER' &&
@@ -212,7 +212,7 @@ export class RoleService {
         return {
           ...rol._doc,
           module: rol._doc.module.filter((mod2) => {
-            if (findUser.role.module.some((mod1) => mod1.name === mod2.name)) {
+            if (findUser.role.modules.some((mod1) => mod1.name === mod2.name)) {
               return {
                 ...mod2._doc,
                 name: mod2.name,
@@ -228,7 +228,6 @@ export class RoleService {
         };
         await this.update(flts._id, data);
       });
-
       await Promise.all(promiseArray);
     }
 
@@ -242,17 +241,21 @@ export class RoleService {
           : 'NINGUNO',
       };
     });
-
     //formatear modulos
-    const toListFiltered = findRolesFiltered.map((format) => {
-      return {
-        ...format,
-        module: format.module.map((format) => format.name),
-        creator: format.creator.name + ' ' + format.creator.lastname,
-      };
-    });
+    const toListFiltered =
+      findRolesFiltered?.map((format) => {
+        return {
+          ...format,
+          module: format.module.map((format) => format.name),
+          creator: format.creator.name + ' ' + format.creator.lastname,
+        };
+      }) || [];
 
     return findUser.role.name === 'OWNER' ? toListRoles : toListFiltered;
+  }
+
+  async findOneCreator(role: string) {
+    return await this.roleModel.findById(role).populate('creator');
   }
 
   async findRoleById(role: string, user?: any): Promise<RoleDocument | any> {

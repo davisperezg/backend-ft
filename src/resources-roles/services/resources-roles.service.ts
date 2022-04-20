@@ -90,12 +90,10 @@ export class ResourcesRolesService implements OnApplicationBootstrap {
       .findOne({ status: true, role: idRol as any })
       .populate({ path: 'resource' });
 
-    const formatToFront = {
-      ...resourceOfRol,
-      resource: resourceOfRol.resource.map((res: any) => res._doc.key),
-    };
+    const formatToFront =
+      resourceOfRol?.resource.map((res: any) => res._doc.key) || [];
 
-    return formatToFront.resource;
+    return formatToFront;
   }
 
   //Add a single role

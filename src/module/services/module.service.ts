@@ -9,13 +9,14 @@ import { Module, ModuleDocument } from '../schemas/module.schema';
 import { Model } from 'mongoose';
 import { MenuService } from 'src/menu/services/menu.service';
 import { RoleDocument } from 'src/role/schemas/role.schema';
+import { UserDocument } from 'src/user/schemas/user.schema';
 
 @Injectable()
 export class ModuleService implements OnApplicationBootstrap {
   constructor(
     @InjectModel(Module.name) private moduleModel: Model<ModuleDocument>,
     @InjectModel('Role') private roleModel: Model<RoleDocument>,
-    //@InjectModel('User') private userModel: Model<UserDocument>,
+    @InjectModel('User') private userModel: Model<UserDocument>,
     private readonly menuService: MenuService,
   ) {}
 
@@ -37,13 +38,27 @@ export class ModuleService implements OnApplicationBootstrap {
           name: 'Administración de sistema',
           status: true,
           menu: findMenus,
+          creator: null,
         }).save(),
-        new this.moduleModel({ name: 'Almacen', status: true }).save(),
-        new this.moduleModel({ name: 'Mantenimiento', status: true }).save(),
-        new this.moduleModel({ name: 'Comprobantes', status: true }).save(),
+        new this.moduleModel({
+          name: 'Almacen',
+          status: true,
+          creator: null,
+        }).save(),
+        new this.moduleModel({
+          name: 'Mantenimiento',
+          status: true,
+          creator: null,
+        }).save(),
+        new this.moduleModel({
+          name: 'Comprobantes',
+          status: true,
+          creator: null,
+        }).save(),
         new this.moduleModel({
           name: 'Consultas y Reportes',
           status: true,
+          creator: null,
         }).save(),
       ]);
 
@@ -84,7 +99,15 @@ export class ModuleService implements OnApplicationBootstrap {
         path: 'menu',
       });
     } else {
-      modules = findUser.role.module;
+      const modulesByCreator = await this.moduleModel
+        .find({
+          creator: { $in: findUser._id },
+        })
+        .populate({
+          path: 'menu',
+        });
+      console.log('modulesByCreator x1', modulesByCreator);
+      modules = findUser.role.modules;
     }
 
     const formated = modules
@@ -99,6 +122,7 @@ export class ModuleService implements OnApplicationBootstrap {
         // a must be equal to b
         return 0;
       });
+
     return formated;
   }
 
@@ -106,11 +130,24 @@ export class ModuleService implements OnApplicationBootstrap {
     const { findUser } = user;
     let modules = [];
     if (findUser.role.name === 'OWNER') {
-      modules = await this.moduleModel.find().populate({
-        path: 'menu',
-      });
+      modules = await this.moduleModel
+        .find({
+          $or: [{ creator: null }, { creator: findUser._id }],
+        })
+        .populate({
+          path: 'menu',
+        });
     } else {
-      modules = findUser.role.module;
+      const modulesByCreator = await this.moduleModel
+        .find({
+          creator: findUser._id,
+        })
+        .populate({
+          path: 'menu',
+        });
+      console.log('modulesByCreator x2', modulesByCreator);
+      console.log(findUser.role.modules);
+      modules = findUser.role.modules.concat(modulesByCreator);
     }
 
     const formated = modules.sort((a, b) => {
@@ -127,13 +164,13 @@ export class ModuleService implements OnApplicationBootstrap {
   }
 
   async findOne(id: string): Promise<Module> {
-    return this.moduleModel.findOne({ _id: id }).populate({
+    return await this.moduleModel.findOne({ _id: id }).populate({
       path: 'menu',
     });
   }
 
   async findAllDeleted(): Promise<Module[]> {
-    return this.moduleModel.find({ status: false }).populate({
+    return await this.moduleModel.find({ status: false }).populate({
       path: 'menu',
     });
   }
@@ -178,8 +215,9 @@ export class ModuleService implements OnApplicationBootstrap {
   }
 
   //Add a single module
-  async create(createMenu: Module): Promise<Module> {
+  async create(createMenu: Module, user: any): Promise<Module> {
     const { menu, name } = createMenu;
+    const { findUser } = user;
 
     const findModule = await this.moduleModel.findOne({ name });
 
@@ -202,6 +240,7 @@ export class ModuleService implements OnApplicationBootstrap {
       ...createMenu,
       status: true,
       menu: findMenus,
+      creator: findUser._id,
     };
 
     const createdModule = new this.moduleModel(modifyData);
@@ -227,6 +266,18 @@ export class ModuleService implements OnApplicationBootstrap {
     const { status, menu } = bodyModule;
 
     if (status) {
+      throw new HttpException(
+        {
+          status: HttpStatus.UNAUTHORIZED,
+          type: 'UNAUTHORIZED',
+          message: 'Unauthorized Exception',
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    const findModByName = await this.moduleModel.findById(id);
+    if (findModByName.creator === null) {
       throw new HttpException(
         {
           status: HttpStatus.UNAUTHORIZED,

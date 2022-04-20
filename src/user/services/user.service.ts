@@ -57,10 +57,6 @@ export class UserService implements OnApplicationBootstrap {
 
         if (count > 0) return;
 
-        const resourcesOfCreator = await this.rrService.findOneResourceByRol(
-          getRole._id,
-        );
-
         await this.userModel.insertMany([
           {
             name: 'El',
@@ -259,7 +255,7 @@ export class UserService implements OnApplicationBootstrap {
     //data a enviar para el recurso del usuario
     const sendDataResource: Resource_User = {
       status: true,
-      resource: resourcesOfRol.resource,
+      resource: resourcesOfRol?.resource || [],
       user: createdUser._id,
     };
 

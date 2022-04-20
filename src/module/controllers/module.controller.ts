@@ -50,8 +50,12 @@ export class ModuleController {
   // Add Module(POST): http://localhost:3000/api/v1/modules
   @Post()
   @UseGuards(PermissionGuard(Permission.CreateModule))
-  async createMenu(@Res() res, @Body() createModule: Module): Promise<Module> {
-    const module = await this.moduleService.create(createModule);
+  async createMenu(
+    @Res() res,
+    @Body() createModule: Module,
+    @CtxUser() user: any,
+  ): Promise<Module> {
+    const module = await this.moduleService.create(createModule, user);
     return res.status(HttpStatus.OK).json({
       message: 'Module Successfully Created',
       module,
