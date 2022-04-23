@@ -53,7 +53,7 @@ export class ResourcesUsersController {
     });
   }
 
-  // Update Resource: /Resources/605ab8372ed8db2ad4839d87
+  // Update Resource
   @Put(':id')
   @UseGuards(PermissionGuard(Permission.EditResourceR))
   async updateRR(

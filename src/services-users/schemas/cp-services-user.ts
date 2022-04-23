@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import * as mongoose from 'mongoose';
-import { Resource } from 'src/resource/schemas/resource.schema';
+import { Module } from 'src/module/schemas/module.schema';
 import { User } from 'src/user/schemas/user.schema';
 export type CopyServicesDocument = CopyServices_User & mongoose.Document;
 
@@ -25,7 +25,7 @@ export class CopyServices_User {
       { type: mongoose.Schema.Types.ObjectId, ref: 'Module', required: true },
     ],
   })
-  module: Resource[];
+  module: Module[];
 }
 
 export const CopyServicesSchema =

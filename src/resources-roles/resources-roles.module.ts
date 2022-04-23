@@ -11,20 +11,19 @@ import { Role, RoleSchema } from 'src/role/schemas/role.schema';
 import { Resource, ResourceSchema } from 'src/resource/schemas/resource.schema';
 import { ResourceService } from 'src/resource/services/resource.service';
 import { RoleService } from 'src/role/services/role.service';
-import {
-  Module as ModuleE,
-  ModuleSchema,
-} from 'src/module/schemas/module.schema';
-import { ModuleService } from 'src/module/services/module.service';
-import { Menu, MenuSchema } from 'src/menu/schemas/menu.schema';
-import { MenuService } from 'src/menu/services/menu.service';
 import { User, UserSchema } from 'src/user/schemas/user.schema';
-import { UserService } from 'src/user/services/user.service';
-import { ResourcesUsersService } from 'src/resources-users/services/resources-users.service';
 import {
   CopyResource_User,
   CopyResource_UserSchema,
 } from 'src/resources-users/schemas/cp-resource-user';
+import {
+  ServicesUserSchema,
+  Services_User,
+} from 'src/services-users/schemas/services-user';
+import {
+  CopyServicesSchema,
+  CopyServices_User,
+} from 'src/services-users/schemas/cp-services-user';
 
 @Module({
   imports: [
@@ -32,22 +31,14 @@ import {
       { name: Resource_Role.name, schema: Resource_RoleSchema },
       { name: Role.name, schema: RoleSchema },
       { name: Resource.name, schema: ResourceSchema },
-      { name: ModuleE.name, schema: ModuleSchema },
-      { name: Menu.name, schema: MenuSchema },
-      { name: User.name, schema: UserSchema },
       { name: Resource_User.name, schema: Resource_UserSchema },
+      { name: User.name, schema: UserSchema },
       { name: CopyResource_User.name, schema: CopyResource_UserSchema },
+      { name: Services_User.name, schema: ServicesUserSchema },
+      { name: CopyServices_User.name, schema: CopyServicesSchema },
     ]),
   ],
-  providers: [
-    ResourcesRolesService,
-    ResourceService,
-    RoleService,
-    ModuleService,
-    MenuService,
-    UserService,
-    ResourcesUsersService,
-  ],
+  providers: [ResourcesRolesService, RoleService, ResourceService],
   controllers: [ResourcesRolesController],
 })
 export class ResourcesRolesModule {}

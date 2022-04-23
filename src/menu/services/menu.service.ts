@@ -44,7 +44,7 @@ export class MenuService implements OnModuleInit {
   async create(createMenu: Menu, user: any): Promise<Menu> {
     const { findUser } = user;
 
-    if (findUser.role.name !== 'OWNER') {
+    if (findUser.role !== 'OWNER') {
       throw new HttpException(
         {
           status: HttpStatus.UNAUTHORIZED,
@@ -68,7 +68,7 @@ export class MenuService implements OnModuleInit {
   //Put
   async update(id: string, bodyMenu: Menu, user: any): Promise<Menu> {
     const { findUser } = user;
-    if (findUser.role.name !== 'OWNER') {
+    if (findUser.role !== 'OWNER') {
       throw new HttpException(
         {
           status: HttpStatus.UNAUTHORIZED,
@@ -98,7 +98,7 @@ export class MenuService implements OnModuleInit {
   //Delete
   async delete(id: string, user: any): Promise<boolean> {
     const { findUser } = user;
-    if (findUser.role.name !== 'OWNER') {
+    if (findUser.role !== 'OWNER') {
       throw new HttpException(
         {
           status: HttpStatus.UNAUTHORIZED,
@@ -132,7 +132,7 @@ export class MenuService implements OnModuleInit {
   //Restore
   async restore(id: string, user: any): Promise<boolean> {
     const { findUser } = user;
-    if (findUser.role.name !== 'OWNER') {
+    if (findUser.role !== 'OWNER') {
       throw new HttpException(
         {
           status: HttpStatus.UNAUTHORIZED,

@@ -1,53 +1,39 @@
+import {
+  Services_User,
+  ServicesUserSchema,
+} from './../services-users/schemas/services-user';
 import { Module } from '@nestjs/common';
 import { UserController } from './controllers/user.controller';
-import { UserSchema } from './schemas/user.schema';
+import { User, UserSchema } from './schemas/user.schema';
 import { UserService } from './services/user.service';
 import { MongooseModule } from '@nestjs/mongoose';
 import { RoleService } from 'src/role/services/role.service';
-import { RoleSchema } from 'src/role/schemas/role.schema';
-import { ModuleSchema } from 'src/module/schemas/module.schema';
-import { ModuleService } from 'src/module/services/module.service';
-import { ResourceSchema } from 'src/resource/schemas/resource.schema';
-import { ResourceService } from 'src/resource/services/resource.service';
-import { MenuSchema } from 'src/menu/schemas/menu.schema';
-import { MenuService } from 'src/menu/services/menu.service';
+import { Role, RoleSchema } from 'src/role/schemas/role.schema';
 import {
   Resource_RoleSchema,
   Resource_Role,
 } from 'src/resources-roles/schemas/resources-role';
-import { ResourcesRolesService } from 'src/resources-roles/services/resources-roles.service';
 import {
   Resource_User,
   Resource_UserSchema,
 } from 'src/resources-users/schemas/resources-user';
-import { ResourcesUsersService } from 'src/resources-users/services/resources-users.service';
 import {
-  CopyResource_User,
-  CopyResource_UserSchema,
-} from 'src/resources-users/schemas/cp-resource-user';
+  CopyServicesSchema,
+  CopyServices_User,
+} from 'src/services-users/schemas/cp-services-user';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
-      { name: 'User', schema: UserSchema },
-      { name: 'Role', schema: RoleSchema },
-      { name: 'Module', schema: ModuleSchema },
-      { name: 'Resource', schema: ResourceSchema },
-      { name: 'Menu', schema: MenuSchema },
-      { name: Resource_Role.name, schema: Resource_RoleSchema },
+      { name: User.name, schema: UserSchema },
+      { name: Role.name, schema: RoleSchema },
       { name: Resource_User.name, schema: Resource_UserSchema },
-      { name: CopyResource_User.name, schema: CopyResource_UserSchema },
+      { name: Services_User.name, schema: ServicesUserSchema },
+      { name: Resource_Role.name, schema: Resource_RoleSchema },
+      { name: CopyServices_User.name, schema: CopyServicesSchema },
     ]),
   ],
   controllers: [UserController],
-  providers: [
-    UserService,
-    RoleService,
-    ModuleService,
-    ResourceService,
-    MenuService,
-    ResourcesRolesService,
-    ResourcesUsersService,
-  ],
+  providers: [UserService, RoleService],
 })
 export class UserModule {}

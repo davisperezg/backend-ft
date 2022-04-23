@@ -1,8 +1,11 @@
 import {
+  Services_User,
+  Services_UserDocument,
+} from './../../services-users/schemas/services-user';
+import {
   Resource_Role,
   Resource_RoleDocument,
 } from './../../resources-roles/schemas/resources-role';
-import { ResourcesRolesService } from 'src/resources-roles/services/resources-roles.service';
 import {
   HttpException,
   HttpStatus,
@@ -10,11 +13,10 @@ import {
   OnApplicationBootstrap,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Model } from 'mongoose';
 import { hashPassword } from 'src/lib/helpers/auth.helper';
 import { RoleService } from 'src/role/services/role.service';
 import { User, UserDocument } from '../schemas/user.schema';
-import { ResourceService } from 'src/resource/services/resource.service';
 import {
   Resource_UserDocument,
   Resource_User,
@@ -24,11 +26,11 @@ import {
 export class UserService implements OnApplicationBootstrap {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
-    private readonly roleService: RoleService, //@InjectModel('Role') private readonly roleModel: Model<RoleDocument>, //@InjectModel('User') private readonly userModel: Model<UserDocument>,
-    private readonly resourceService: ResourceService,
-    private readonly rrService: ResourcesRolesService,
+    private readonly roleService: RoleService,
     @InjectModel(Resource_User.name)
     private ruModel: Model<Resource_UserDocument>,
+    @InjectModel(Services_User.name)
+    private suModel: Model<Services_UserDocument>,
     @InjectModel(Resource_Role.name)
     private rrModel: Model<Resource_RoleDocument>,
   ) {}
@@ -79,7 +81,7 @@ export class UserService implements OnApplicationBootstrap {
   async findAll(userToken: any): Promise<any[]> {
     const { findUser } = userToken;
     let users = [];
-    if (findUser.role.name === 'OWNER') {
+    if (findUser.role === 'OWNER') {
       const listusers = await this.userModel.find().populate([
         {
           path: 'role',
@@ -140,7 +142,7 @@ export class UserService implements OnApplicationBootstrap {
       },
     ]);
     const { findUser } = userToken;
-    const rolToken = findUser.role.name;
+    const rolToken = findUser.role;
 
     if (
       (findForbidden.role.name === 'OWNER' && rolToken !== 'OWNER') ||
@@ -224,8 +226,8 @@ export class UserService implements OnApplicationBootstrap {
 
     //Solo el owner puede regisrar otro owner y otro sa, si el token detecta que no es owner se valida y bota error
     if (
-      (findUser.role.name !== 'OWNER' && getRole.name === 'OWNER') ||
-      (findUser.role.name !== 'OWNER' && getRole.name === 'SUPER ADMINISTRADOR')
+      (findUser.role !== 'OWNER' && getRole.name === 'OWNER') ||
+      (findUser.role !== 'OWNER' && getRole.name === 'SUPER ADMINISTRADOR')
     ) {
       throw new HttpException(
         {
@@ -252,6 +254,11 @@ export class UserService implements OnApplicationBootstrap {
     //busco a los recursos del rol para asignarlo al usuario
     const resourcesOfRol = await this.rrModel.findOne({ role: getRole._id });
 
+    //busco los modulos del rol para asignarlo al usuario
+    const modulesOfRol = await this.roleService.findModulesByOneRol(
+      String(resourcesOfRol.role),
+    );
+
     //data a enviar para el recurso del usuario
     const sendDataResource: Resource_User = {
       status: true,
@@ -259,8 +266,17 @@ export class UserService implements OnApplicationBootstrap {
       user: createdUser._id,
     };
 
-    //crea recursos
+    const sendDataSu: Services_User = {
+      status: true,
+      user: createdUser._id,
+      module: modulesOfRol.module,
+    };
+
+    //crea recursos al usuario
     await new this.ruModel(sendDataResource).save();
+
+    //crea modulos al usuario
+    await new this.suModel(sendDataSu).save();
 
     return createdUser.save();
   }
@@ -269,7 +285,7 @@ export class UserService implements OnApplicationBootstrap {
   async delete(id: string, user: any): Promise<boolean> {
     let result = false;
     const { findUser } = user;
-    const userToken = findUser.role.name;
+    const userToken = findUser.role;
     const findForbidden = await this.userModel.findById(id).populate([
       {
         path: 'role',
@@ -318,7 +334,7 @@ export class UserService implements OnApplicationBootstrap {
   async update(id: string, bodyUser: User, userToken: any): Promise<User> {
     const { status, role, password } = bodyUser;
     const { findUser } = userToken;
-    const rolToken = findUser.role.name;
+    const rolToken = findUser.role;
     const findForbidden = await this.userModel.findById(id).populate([
       {
         path: 'role',
@@ -368,7 +384,7 @@ export class UserService implements OnApplicationBootstrap {
   //Restore a single user
   async restore(id: string, userToken: any): Promise<boolean> {
     const { findUser } = userToken;
-    const rolToken = findUser.role.name;
+    const rolToken = findUser.role;
     const findForbidden = await this.userModel.findById(id).populate([
       {
         path: 'role',

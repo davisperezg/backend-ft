@@ -1,7 +1,7 @@
+import { CopyServicesDocument } from './../../services-users/schemas/cp-services-user';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { ModuleService } from 'src/module/services/module.service';
 import { Role, RoleDocument } from '../schemas/role.schema';
 import {
   Resource_User,
@@ -11,6 +11,12 @@ import {
   Resource_Role,
   Resource_RoleDocument,
 } from 'src/resources-roles/schemas/resources-role';
+import { User, UserDocument } from 'src/user/schemas/user.schema';
+import {
+  Services_User,
+  Services_UserDocument,
+} from 'src/services-users/schemas/services-user';
+import { CopyServices_User } from 'src/services-users/schemas/cp-services-user';
 
 @Injectable()
 export class RoleService {
@@ -20,7 +26,11 @@ export class RoleService {
     private ruModel: Model<Resource_UserDocument>,
     @InjectModel(Resource_Role.name)
     private rrModel: Model<Resource_RoleDocument>,
-    private readonly moduleService: ModuleService,
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(Services_User.name)
+    private suModel: Model<Services_UserDocument>,
+    @InjectModel(CopyServices_User.name)
+    private copySUModel: Model<CopyServicesDocument>,
   ) {}
 
   async findAllDeleted(): Promise<Role[]> {
@@ -74,13 +84,13 @@ export class RoleService {
       );
     }
 
-    const getModules = await this.moduleService.findbyNames(module);
-    const findModules = getModules.map((mo) => mo._id);
+    //const getModules = await this.moduleService.findbyNames(module);
+    //const findModules = getModules.map((mo) => mo._id);
 
     const modifyData: Role = {
       ...createRole,
       status: true,
-      module: findModules,
+      module,
       creator: findUser._id,
     };
 
@@ -120,16 +130,16 @@ export class RoleService {
 
       //no puedes editar el rol sa o owner
       if (
-        (findUser.role.name === 'OWNER' &&
+        (findUser.role === 'OWNER' &&
           findRole.name === 'SUPER ADMINISTRADOR' &&
           findRole.name !== name) ||
-        (findUser.role.name === 'OWNER' &&
+        (findUser.role === 'OWNER' &&
           findRole.name === 'OWNER' &&
           findRole.name !== name) ||
-        (findUser.role.name !== 'OWNER' &&
+        (findUser.role !== 'OWNER' &&
           findRole.name === 'SUPER ADMINISTRADOR' &&
           findRole.name !== name) ||
-        (findUser.role.name !== 'OWNER' &&
+        (findUser.role !== 'OWNER' &&
           findRole.name === 'OWNER' &&
           findRole.name !== name)
       ) {
@@ -155,15 +165,79 @@ export class RoleService {
       );
     }
 
-    const getModules = await this.moduleService.findbyNames(module);
-    const findModules = getModules.map((mo) => mo._id);
+    // const getModules = await this.moduleService.findbyNames(module);
+    // const findModules = getModules.map((mo) => mo._id);
 
-    const modifyData: Role = {
-      ...bodyRole,
-      module: findModules,
-    };
+    // const modifyData: Role = {
+    //   ...bodyRole,
+    //   module: findModules,
+    // };
 
-    return await this.roleModel.findByIdAndUpdate(id, modifyData, {
+    const users = await this.findUsersWithOneRole_Local(id);
+
+    if (users.length > 0) {
+      const arrayOfStringIds = users.map((format) => format._id);
+      const findCopysSU = await this.copySUModel.find({ status: true });
+
+      const modificados = [];
+      users.filter((a) => {
+        findCopysSU.filter((x) => {
+          if (String(x.user) === String(a._id)) {
+            modificados.push(a);
+          }
+        });
+      });
+
+      const noModificados = users.filter((fil) => !modificados.includes(fil));
+
+      noModificados.map(async (noMod) => {
+        //actualiza los mismo recursos enviados al rol hacia los usuarios que contienen el rol
+        await this.suModel.findOneAndUpdate(
+          {
+            user: noMod._id,
+            //resources: { $elemMatch: { userUpdated: false } },
+          },
+          { $set: { module: module } },
+          { new: true },
+        );
+      });
+
+      const findRUModifieds = await this.copySUModel.find({
+        user: { $in: arrayOfStringIds },
+      });
+
+      const dataSUMofied = findRUModifieds.map(async (ru) => {
+        const enru = await this.suModel.findOne({
+          user: ru.user,
+          status: true,
+        });
+
+        const buscarModificadosARU = enru.module.filter((t) =>
+          ru.module.includes(t),
+        );
+
+        return {
+          module: module
+            .filter(
+              (res: any) => !ru.module.map((a) => String(a)).includes(res),
+            )
+            .concat(buscarModificadosARU),
+          user: ru.user,
+        };
+      });
+
+      dataSUMofied.map(async (data) => {
+        await this.suModel.findOneAndUpdate(
+          { user: (await data).user },
+          {
+            module: (await data).module,
+          },
+          { new: true },
+        );
+      });
+    }
+
+    return await this.roleModel.findByIdAndUpdate(id, bodyRole, {
       new: true,
     });
   }
@@ -188,7 +262,7 @@ export class RoleService {
     let rolesFindDb = [];
 
     //Solo el owner puede ver todos lo roles
-    if (findUser.role.name === 'OWNER') {
+    if (findUser.role === 'OWNER') {
       rolesFindDb = await this.roleModel.find().populate([
         {
           path: 'module',
@@ -211,7 +285,7 @@ export class RoleService {
         ]);
     }
 
-    const myRol = findUser.role.name; //OWNER
+    const myRol = findUser.role; //OWNER
 
     if (myRol === 'OWNER') {
       listRoles = rolesFindDb.filter((role) => role.name !== 'OWNER');
@@ -228,7 +302,7 @@ export class RoleService {
     }
 
     let findRolesFiltered = [];
-    if (findUser.role.name !== 'OWNER') {
+    if (findUser.role !== 'OWNER') {
       findRolesFiltered = listRoles.map((rol) => {
         return {
           ...rol._doc,
@@ -272,7 +346,7 @@ export class RoleService {
         };
       }) || [];
 
-    return findUser.role.name === 'OWNER' ? toListRoles : toListFiltered;
+    return findUser.role === 'OWNER' ? toListRoles : toListFiltered;
   }
 
   async findOneCreator(role: string) {
@@ -296,44 +370,44 @@ export class RoleService {
       );
     }
 
-    const modules = rol.module;
-    const validaModules = [];
+    // const modules = rol.module;
+    // const validaModules = [];
 
-    if (user) {
-      const { findUser } = user;
+    // if (user) {
+    //   const { findUser } = user;
 
-      if (
-        findUser.role.name !== 'OWNER' ||
-        findUser.role.name !== 'SUPER ADMINISTRADOR'
-      ) {
-        findUser.role.modules.filter((mod) => {
-          modules.filter((mods) => {
-            if (mod.name === mods.name) {
-              validaModules.push(mod);
-            }
-          });
-        });
-      }
-    }
+    //   if (
+    //     findUser.role !== 'OWNER' ||
+    //     findUser.role !== 'SUPER ADMINISTRADOR'
+    //   ) {
+    //     findUser.role.modules.filter((mod) => {
+    //       modules.filter((mods) => {
+    //         if (mod.name === mods.name) {
+    //           validaModules.push(mod);
+    //         }
+    //       });
+    //     });
+    //   }
+    // }
 
-    const dataRol = {
-      ...rol._doc,
-      module: validaModules,
-    };
+    // const dataRol = {
+    //   ...rol._doc,
+    //   module: validaModules,
+    // };
 
-    //formatear modulos
-    const toListRol = {
-      ...rol._doc,
-      module: rol._doc.module.map((format) => format.name),
-    };
+    // //formatear modulos
+    // const toListRol = {
+    //   ...rol._doc,
+    //   module: rol._doc.module.map((format) => format._id),
+    // };
 
-    //formatear modulos
+    // //formatear modulos
     const toListData = {
-      ...dataRol,
-      module: rol._doc.module.map((format) => format.name),
+      ...rol._doc,
+      module: rol._doc.module.map((format) => format._id),
     };
 
-    return user?.findUser.role.name === 'OWNER' ? toListRol : toListData;
+    return toListData;
   }
 
   async findRoleByName(role: string): Promise<RoleDocument> {
@@ -355,5 +429,21 @@ export class RoleService {
 
   async findRoleByNames(name: string[]): Promise<RoleDocument[]> {
     return await this.roleModel.find({ name: { $in: name }, status: true });
+  }
+
+  async findModulesByOneRol(idRol: string): Promise<RoleDocument> {
+    return await this.roleModel.findById(idRol);
+  }
+
+  async findUsersWithOneRole_Local(idRol: string): Promise<any> {
+    const users = await this.userModel.find({ role: idRol as any });
+    return users;
+  }
+
+  async findOneRolAndUpdateUsersModules_Local(
+    isUsers: string[],
+  ): Promise<Services_UserDocument[]> {
+    const users = await this.suModel.find({ user: { $in: isUsers as any } });
+    return users;
   }
 }

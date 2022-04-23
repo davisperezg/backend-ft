@@ -29,6 +29,15 @@ import {
   CopyResource_User,
   CopyResource_UserSchema,
 } from 'src/resources-users/schemas/cp-resource-user';
+import {
+  ServicesUserSchema,
+  Services_User,
+} from 'src/services-users/schemas/services-user';
+import {
+  CopyServicesSchema,
+  CopyServices_User,
+} from 'src/services-users/schemas/cp-services-user';
+import { ServicesUsersService } from 'src/services-users/services/services-users.service';
 
 @Module({
   imports: [
@@ -45,6 +54,8 @@ import {
       { name: Resource_Role.name, schema: Resource_RoleSchema },
       { name: Resource_User.name, schema: Resource_UserSchema },
       { name: CopyResource_User.name, schema: CopyResource_UserSchema },
+      { name: Services_User.name, schema: ServicesUserSchema },
+      { name: CopyServices_User.name, schema: CopyServicesSchema },
     ]),
   ],
   controllers: [AuthController],
@@ -58,6 +69,7 @@ import {
     ModuleService,
     MenuService,
     ResourceService,
+    ServicesUsersService,
   ],
 })
 export class AuthModule {}

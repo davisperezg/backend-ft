@@ -1,6 +1,8 @@
 import {
+  forwardRef,
   HttpException,
   HttpStatus,
+  Inject,
   Injectable,
   OnApplicationBootstrap,
 } from '@nestjs/common';
@@ -9,15 +11,18 @@ import { Module, ModuleDocument } from '../schemas/module.schema';
 import { Model } from 'mongoose';
 import { MenuService } from 'src/menu/services/menu.service';
 import { RoleDocument } from 'src/role/schemas/role.schema';
-import { UserDocument } from 'src/user/schemas/user.schema';
+import { ServicesUsersService } from 'src/services-users/services/services-users.service';
+import { UserService } from 'src/user/services/user.service';
 
 @Injectable()
 export class ModuleService implements OnApplicationBootstrap {
   constructor(
     @InjectModel(Module.name) private moduleModel: Model<ModuleDocument>,
     @InjectModel('Role') private roleModel: Model<RoleDocument>,
-    @InjectModel('User') private userModel: Model<UserDocument>,
     private readonly menuService: MenuService,
+    @Inject(forwardRef(() => ServicesUsersService))
+    private readonly suService: ServicesUsersService,
+    private readonly userService: UserService,
   ) {}
 
   async onApplicationBootstrap() {
@@ -71,13 +76,11 @@ export class ModuleService implements OnApplicationBootstrap {
         'Consultas y Reportes',
       ]);
 
-      const findModules = getModules.map((mo) => mo._id);
-
       await Promise.all([
         new this.roleModel({
           name: 'OWNER',
           status: true,
-          module: findModules,
+          module: getModules,
           creator: null,
         }).save(),
         new this.roleModel({
@@ -86,15 +89,27 @@ export class ModuleService implements OnApplicationBootstrap {
           creator: null,
         }).save(),
       ]);
+
+      const findOwner = await this.roleModel.findOne({ name: 'OWNER' });
+
+      setTimeout(async () => {
+        const findUser = await this.userService.findUserByIdRol(findOwner._id);
+        const dataUser = {
+          user: findUser._id,
+          module: getModules,
+        };
+
+        await this.suService.create(dataUser);
+      }, 15000);
     } catch (e) {
       throw new Error(`Error en ModuleService.onModuleInit ${e}`);
     }
   }
 
-  async findAll(user: any): Promise<Module[]> {
+  async findAll(user: any): Promise<Module[] | any> {
     const { findUser } = user;
     let modules = [];
-    if (findUser.role.name === 'OWNER') {
+    if (findUser.role === 'OWNER') {
       modules = await this.moduleModel.find().populate({
         path: 'menu',
       });
@@ -107,11 +122,12 @@ export class ModuleService implements OnApplicationBootstrap {
           path: 'menu',
         });
       console.log('modulesByCreator x1', modulesByCreator);
-      modules = findUser.role.modules;
+      //modules = findUser.role.modules;
+      modules = await this.suService.findModulesByUser(findUser._id);
     }
 
     const formated = modules
-      .map((mod) => mod.name)
+      .map((mod) => ({ label: mod.name, value: mod._id }))
       .sort((a, b) => {
         if (a > b) {
           return 1;
@@ -129,7 +145,7 @@ export class ModuleService implements OnApplicationBootstrap {
   async listModules(user: any): Promise<Module[]> {
     const { findUser } = user;
     let modules = [];
-    if (findUser.role.name === 'OWNER') {
+    if (findUser.role === 'OWNER') {
       modules = await this.moduleModel
         .find({
           $or: [{ creator: null }, { creator: findUser._id }],
@@ -146,8 +162,9 @@ export class ModuleService implements OnApplicationBootstrap {
           path: 'menu',
         });
       console.log('modulesByCreator x2', modulesByCreator);
-      console.log(findUser.role.modules);
-      modules = findUser.role.modules.concat(modulesByCreator);
+      const myModules = await this.suService.findModulesByUser(findUser._id);
+      console.log(myModules);
+      modules = myModules.concat(modulesByCreator);
     }
 
     const formated = modules.sort((a, b) => {
@@ -276,17 +293,17 @@ export class ModuleService implements OnApplicationBootstrap {
       );
     }
 
-    const findModByName = await this.moduleModel.findById(id);
-    if (findModByName.creator === null) {
-      throw new HttpException(
-        {
-          status: HttpStatus.UNAUTHORIZED,
-          type: 'UNAUTHORIZED',
-          message: 'Unauthorized Exception',
-        },
-        HttpStatus.UNAUTHORIZED,
-      );
-    }
+    // const findModByName = await this.moduleModel.findById(id);
+    // if (findModByName.creator === null) {
+    //   throw new HttpException(
+    //     {
+    //       status: HttpStatus.UNAUTHORIZED,
+    //       type: 'UNAUTHORIZED',
+    //       message: 'Unauthorized Exception',
+    //     },
+    //     HttpStatus.UNAUTHORIZED,
+    //   );
+    // }
 
     const getMenus = await this.menuService.findbyName(menu);
     const findMenus = getMenus.map((men) => men._id);
@@ -313,5 +330,12 @@ export class ModuleService implements OnApplicationBootstrap {
     }
 
     return result;
+  }
+
+  async findModulesIds(ids: string[]): Promise<ModuleDocument[]> {
+    return await this.moduleModel.find({
+      _id: { $in: ids },
+      status: true,
+    });
   }
 }
