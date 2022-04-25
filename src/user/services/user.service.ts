@@ -227,7 +227,7 @@ export class UserService implements OnApplicationBootstrap {
     //Solo el owner puede regisrar otro owner y otro sa, si el token detecta que no es owner se valida y bota error
     if (
       (findUser.role !== 'OWNER' && getRole.name === 'OWNER') ||
-      (findUser.role !== 'OWNER' && getRole.name === 'SUPER ADMINISTRADOR')
+      (findUser.role === 'OWNER' && getRole.name === 'OWNER')
     ) {
       throw new HttpException(
         {

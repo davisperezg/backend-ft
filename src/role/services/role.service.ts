@@ -1,5 +1,11 @@
 import { CopyServicesDocument } from './../../services-users/schemas/cp-services-user';
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import {
+  forwardRef,
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Role, RoleDocument } from '../schemas/role.schema';
@@ -17,6 +23,7 @@ import {
   Services_UserDocument,
 } from 'src/services-users/schemas/services-user';
 import { CopyServices_User } from 'src/services-users/schemas/cp-services-user';
+import { ModuleService } from 'src/module/services/module.service';
 
 @Injectable()
 export class RoleService {
@@ -31,6 +38,8 @@ export class RoleService {
     private suModel: Model<Services_UserDocument>,
     @InjectModel(CopyServices_User.name)
     private copySUModel: Model<CopyServicesDocument>,
+    @Inject(forwardRef(() => ModuleService))
+    private readonly moduleService: ModuleService,
   ) {}
 
   async findAllDeleted(): Promise<Role[]> {
@@ -52,7 +61,7 @@ export class RoleService {
           type: 'BAD_REQUEST',
           message: 'Completar el campo nombre.',
         },
-        HttpStatus.CONFLICT,
+        HttpStatus.BAD_REQUEST,
       );
     }
 
@@ -64,9 +73,15 @@ export class RoleService {
           type: 'BAD_REQUEST',
           message: 'El rol debe tener al menos un modulo.',
         },
-        HttpStatus.CONFLICT,
+        HttpStatus.BAD_REQUEST,
       );
     }
+
+    //Validamos si los modulos entrantes existen o estan inactivos
+    const arrayToString: string[] = Object.keys(module).map(
+      (mod) => module[mod],
+    );
+    await this.moduleService.findModulesIds(arrayToString);
 
     const findRoles = await this.roleModel.find({ name });
     const getRolByCreator = findRoles.find(
@@ -126,22 +141,19 @@ export class RoleService {
     const { status, module, name } = bodyRole;
     if (user) {
       const { findUser } = user;
-      const findRole = await this.roleModel.findOne({ _id: id });
+      //buscar lo que tenia
+      const findRole = await this.roleModel.findById(id);
 
-      //no puedes editar el rol sa o owner
+      //validacion de, el rol owner no puede modificarse ni modificarse al mismo name "owner". Tambien validamos que cuaquier otro rol no puede modificar el rol owner ni ponerle otro nombre al rol
       if (
+        (findUser.role === 'OWNER' && findRole.name === 'OWNER') ||
         (findUser.role === 'OWNER' &&
-          findRole.name === 'SUPER ADMINISTRADOR' &&
-          findRole.name !== name) ||
-        (findUser.role === 'OWNER' &&
-          findRole.name === 'OWNER' &&
-          findRole.name !== name) ||
+          findRole.name !== 'OWNER' &&
+          String(name).toUpperCase() === 'OWNER') ||
+        (findUser.role !== 'OWNER' && findRole.name === 'OWNER') ||
         (findUser.role !== 'OWNER' &&
-          findRole.name === 'SUPER ADMINISTRADOR' &&
-          findRole.name !== name) ||
-        (findUser.role !== 'OWNER' &&
-          findRole.name === 'OWNER' &&
-          findRole.name !== name)
+          findRole.name !== 'OWNER' &&
+          String(name).toUpperCase() === 'OWNER')
       ) {
         throw new HttpException(
           {
@@ -256,14 +268,13 @@ export class RoleService {
     return result;
   }
 
-  async findAll(user: any): Promise<Role[]> {
+  async findAll(user: any): Promise<RoleDocument[] | any[]> {
     const { findUser } = user;
     let listRoles = [];
-    let rolesFindDb = [];
 
     //Solo el owner puede ver todos lo roles
     if (findUser.role === 'OWNER') {
-      rolesFindDb = await this.roleModel.find().populate([
+      const rolesFindDb = await this.roleModel.find().populate([
         {
           path: 'module',
         },
@@ -271,9 +282,10 @@ export class RoleService {
           path: 'creator',
         },
       ]);
+      listRoles = rolesFindDb.filter((role) => role.name !== 'OWNER');
     } else {
       //Cualquier otro usuario puede ver sus roles creados por el mismo
-      rolesFindDb = await this.roleModel
+      const rolesFindDb = await this.roleModel
         .find({ creator: findUser._id })
         .populate([
           {
@@ -283,70 +295,23 @@ export class RoleService {
             path: 'creator',
           },
         ]);
-    }
-
-    const myRol = findUser.role; //OWNER
-
-    if (myRol === 'OWNER') {
       listRoles = rolesFindDb.filter((role) => role.name !== 'OWNER');
-    } else {
-      const rolPadre = await this.findOneCreator(findUser._id);
-      //findUser.creator.role?.name
-      listRoles = rolesFindDb.filter(
-        (role) =>
-          role.name !== 'OWNER' &&
-          role.name !== 'SUPER ADMINISTRADOR' &&
-          role.name !== myRol &&
-          role.name !== rolPadre,
-      );
     }
 
-    let findRolesFiltered = [];
-    if (findUser.role !== 'OWNER') {
-      findRolesFiltered = listRoles.map((rol) => {
-        return {
-          ...rol._doc,
-          module: rol._doc.module.filter((mod2) => {
-            if (findUser.role.modules.some((mod1) => mod1.name === mod2.name)) {
-              return {
-                ...mod2._doc,
-                name: mod2.name,
-              };
-            }
-          }),
-        };
-      });
-
-      const promiseArray = findRolesFiltered.map(async (flts) => {
-        const data = {
-          module: flts.module.map((mod) => mod.name),
-        };
-        await this.update(flts._id, data);
-      });
-      await Promise.all(promiseArray);
-    }
-
-    //formatear modulos
-    const toListRoles = listRoles.map((format) => {
+    //console.log(listRoles);
+    const sentToFront = listRoles.map((rol) => {
       return {
-        ...format._doc,
-        module: format.module.map((format) => format.name),
-        creator: format.creator
-          ? format.creator.name + ' ' + format.creator.lastname
+        _id: rol._id,
+        name: rol.name,
+        status: rol.status,
+        description: rol.description,
+        creator: rol.creator
+          ? rol.creator.name + ' ' + rol.creator.lastname
           : 'NINGUNO',
       };
     });
-    //formatear modulos
-    const toListFiltered =
-      findRolesFiltered?.map((format) => {
-        return {
-          ...format,
-          module: format.module.map((format) => format.name),
-          creator: format.creator.name + ' ' + format.creator.lastname,
-        };
-      }) || [];
 
-    return findUser.role === 'OWNER' ? toListRoles : toListFiltered;
+    return sentToFront;
   }
 
   async findOneCreator(role: string) {

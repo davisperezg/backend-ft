@@ -83,11 +83,6 @@ export class ModuleService implements OnApplicationBootstrap {
           module: getModules,
           creator: null,
         }).save(),
-        new this.roleModel({
-          name: 'SUPER ADMINISTRADOR',
-          status: true,
-          creator: null,
-        }).save(),
       ]);
 
       const findOwner = await this.roleModel.findOne({ name: 'OWNER' });
@@ -106,28 +101,40 @@ export class ModuleService implements OnApplicationBootstrap {
     }
   }
 
+  //lista los modulos en roles
   async findAll(user: any): Promise<Module[] | any> {
     const { findUser } = user;
     let modules = [];
     if (findUser.role === 'OWNER') {
-      modules = await this.moduleModel.find().populate({
-        path: 'menu',
-      });
-    } else {
-      const modulesByCreator = await this.moduleModel
+      modules = await this.moduleModel
         .find({
-          creator: { $in: findUser._id },
+          $or: [{ creator: findUser._id }, { creator: null }],
         })
         .populate({
           path: 'menu',
         });
-      console.log('modulesByCreator x1', modulesByCreator);
-      //modules = findUser.role.modules;
-      modules = await this.suService.findModulesByUser(findUser._id);
+    } else {
+      const modulesCreateds = await this.moduleModel
+        .find({
+          creator: findUser._id,
+        })
+        .populate({
+          path: 'menu',
+        });
+
+      const myModulesAssigneds = await this.suService.findModulesByUser(
+        findUser._id,
+      );
+
+      modules = myModulesAssigneds.concat(modulesCreateds);
     }
 
     const formated = modules
-      .map((mod) => ({ label: mod.name, value: mod._id }))
+      .map((mod) => ({
+        label: mod.name,
+        value: mod._id,
+        disabled: mod.status ? false : true,
+      }))
       .sort((a, b) => {
         if (a > b) {
           return 1;
@@ -142,6 +149,7 @@ export class ModuleService implements OnApplicationBootstrap {
     return formated;
   }
 
+  //lista los modulos en el crud
   async listModules(user: any): Promise<Module[]> {
     const { findUser } = user;
     let modules = [];
@@ -161,10 +169,8 @@ export class ModuleService implements OnApplicationBootstrap {
         .populate({
           path: 'menu',
         });
-      console.log('modulesByCreator x2', modulesByCreator);
-      const myModules = await this.suService.findModulesByUser(findUser._id);
-      console.log(myModules);
-      modules = myModules.concat(modulesByCreator);
+
+      modules = modulesByCreator;
     }
 
     const formated = modules.sort((a, b) => {
@@ -181,9 +187,24 @@ export class ModuleService implements OnApplicationBootstrap {
   }
 
   async findOne(id: string): Promise<Module> {
-    return await this.moduleModel.findOne({ _id: id }).populate({
-      path: 'menu',
-    });
+    const module = await this.moduleModel
+      .findOne({ _id: id, status: true })
+      .populate({
+        path: 'menu',
+      });
+
+    if (!module) {
+      throw new HttpException(
+        {
+          status: HttpStatus.BAD_REQUEST,
+          type: 'BAD_REQUEST',
+          message: 'El modulo no existe o está inactivo.',
+        },
+        HttpStatus.CONFLICT,
+      );
+    }
+
+    return module;
   }
 
   async findAllDeleted(): Promise<Module[]> {
@@ -244,7 +265,8 @@ export class ModuleService implements OnApplicationBootstrap {
         {
           status: HttpStatus.CONFLICT,
           type: 'UNIQUE',
-          message: 'Item cannot be created',
+          message:
+            'El modulo ya ha sido creado o ya lo tienes asignado. Si ya lo tienes asignado puedes aplicarlo desde roles.',
         },
         HttpStatus.CONFLICT,
       );
@@ -279,8 +301,9 @@ export class ModuleService implements OnApplicationBootstrap {
   }
 
   //Put a single module
-  async update(id: string, bodyModule: Module): Promise<Module> {
+  async update(id: string, bodyModule: Module, user: any): Promise<Module> {
     const { status, menu } = bodyModule;
+    const { findUser } = user;
 
     if (status) {
       throw new HttpException(
@@ -293,17 +316,33 @@ export class ModuleService implements OnApplicationBootstrap {
       );
     }
 
-    // const findModByName = await this.moduleModel.findById(id);
-    // if (findModByName.creator === null) {
-    //   throw new HttpException(
-    //     {
-    //       status: HttpStatus.UNAUTHORIZED,
-    //       type: 'UNAUTHORIZED',
-    //       message: 'Unauthorized Exception',
-    //     },
-    //     HttpStatus.UNAUTHORIZED,
-    //   );
-    // }
+    //Si no hay modulos ingresados
+    if (!menu || menu.length === 0) {
+      throw new HttpException(
+        {
+          status: HttpStatus.BAD_REQUEST,
+          type: 'BAD_REQUEST',
+          message: 'El modulo debe tener al menos un menu.',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const findModulesForbidden = await this.findOne(id);
+    if (
+      findUser.role !== 'OWNER' &&
+      String(findModulesForbidden.creator).toLowerCase() !==
+        String(findUser._id).toLowerCase()
+    ) {
+      throw new HttpException(
+        {
+          status: HttpStatus.UNAUTHORIZED,
+          type: 'UNAUTHORIZED',
+          message: 'Unauthorized Exception',
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
 
     const getMenus = await this.menuService.findbyName(menu);
     const findMenus = getMenus.map((men) => men._id);
@@ -333,9 +372,24 @@ export class ModuleService implements OnApplicationBootstrap {
   }
 
   async findModulesIds(ids: string[]): Promise<ModuleDocument[]> {
-    return await this.moduleModel.find({
+    const modules = await this.moduleModel.find({
       _id: { $in: ids },
-      status: true,
     });
+
+    const modulesDesctivateds = modules.filter((mod) => mod.status === false);
+
+    if (modulesDesctivateds.length > 0) {
+      const showNames = modulesDesctivateds.map((mod) => mod.name);
+      throw new HttpException(
+        {
+          status: HttpStatus.BAD_REQUEST,
+          type: 'BAD_REQUEST',
+          message: `Los modulos [${showNames}] no existen o esta inactivos.`,
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    return modules;
   }
 }

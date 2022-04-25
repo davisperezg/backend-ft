@@ -80,8 +80,9 @@ export class ModuleController {
     @Res() res,
     @Param('id') id: string,
     @Body() createMenu: Module,
+    @CtxUser() user: any,
   ): Promise<Module> {
-    const moduleUpdated = await this.moduleService.update(id, createMenu);
+    const moduleUpdated = await this.moduleService.update(id, createMenu, user);
     return res.status(HttpStatus.OK).json({
       message: 'Module Updated Successfully',
       moduleUpdated,

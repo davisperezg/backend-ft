@@ -55,22 +55,11 @@ export class ResourcesRolesService implements OnApplicationBootstrap {
           String('OWNER'),
         );
 
-        const getRoleSA = await this.roleService.findRoleByName(
-          String('SUPER ADMINISTRADOR'),
-        );
-
-        await this.rrModel.insertMany([
-          {
-            role: getRoleOwner._id,
-            resource: getIdsResources,
-            status: true,
-          },
-          {
-            role: getRoleSA._id,
-            resource: getIdsResources,
-            status: true,
-          },
-        ]);
+        await new this.rrModel({
+          role: getRoleOwner._id,
+          resource: getIdsResources,
+          status: true,
+        }).save();
       }, 6000);
     } catch (e) {
       throw new Error(`Error en RRService.onModuleInit ${e}`);

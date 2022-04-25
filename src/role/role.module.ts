@@ -1,5 +1,12 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
+import { Menu, MenuSchema } from 'src/menu/schemas/menu.schema';
+import { MenuService } from 'src/menu/services/menu.service';
+import {
+  ModuleSchema,
+  Module as ModuleEntity,
+} from 'src/module/schemas/module.schema';
+import { ModuleService } from 'src/module/services/module.service';
 import {
   Resource_Role,
   Resource_RoleSchema,
@@ -16,7 +23,9 @@ import {
   ServicesUserSchema,
   Services_User,
 } from 'src/services-users/schemas/services-user';
+import { ServicesUsersService } from 'src/services-users/services/services-users.service';
 import { User, UserSchema } from 'src/user/schemas/user.schema';
+import { UserService } from 'src/user/services/user.service';
 import { RoleController } from './controllers/role.controller';
 import { Role, RoleSchema } from './schemas/role.schema';
 import { RoleService } from './services/role.service';
@@ -30,9 +39,17 @@ import { RoleService } from './services/role.service';
       { name: User.name, schema: UserSchema },
       { name: Services_User.name, schema: ServicesUserSchema },
       { name: CopyServices_User.name, schema: CopyServicesSchema },
+      { name: ModuleEntity.name, schema: ModuleSchema },
+      { name: Menu.name, schema: MenuSchema },
     ]),
   ],
   controllers: [RoleController],
-  providers: [RoleService],
+  providers: [
+    RoleService,
+    ModuleService,
+    MenuService,
+    ServicesUsersService,
+    UserService,
+  ],
 })
 export class RoleModule {}

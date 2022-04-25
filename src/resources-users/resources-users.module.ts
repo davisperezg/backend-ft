@@ -25,6 +25,14 @@ import {
   CopyServicesSchema,
   CopyServices_User,
 } from 'src/services-users/schemas/cp-services-user';
+import { ModuleService } from 'src/module/services/module.service';
+import {
+  ModuleSchema,
+  Module as ModuleEntity,
+} from 'src/module/schemas/module.schema';
+import { MenuService } from 'src/menu/services/menu.service';
+import { Menu, MenuSchema } from 'src/menu/schemas/menu.schema';
+import { ServicesUsersService } from 'src/services-users/services/services-users.service';
 
 @Module({
   imports: [
@@ -37,9 +45,19 @@ import {
       { name: Resource_Role.name, schema: Resource_RoleSchema },
       { name: Services_User.name, schema: ServicesUserSchema },
       { name: CopyServices_User.name, schema: CopyServicesSchema },
+      { name: ModuleEntity.name, schema: ModuleSchema },
+      { name: Menu.name, schema: MenuSchema },
     ]),
   ],
-  providers: [ResourcesUsersService, ResourceService, RoleService, UserService],
+  providers: [
+    ResourcesUsersService,
+    ResourceService,
+    RoleService,
+    UserService,
+    ModuleService,
+    MenuService,
+    ServicesUsersService,
+  ],
   controllers: [ResourcesUsersController],
 })
 export class ResourcesUsersModule {}
