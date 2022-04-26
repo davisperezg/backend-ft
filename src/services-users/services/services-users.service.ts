@@ -116,7 +116,7 @@ export class ServicesUsersService {
     id: string,
     bodySU: Services_User,
   ): Promise<Services_User | any> {
-    const { status, user, module } = bodySU;
+    const { status, user, module: modulesBody } = bodySU;
 
     let findServiceToData;
     //no se permite el ingreso del estado
@@ -180,9 +180,9 @@ export class ServicesUsersService {
     const { user: userRegistered, module: servicesRegistered } = findSU;
 
     //si existe servicios en el body, buscar los ids
-    if (module) {
-      const servicesInput: string[] = Object.keys(module).map(
-        (res) => module[res],
+    if (modulesBody) {
+      const servicesInput: string[] = Object.keys(modulesBody).map(
+        (res) => modulesBody[res],
       );
 
       findServiceToData = await this.moduleService.findModulesIds(
@@ -194,7 +194,7 @@ export class ServicesUsersService {
     const modifyData: Services_User = {
       ...bodySU,
       user: user ? user : userRegistered,
-      module: module ? findServiceToData : servicesRegistered,
+      module: modulesBody ? findServiceToData : servicesRegistered,
     };
 
     //lo formateo para poder hacer la consulta con los registrado
@@ -220,6 +220,7 @@ export class ServicesUsersService {
 
       const findResourceToDataRU = await this.moduleService.findModulesIds(
         iranAModificados,
+        false,
       );
 
       await new this.copySuModel({
@@ -316,6 +317,7 @@ export class ServicesUsersService {
       //busca los recursos segun los id quue recibe
       const finServicesToDataSU = await this.moduleService.findModulesIds(
         formatRegisteredModifieds.concat(enviarModificados),
+        false,
       );
 
       //enviar al esquema modificados

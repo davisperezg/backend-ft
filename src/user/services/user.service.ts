@@ -123,7 +123,7 @@ export class UserService implements OnApplicationBootstrap {
   }
 
   async findAllDeleted(): Promise<User[]> {
-    return this.userModel.find({ status: false }).populate({
+    return await this.userModel.find({ status: false }).populate({
       path: 'role',
     });
   }
@@ -146,8 +146,6 @@ export class UserService implements OnApplicationBootstrap {
 
     if (
       (findForbidden.role.name === 'OWNER' && rolToken !== 'OWNER') ||
-      (findForbidden.role.name === 'SUPER ADMINISTRADOR' &&
-        rolToken !== 'OWNER') ||
       (findForbidden.creator.email !== findUser.email && rolToken !== 'OWNER')
     ) {
       throw new HttpException(
@@ -194,11 +192,11 @@ export class UserService implements OnApplicationBootstrap {
           type: 'BAD_REQUEST',
           message: 'No puedes crear un email ya registrado.',
         },
-        HttpStatus.CONFLICT,
+        HttpStatus.BAD_REQUEST,
       );
     }
 
-    //verifica si existe el email
+    //verifica si existe el nro documento
     if (findNroExists) {
       throw new HttpException(
         {
@@ -206,7 +204,7 @@ export class UserService implements OnApplicationBootstrap {
           type: 'BAD_REQUEST',
           message: 'No puedes crear un Nro. de documento ya registrado.',
         },
-        HttpStatus.CONFLICT,
+        HttpStatus.BAD_REQUEST,
       );
     }
 
@@ -218,13 +216,13 @@ export class UserService implements OnApplicationBootstrap {
           type: 'BAD_REQUEST',
           message: 'Completar el campo rol.',
         },
-        HttpStatus.CONFLICT,
+        HttpStatus.BAD_REQUEST,
       );
     }
     const passwordHashed = await hashPassword(password);
     const getRole = await this.roleService.findRoleById(String(role));
 
-    //Solo el owner puede regisrar otro owner y otro sa, si el token detecta que no es owner se valida y bota error
+    //Ni el owner ni otro usuario puede registrar a otro owner
     if (
       (findUser.role !== 'OWNER' && getRole.name === 'OWNER') ||
       (findUser.role === 'OWNER' && getRole.name === 'OWNER')
@@ -285,7 +283,7 @@ export class UserService implements OnApplicationBootstrap {
   async delete(id: string, user: any): Promise<boolean> {
     let result = false;
     const { findUser } = user;
-    const userToken = findUser.role;
+    const rolToken = findUser.role;
     const findForbidden = await this.userModel.findById(id).populate([
       {
         path: 'role',
@@ -295,11 +293,11 @@ export class UserService implements OnApplicationBootstrap {
       },
     ]);
 
+    //Ni el owner ni cualquier otro usuario puede eliminar al owner
     if (
-      (findForbidden.role.name === 'OWNER' && userToken !== 'OWNER') ||
-      (findForbidden.role.name === 'SUPER ADMINISTRADOR' &&
-        userToken !== 'OWNER') ||
-      (findForbidden.creator.email !== findUser.email && userToken !== 'OWNER')
+      (findForbidden.role.name === 'OWNER' && rolToken !== 'OWNER') ||
+      (findForbidden.role.name === 'OWNER' && rolToken === 'OWNER') ||
+      (findForbidden.creator.email !== findUser.email && rolToken !== 'OWNER')
     ) {
       throw new HttpException(
         {
@@ -332,7 +330,7 @@ export class UserService implements OnApplicationBootstrap {
 
   //Put a single user
   async update(id: string, bodyUser: User, userToken: any): Promise<User> {
-    const { status, role, password } = bodyUser;
+    const { status, role, password, nroDocument, email } = bodyUser;
     const { findUser } = userToken;
     const rolToken = findUser.role;
     const findForbidden = await this.userModel.findById(id).populate([
@@ -344,11 +342,44 @@ export class UserService implements OnApplicationBootstrap {
       },
     ]);
 
+    //validar que el nro de documento o email actualizados no pertenezcan a otro usuario
+    const findNroDocument = await this.userModel.findOne({ nroDocument });
+    const findEmail = await this.userModel.findOne({ email });
+
+    if (
+      String(findNroDocument._id).toLowerCase() !==
+      String(findForbidden._id).toLowerCase()
+    ) {
+      throw new HttpException(
+        {
+          status: HttpStatus.BAD_REQUEST,
+          type: 'BAD_REQUEST',
+          message:
+            'El nro de documento ya le pertenece a otro usuario registrado.',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    if (
+      String(findEmail._id).toLowerCase() !==
+      String(findForbidden._id).toLowerCase()
+    ) {
+      throw new HttpException(
+        {
+          status: HttpStatus.BAD_REQUEST,
+          type: 'BAD_REQUEST',
+          message:
+            'El username o email ya le pertenece a otro usuario registrado.',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    //el usuario no puede actualizar otro rol a owner o si encuentra que el usuario del owner esta siendo modificado tampoco puede actualizar
     if (
       (findForbidden.role.name === 'OWNER' && rolToken !== 'OWNER') ||
-      (findForbidden.role.name === 'SUPER ADMINISTRADOR' &&
-        rolToken !== 'OWNER') ||
-      (findForbidden.creator.email !== findUser.email && userToken !== 'OWNER')
+      (findForbidden.creator.email !== findUser.email && rolToken !== 'OWNER')
     ) {
       throw new HttpException(
         {
@@ -394,10 +425,10 @@ export class UserService implements OnApplicationBootstrap {
       },
     ]);
 
+    //Ni el owner ni cualquier otro usuario permite retaurar al owner
     if (
       (findForbidden.role.name === 'OWNER' && rolToken !== 'OWNER') ||
-      (findForbidden.role.name === 'SUPER ADMINISTRADOR' &&
-        rolToken !== 'OWNER') ||
+      (findForbidden.role.name === 'OWNER' && rolToken === 'OWNER') ||
       (findForbidden.creator.email !== findUser.email && rolToken !== 'OWNER')
     ) {
       throw new HttpException(
