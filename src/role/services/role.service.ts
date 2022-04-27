@@ -81,7 +81,7 @@ export class RoleService {
     const arrayToString: string[] = Object.keys(module).map(
       (mod) => module[mod],
     );
-    await this.moduleService.findModulesIds(arrayToString);
+    await this.moduleService.findModulesIds(arrayToString, true);
 
     const findRoles = await this.roleModel.find({ name });
     const getRolByCreator = findRoles.find(
@@ -177,13 +177,11 @@ export class RoleService {
       );
     }
 
-    // const getModules = await this.moduleService.findbyNames(module);
-    // const findModules = getModules.map((mo) => mo._id);
-
-    // const modifyData: Role = {
-    //   ...bodyRole,
-    //   module: findModules,
-    // };
+    //Validamos si los modulos entrantes existen o estan inactivos
+    const arrayToString: string[] = Object.keys(module).map(
+      (mod) => module[mod],
+    );
+    await this.moduleService.findModulesIds(arrayToString, true);
 
     const users = await this.findUsersWithOneRole_Local(id);
 
