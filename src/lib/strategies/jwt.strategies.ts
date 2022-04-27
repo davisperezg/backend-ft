@@ -1,4 +1,9 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { AuthService } from 'src/auth/services/auth.service';
@@ -51,14 +56,22 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         ...format,
         role: {
           ...format.role._doc,
-          module:
-            myUser.role.name === 'OWNER' ||
-            myUser.role.name === 'SUPER ADMINISTRADOR'
-              ? modulesTrues
-              : validaModules,
+          module: myUser.role.name === 'OWNER' ? modulesTrues : validaModules,
         },
       };
     })[0];
+
+    //si el usuario tiene estado false se cierra el acceso al sistema
+    if (findUser.status === false) {
+      throw new HttpException(
+        {
+          status: HttpStatus.UNAUTHORIZED,
+          type: 'UNAUTHORIZED',
+          message: 'Unauthorized Exception',
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
 
     const findResource = await this.ruService.findOneResourceByUser(
       findUser._id,
