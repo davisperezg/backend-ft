@@ -220,7 +220,6 @@ export class ServicesUsersService {
 
       const findResourceToDataRU = await this.moduleService.findModulesIds(
         iranAModificados,
-        false,
       );
 
       await new this.copySuModel({
@@ -317,7 +316,6 @@ export class ServicesUsersService {
       //busca los recursos segun los id quue recibe
       const finServicesToDataSU = await this.moduleService.findModulesIds(
         formatRegisteredModifieds.concat(enviarModificados),
-        false,
       );
 
       //enviar al esquema modificados

@@ -371,28 +371,26 @@ export class ModuleService implements OnApplicationBootstrap {
     return result;
   }
 
-  async findModulesIds(
-    ids: string[],
-    validate?: boolean,
-  ): Promise<ModuleDocument[]> {
+  async findModulesIds(ids: string[]): Promise<ModuleDocument[]> {
     const modules = await this.moduleModel.find({
       _id: { $in: ids },
+      status: true,
     });
 
-    if (validate || validate === undefined) {
-      const modulesDesctivateds = modules.filter((mod) => mod.status === false);
-      if (modulesDesctivateds.length > 0) {
-        const showNames = modulesDesctivateds.map((mod) => mod.name);
-        throw new HttpException(
-          {
-            status: HttpStatus.BAD_REQUEST,
-            type: 'BAD_REQUEST',
-            message: `Los modulos [${showNames}] no existen o esta inactivos.`,
-          },
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-    }
+    // if (validate || validate === undefined) {
+    //   const modulesDesctivateds = modules.filter((mod) => mod.status === false);
+    //   if (modulesDesctivateds.length > 0) {
+    //     const showNames = modulesDesctivateds.map((mod) => mod.name);
+    //     throw new HttpException(
+    //       {
+    //         status: HttpStatus.BAD_REQUEST,
+    //         type: 'BAD_REQUEST',
+    //         message: `Los modulos [${showNames}] no existen o esta inactivos.`,
+    //       },
+    //       HttpStatus.BAD_REQUEST,
+    //     );
+    //   }
+    // }
 
     return modules;
   }

@@ -345,7 +345,7 @@ export class UserService implements OnApplicationBootstrap {
     //validar que el nro de documento o email actualizados no pertenezcan a otro usuario
     const findNroDocument = await this.userModel.findOne({ nroDocument });
     const findEmail = await this.userModel.findOne({ email });
-
+    const getRoleOfBody = await this.roleService.findRoleById(String(role));
     if (
       String(findNroDocument._id).toLowerCase() !==
       String(findForbidden._id).toLowerCase()
@@ -375,11 +375,17 @@ export class UserService implements OnApplicationBootstrap {
         HttpStatus.BAD_REQUEST,
       );
     }
-
+    console.log(findForbidden.role.name === 'OWNER' && rolToken !== 'OWNER');
+    console.log(
+      findForbidden.creator.email !== findUser.email && rolToken !== 'OWNER',
+    );
     //el usuario no puede actualizar otro rol a owner o si encuentra que el usuario del owner esta siendo modificado tampoco puede actualizar
     if (
       (findForbidden.role.name === 'OWNER' && rolToken !== 'OWNER') ||
-      (findForbidden.creator.email !== findUser.email && rolToken !== 'OWNER')
+      (findForbidden.creator.email !== findUser.email &&
+        rolToken !== 'OWNER') ||
+      (getRoleOfBody.name === 'OWNER' && rolToken !== 'OWNER') ||
+      (getRoleOfBody.name === 'OWNER' && rolToken === 'OWNER')
     ) {
       throw new HttpException(
         {
