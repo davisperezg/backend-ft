@@ -40,7 +40,7 @@ export class ModuleService implements OnApplicationBootstrap {
 
       await Promise.all([
         new this.moduleModel({
-          name: 'Administración de sistema',
+          name: 'Administración de sistema - PRINCIPAL',
           status: true,
           menu: findMenus,
           creator: null,
@@ -69,7 +69,7 @@ export class ModuleService implements OnApplicationBootstrap {
 
       //ADD ROL
       const getModules = await this.findbyNames([
-        'Administración de sistema',
+        'Administración de sistema - PRINCIPAL',
         'Almacen',
         'Mantenimiento',
         'Comprobantes',
@@ -200,7 +200,7 @@ export class ModuleService implements OnApplicationBootstrap {
           type: 'BAD_REQUEST',
           message: 'El modulo no existe o está inactivo.',
         },
-        HttpStatus.CONFLICT,
+        HttpStatus.BAD_REQUEST,
       );
     }
 
@@ -290,6 +290,19 @@ export class ModuleService implements OnApplicationBootstrap {
   async delete(id: string): Promise<boolean> {
     let result = false;
 
+    //el modulo as-principal no se puede eliminar
+    const findModuleForbidden = await this.moduleModel.findById(id);
+    if (findModuleForbidden.name === 'Administracion de sistema - PRINCIPAL') {
+      throw new HttpException(
+        {
+          status: HttpStatus.UNAUTHORIZED,
+          type: 'UNAUTHORIZED',
+          message: 'Unauthorized Exception',
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
     try {
       await this.moduleModel.findByIdAndUpdate(id, { status: false });
       result = true;
@@ -302,8 +315,21 @@ export class ModuleService implements OnApplicationBootstrap {
 
   //Put a single module
   async update(id: string, bodyModule: Module, user: any): Promise<Module> {
-    const { status, menu } = bodyModule;
+    const { status, menu, name } = bodyModule;
     const { findUser } = user;
+
+    //el modulo as-principal no se puede eliminar
+    const findModuleForbidden = await this.moduleModel.findById(id);
+    if (findModuleForbidden.name !== name) {
+      throw new HttpException(
+        {
+          status: HttpStatus.UNAUTHORIZED,
+          type: 'UNAUTHORIZED',
+          message: 'Unauthorized Exception',
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
 
     if (status) {
       throw new HttpException(
