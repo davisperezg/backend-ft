@@ -86,10 +86,7 @@ export class ResourcesRolesService implements OnApplicationBootstrap {
   }
 
   //Add a single role
-  async create(
-    createResource: Resource_Role,
-    user: any,
-  ): Promise<Resource_Role> {
+  async create(createResource: Resource_Role): Promise<Resource_Role> {
     const { role, resource } = createResource;
 
     if (!role || !resource) {

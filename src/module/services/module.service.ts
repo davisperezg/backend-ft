@@ -292,7 +292,7 @@ export class ModuleService implements OnApplicationBootstrap {
 
     //el modulo as-principal no se puede eliminar
     const findModuleForbidden = await this.moduleModel.findById(id);
-    if (findModuleForbidden.name === 'Administracion de sistema - PRINCIPAL') {
+    if (findModuleForbidden.name === 'Administración de sistema - PRINCIPAL') {
       throw new HttpException(
         {
           status: HttpStatus.UNAUTHORIZED,

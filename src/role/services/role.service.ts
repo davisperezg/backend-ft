@@ -316,7 +316,7 @@ export class RoleService {
     return await this.roleModel.findById(role).populate('creator');
   }
 
-  async findRoleById(role: string, user?: any): Promise<RoleDocument | any> {
+  async findRoleById(role: string): Promise<RoleDocument | any> {
     const rol: any = await this.roleModel
       .findOne({ _id: role, status: true })
       .populate({ path: 'module' });
