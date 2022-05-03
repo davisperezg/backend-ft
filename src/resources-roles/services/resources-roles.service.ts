@@ -17,7 +17,7 @@ import {
   Resource_UserDocument,
 } from 'src/resources-users/schemas/resources-user';
 import { User, UserDocument } from 'src/user/schemas/user.schema';
-import { allResources } from 'src/lib/const/consts';
+import { resourcesByDefault } from 'src/lib/const/consts';
 import {
   CopyResource_User,
   CopyResource_UserDocument,
@@ -43,7 +43,7 @@ export class ResourcesRolesService implements OnApplicationBootstrap {
     if (count > 0) return;
     try {
       const findResources = await this.resourceService.findResourceByKey(
-        allResources,
+        resourcesByDefault.map((res) => res.key),
       );
 
       const getIdsResources = findResources.map((res) => res._id);

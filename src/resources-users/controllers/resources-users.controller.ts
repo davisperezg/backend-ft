@@ -20,16 +20,16 @@ export class ResourcesUsersController {
   constructor(private readonly rrService: ResourcesUsersService) {}
 
   // Get Menus
-  @Get()
-  @UseGuards(PermissionGuard(Permission.ReadResourceR))
-  async getResources(@Res() res): Promise<Resource_User[]> {
-    const resources = await this.rrService.findAll();
-    return res.status(HttpStatus.OK).json(resources);
-  }
+  // @Get()
+  // @UseGuards(PermissionGuard(Permission.ReadResourceR))
+  // async getResources(@Res() res): Promise<Resource_User[]> {
+  //   const resources = await this.rrService.findAll();
+  //   return res.status(HttpStatus.OK).json(resources);
+  // }
 
   // Get Menus
   @Get('/user/:id')
-  @UseGuards(PermissionGuard(Permission.ReadRoleAndResources))
+  @UseGuards(PermissionGuard(Permission.ReadResourcesByUser))
   async getResourcesByUser(
     @Res() res,
     @Param('id') id: string,
@@ -40,7 +40,7 @@ export class ResourcesUsersController {
 
   // Add Resource
   @Post()
-  @UseGuards(PermissionGuard(Permission.CreateResourceR))
+  @UseGuards(PermissionGuard(Permission.CreateResourceU))
   async createRR(
     @Res() res,
     @Body() createBody: Resource_User,
@@ -54,17 +54,17 @@ export class ResourcesUsersController {
   }
 
   // Update Resource
-  @Put(':id')
-  @UseGuards(PermissionGuard(Permission.EditResourceR))
-  async updateRR(
-    @Res() res,
-    @Param('id') id: string,
-    @Body() createBody: Resource_User,
-  ): Promise<Resource_User> {
-    const resourceUpdated = await this.rrService.update(id, createBody);
-    return res.status(HttpStatus.OK).json({
-      message: 'Resource Updated Successfully',
-      resourceUpdated,
-    });
-  }
+  // @Put(':id')
+  // @UseGuards(PermissionGuard(Permission.EditResourceR))
+  // async updateRR(
+  //   @Res() res,
+  //   @Param('id') id: string,
+  //   @Body() createBody: Resource_User,
+  // ): Promise<Resource_User> {
+  //   const resourceUpdated = await this.rrService.update(id, createBody);
+  //   return res.status(HttpStatus.OK).json({
+  //     message: 'Resource Updated Successfully',
+  //     resourceUpdated,
+  //   });
+  // }
 }

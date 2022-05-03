@@ -24,30 +24,30 @@ export class RoleController {
 
   // Get Roles: http://localhost:3000/api/v1/roles
   @Get()
-  @UseGuards(PermissionGuard(Permission.ReadRole))
+  @UseGuards(PermissionGuard(Permission.ReadRoles))
   getRoles(@CtxUser() user: any) {
     return this.roleService.findAll(user);
   }
 
   // Get Role: http://localhost:3000/api/v1/roles/find/6223169df6066a084cef08c2
   @Get('/find/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(PermissionGuard(Permission.GetOneRole))
   getRole(@Param('id') id: string, @CtxUser() user: any) {
     return this.roleService.findRoleById(id, user);
   }
 
   // Get Roles removes: http://localhost:3000/api/v1/roles/removes
-  @Get('/removes')
-  getRolesRemoves() {
-    return this.roleService.findAllDeleted();
-  }
+  // @Get('/removes')
+  // getRolesRemoves() {
+  //   return this.roleService.findAllDeleted();
+  // }
 
   // Get Data role by name(POST): http://localhost:3000/api/v1/roles/data
-  @Post('/data')
-  getDataByName(@Body() createBody: Role) {
-    const { name } = createBody;
-    return this.roleService.findRoleByName(name);
-  }
+  // @Post('/data')
+  // getDataByName(@Body() createBody: Role) {
+  //   const { name } = createBody;
+  //   return this.roleService.findRoleByName(name);
+  // }
 
   // Add Role(POST): http://localhost:3000/api/v1/roles/6223169df6066a084cef08c2
   @Post()

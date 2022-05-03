@@ -21,7 +21,7 @@ export class ServicesUsersController {
 
   //Get Modules By User
   @Get('/user/:id')
-  @UseGuards(PermissionGuard(Permission.ReadModule))
+  @UseGuards(PermissionGuard(Permission.ReadServicesBUser))
   async getModulesByUser(
     @Res() res,
     @Param('id') id: string,
@@ -32,7 +32,7 @@ export class ServicesUsersController {
 
   //Add Service
   @Post()
-  @UseGuards(PermissionGuard(Permission.CreateResourceR))
+  @UseGuards(PermissionGuard(Permission.CreateServiceUser))
   async createRR(
     @Res() res,
     @Body() createBody: Services_User,
@@ -46,17 +46,17 @@ export class ServicesUsersController {
   }
 
   //Update Service:
-  @Put(':id')
-  @UseGuards(PermissionGuard(Permission.EditResourceR))
-  async updateRR(
-    @Res() res,
-    @Param('id') id: string,
-    @Body() createBody: Services_User,
-  ): Promise<Services_User> {
-    const serviceUpdated = await this.suService.update(id, createBody);
-    return res.status(HttpStatus.OK).json({
-      message: 'Service Updated Successfully',
-      serviceUpdated,
-    });
-  }
+  // @Put(':id')
+  // @UseGuards(PermissionGuard(Permission.EditResourceR))
+  // async updateRR(
+  //   @Res() res,
+  //   @Param('id') id: string,
+  //   @Body() createBody: Services_User,
+  // ): Promise<Services_User> {
+  //   const serviceUpdated = await this.suService.update(id, createBody);
+  //   return res.status(HttpStatus.OK).json({
+  //     message: 'Service Updated Successfully',
+  //     serviceUpdated,
+  //   });
+  // }
 }

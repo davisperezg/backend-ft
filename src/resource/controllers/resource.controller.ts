@@ -18,21 +18,27 @@ import { ResourceService } from '../services/resource.service';
 export class ResourceController {
   constructor(private readonly resourceService: ResourceService) {}
 
-  // @Delete('/:id')
-  // async deleteRole(@Res() res, @Param('id') id: string): Promise<boolean> {
-  //   const roleDeleted = await this.resourceService.delete(id);
-  //   return res.status(HttpStatus.OK).json({
-  //     message: 'Deleted Successfully',
-  //     roleDeleted,
-  //   });
-  // }
-
-  // Get Menus
+  // Get Resources
   @Get()
-  @UseGuards(PermissionGuard(Permission.ReadResource))
+  @UseGuards(PermissionGuard(Permission.ReadResourcesItem))
   async getResources(@Res() res): Promise<Resource[]> {
     const menus = await this.resourceService.findAll();
     return res.status(HttpStatus.OK).json(menus);
+  }
+
+  // Get Resources to CRUD
+  @Get('/list')
+  @UseGuards(PermissionGuard(Permission.ReadResourcesList))
+  async getResourcesToCRUD(@Res() res): Promise<Resource[]> {
+    const menus = await this.resourceService.findAllToCRUD();
+    return res.status(HttpStatus.OK).json(menus);
+  }
+
+  // Get One Resource To Edit
+  @Get('/find/:id')
+  @UseGuards(PermissionGuard(Permission.GetOneResource))
+  getPermission(@Param('id') id: string) {
+    return this.resourceService.findOne(id);
   }
 
   // Add Resource
@@ -42,10 +48,10 @@ export class ResourceController {
     @Res() res,
     @Body() createBody: Resource,
   ): Promise<Resource> {
-    const resource = await this.resourceService.create(createBody);
+    const created = await this.resourceService.create(createBody);
     return res.status(HttpStatus.OK).json({
       message: 'Resource Successfully Created',
-      resource,
+      created,
     });
   }
 
@@ -57,10 +63,10 @@ export class ResourceController {
     @Param('id') id: string,
     @Body() createBody: Resource,
   ): Promise<Resource> {
-    const resourceUpdated = await this.resourceService.update(id, createBody);
+    const updated = await this.resourceService.update(id, createBody);
     return res.status(HttpStatus.OK).json({
       message: 'Resource Updated Successfully',
-      resourceUpdated,
+      updated,
     });
   }
 }

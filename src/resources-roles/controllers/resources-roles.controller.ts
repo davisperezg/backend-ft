@@ -20,16 +20,16 @@ export class ResourcesRolesController {
   constructor(private readonly rrService: ResourcesRolesService) {}
 
   // Get Menus
-  @Get()
-  @UseGuards(PermissionGuard(Permission.ReadResourceR))
-  async getResources(@Res() res): Promise<Resource_Role[]> {
-    const resources = await this.rrService.findAll();
-    return res.status(HttpStatus.OK).json(resources);
-  }
+  // @Get()
+  // @UseGuards(PermissionGuard(Permission.ReadResourceR))
+  // async getResources(@Res() res): Promise<Resource_Role[]> {
+  //   const resources = await this.rrService.findAll();
+  //   return res.status(HttpStatus.OK).json(resources);
+  // }
 
   // Get Menus
   @Get('/role/:id')
-  @UseGuards(PermissionGuard(Permission.ReadRoleAndResources))
+  @UseGuards(PermissionGuard(Permission.ReadResourcesByRol))
   async getResourcesByRol(
     @Res() res,
     @Param('id') id: string,
@@ -54,17 +54,17 @@ export class ResourcesRolesController {
   }
 
   // Update Resource: /Resources/605ab8372ed8db2ad4839d87
-  @Put(':id')
-  @UseGuards(PermissionGuard(Permission.EditResourceR))
-  async updateRR(
-    @Res() res,
-    @Param('id') id: string,
-    @Body() createBody: Resource_Role,
-  ): Promise<Resource_Role> {
-    const resourceUpdated = await this.rrService.update(id, createBody);
-    return res.status(HttpStatus.OK).json({
-      message: 'Resource Updated Successfully',
-      resourceUpdated,
-    });
-  }
+  // @Put(':id')
+  // @UseGuards(PermissionGuard(Permission.EditResourceR))
+  // async updateRR(
+  //   @Res() res,
+  //   @Param('id') id: string,
+  //   @Body() createBody: Resource_Role,
+  // ): Promise<Resource_Role> {
+  //   const resourceUpdated = await this.rrService.update(id, createBody);
+  //   return res.status(HttpStatus.OK).json({
+  //     message: 'Resource Updated Successfully',
+  //     resourceUpdated,
+  //   });
+  // }
 }

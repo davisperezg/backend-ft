@@ -12,6 +12,9 @@ export class Resource {
 
   @Prop({ requerid: true, type: String, unique: true, trim: true })
   key: string;
+
+  @Prop({ trim: true, uppercase: true })
+  description: string;
 }
 
 export const ResourceSchema = SchemaFactory.createForClass(Resource);

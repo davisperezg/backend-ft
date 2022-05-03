@@ -34,6 +34,7 @@ export class ModuleService implements OnApplicationBootstrap {
         'Usuarios',
         'Roles',
         'Modulos',
+        'Permisos',
       ]);
 
       const findMenus = getMenus.map((men) => men._id);

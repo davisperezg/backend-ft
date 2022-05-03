@@ -24,22 +24,23 @@ export class UserController {
 
   // Get Users: http://localhost:3000/api/v1/users
   @Get()
-  @UseGuards(PermissionGuard(Permission.ReadUser))
+  @UseGuards(PermissionGuard(Permission.ReadUsers))
   getUsers(@CtxUser() user: any) {
     return this.userService.findAll(user);
   }
 
   // Get User: http://localhost:3000/api/v1/users/find/6223169df6066a084cef08c2
   @Get('/find/:nro')
+  @UseGuards(PermissionGuard(Permission.GetOneUser))
   getUser(@Param('nro') nro: string) {
     return this.userService.findUserByCodApi(nro);
   }
 
   // Get users removes: http://localhost:3000/api/v1/users/removes
-  @Get('/removes')
-  getUsersRemoves() {
-    return this.userService.findAllDeleted();
-  }
+  // @Get('/removes')
+  // getUsersRemoves() {
+  //   return this.userService.findAllDeleted();
+  // }
 
   // Get Me: http://localhost:3000/api/v1/users/whois
   @Get('/whois')

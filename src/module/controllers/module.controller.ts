@@ -23,28 +23,23 @@ export class ModuleController {
 
   // Get Modules: http://localhost:3000/api/v1/modules
   @Get()
-  @UseGuards(PermissionGuard(Permission.ReadModule))
+  @UseGuards(PermissionGuard(Permission.ReadModuleItem))
   getModules(@CtxUser() user: any) {
     return this.moduleService.findAll(user);
   }
 
   // Get Modules: http://localhost:3000/api/v1/modules/list
   @Get('/list')
-  @UseGuards(PermissionGuard(Permission.ReadModule))
+  @UseGuards(PermissionGuard(Permission.ReadModuleList))
   getModulesList(@CtxUser() user: any) {
     return this.moduleService.listModules(user);
   }
 
   // Get Module: http://localhost:3000/api/v1/modules/find/6223169df6066a084cef08c2
   @Get('/find/:id')
+  @UseGuards(PermissionGuard(Permission.GetOneModule))
   getModule(@Param('id') id: string) {
     return this.moduleService.findOne(id);
-  }
-
-  // Get Roles removes: http://localhost:3000/api/v1/modules/removes
-  @Get('/removes')
-  getModulesRemoves() {
-    return this.moduleService.findAllDeleted();
   }
 
   // Add Module(POST): http://localhost:3000/api/v1/modules
