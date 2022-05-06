@@ -375,10 +375,7 @@ export class UserService implements OnApplicationBootstrap {
         HttpStatus.BAD_REQUEST,
       );
     }
-    console.log(findForbidden.role.name === 'OWNER' && rolToken !== 'OWNER');
-    console.log(
-      findForbidden.creator.email !== findUser.email && rolToken !== 'OWNER',
-    );
+
     //el usuario no puede actualizar otro rol a owner o si encuentra que el usuario del owner esta siendo modificado tampoco puede actualizar
     if (
       (findForbidden.role.name === 'OWNER' && rolToken !== 'OWNER') ||

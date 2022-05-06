@@ -244,7 +244,7 @@ export class ResourcesRolesService implements OnApplicationBootstrap {
       role: userRole.role,
     });
 
-    //si existe usuarios ejecutar el siguiente codigo
+    //si existe usuarios con el mismo rol que esta siendo actualziado ejecutar el siguiente codigo
     if (findUsersByRol.length > 0) {
       const arrayOfStringIds = findUsersByRol.map((format) => format._id);
 
@@ -311,6 +311,100 @@ export class ResourcesRolesService implements OnApplicationBootstrap {
           { new: true },
         );
       });
+
+      //Este es el proceso de, buscar los roles creados por los usuarios que contienen el rol que esta siendo actualizado.
+      const findRolesWithCreators =
+        await this.roleService.findRolesWithManyCreators_Local(
+          arrayOfStringIds,
+        );
+
+      //Actualiza los recursos a todos los roles RR
+      findRolesWithCreators.map(async (res) => {
+        await this.rrModel.findOneAndUpdate(
+          {
+            role: res,
+          },
+          {
+            $set: { resource: sendData.resource },
+          },
+          {
+            new: true,
+          },
+        );
+      });
+
+      /**
+       * Inicia el proceso de actualizar los recursos "no modificados" pero de a todos los usuarios RU => porque el que usa los recursos el RU y no RR
+       */
+      const findUsersByRoles = await this.userModel.find({
+        role: { $in: findRolesWithCreators.map((res) => res._id) },
+      });
+
+      const modifys2 = [];
+      findUsersByRoles.filter((a) => {
+        findCopysRu.filter((x) => {
+          if (String(x.user) === String(a._id)) {
+            modifys2.push(a);
+          }
+        });
+      });
+
+      const noModifys2 = findUsersByRoles.filter(
+        (fil) => !modifys2.includes(fil),
+      );
+
+      noModifys2.map(async (noMod) => {
+        await this.userResourceModel.findOneAndUpdate(
+          {
+            user: noMod._id,
+          },
+          { $set: { resource: sendData.resource } },
+          { new: true },
+        );
+      });
+      /**
+       *  Fin de proceso de actualizar RU
+       */
+
+      /**
+       * Inicia proceso de actualizar los recursos de los usuario RU pero envitando a los que estan en Copy que vienen hacer los modificados por el usuario
+       */
+      const arrayOfStringIds2 = findUsersByRoles.map((format) => format._id);
+
+      const findRUModifieds2 = await this.copyRuModel.find({
+        user: { $in: arrayOfStringIds2 },
+      });
+
+      const dataRUMofied2 = findRUModifieds2.map(async (ru) => {
+        const enru = await this.userResourceModel.findOne({
+          user: ru.user,
+          status: true,
+        });
+
+        const findModifyedsRU = enru.resource.filter((t) =>
+          ru.resource.includes(t),
+        );
+
+        return {
+          resource: sendData.resource
+            .filter((res: any) => !ru.resource.includes(res._id))
+            .concat(findModifyedsRU),
+          user: ru.user,
+        };
+      });
+
+      dataRUMofied2.map(async (data) => {
+        await this.userResourceModel.findOneAndUpdate(
+          { user: (await data).user },
+          {
+            resource: (await data).resource,
+          },
+          { new: true },
+        );
+      });
+      /**
+       * Fin de proceso
+       */
     }
     return userRole;
   }

@@ -409,4 +409,11 @@ export class RoleService {
     const users = await this.suModel.find({ user: { $in: isUsers as any } });
     return users;
   }
+
+  async findRolesWithManyCreators_Local(idCreator: string[]): Promise<any[]> {
+    const roles = await this.roleModel.find({
+      creator: { $in: idCreator as any },
+    });
+    return roles;
+  }
 }

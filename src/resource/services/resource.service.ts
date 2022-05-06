@@ -1,3 +1,8 @@
+import { Role, RoleDocument } from './../../role/schemas/role.schema';
+import {
+  Resource_Role,
+  Resource_RoleDocument,
+} from './../../resources-roles/schemas/resources-role';
 import {
   HttpException,
   HttpStatus,
@@ -6,13 +11,20 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Resource, ResourceDocument } from '../schemas/resource.schema';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { resourcesByDefault } from 'src/lib/const/consts';
+import { User, UserDocument } from 'src/user/schemas/user.schema';
 
 @Injectable()
 export class ResourceService implements OnModuleInit {
   constructor(
     @InjectModel(Resource.name) private resourceModel: Model<ResourceDocument>,
+    @InjectModel(Resource_Role.name)
+    private rrModel: Model<Resource_RoleDocument>,
+    @InjectModel(Role.name)
+    private roleModel: Model<RoleDocument>,
+    @InjectModel(User.name)
+    private userModel: Model<UserDocument>,
   ) {}
 
   async onModuleInit() {
@@ -30,25 +42,51 @@ export class ResourceService implements OnModuleInit {
   //   return await this.resourceModel.findByIdAndDelete(id);
   // }
 
-  async findAll(): Promise<Resource[] | any[]> {
-    const resources = await this.resourceModel.find({ status: true });
-    const order = resources.sort((a, b) => {
-      if (a.name > b.name) {
-        return 1;
-      }
-      if (a.name < b.name) {
-        return -1;
-      }
-      // a must be equal to b
-      return 0;
+  async findAll(user: any): Promise<Resource[] | any[]> {
+    const { findUserBack, findUser } = user;
+    const resources = await this.resourceModel
+      .find({ status: true })
+      .sort([['name', 'ascending']]);
+
+    const resourcesAlloweds = await this.rrModel.findOne({
+      role: findUserBack.user.role._id,
     });
 
-    const formatResourcesToFront = order.map((res) => {
-      return {
-        label: res.name,
-        value: res.key,
-      };
-    });
+    // const formatedResToIds = resources.map((res) => String(res._id));
+    // const formatedAllowToIds = resourcesAlloweds.resource.map((res) =>
+    //   String(res),
+    // );
+    // console.log(resourcesAlloweds.resource.length);
+
+    // const just = formatedAllowToIds.filter((res) =>
+    //   formatedResToIds.includes(res),
+    // );
+
+    // console.log(just.length);
+
+    const resourcesToUser = await this.resourceModel
+      .find({
+        _id: { $in: resourcesAlloweds.resource },
+        status: true,
+      })
+      .sort([['name', 'ascending']]);
+
+    let formatResourcesToFront = [];
+    if (findUser.role !== 'OWNER') {
+      formatResourcesToFront = resourcesToUser.map((res) => {
+        return {
+          label: res.name,
+          value: res.key,
+        };
+      });
+    } else {
+      formatResourcesToFront = resources.map((res) => {
+        return {
+          label: res.name,
+          value: res.key,
+        };
+      });
+    }
 
     return formatResourcesToFront;
   }

@@ -9,6 +9,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import { CtxUser } from 'src/lib/decorators/ctx-user.decorators';
 import PermissionGuard from 'src/lib/guards/resources.guard';
 import Permission from 'src/lib/type/permission.type';
 import { Resource } from '../schemas/resource.schema';
@@ -21,8 +22,8 @@ export class ResourceController {
   // Get Resources
   @Get()
   @UseGuards(PermissionGuard(Permission.ReadResourcesItem))
-  async getResources(@Res() res): Promise<Resource[]> {
-    const menus = await this.resourceService.findAll();
+  async getResources(@Res() res, @CtxUser() user): Promise<Resource[]> {
+    const menus = await this.resourceService.findAll(user);
     return res.status(HttpStatus.OK).json(menus);
   }
 

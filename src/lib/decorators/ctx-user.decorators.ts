@@ -15,9 +15,11 @@ export const CtxUser = createParamDecorator(
         status: request.user.findUser.status,
         role: request.user.findUser.role.name,
       },
-
       findCreator: {
         creator: request.user.findUser.creator,
+      },
+      findUserBack: {
+        user: request.user.findUser,
       },
     };
     return user;

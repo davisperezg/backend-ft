@@ -260,14 +260,25 @@ export class ModuleService implements OnApplicationBootstrap {
 
     const findModule = await this.moduleModel.findOne({ name });
 
+    //Si no hay modulos ingresados
+    if (!menu || menu.length === 0) {
+      throw new HttpException(
+        {
+          status: HttpStatus.BAD_REQUEST,
+          type: 'BAD_REQUEST',
+          message: 'El modulo debe tener al menos un menu.',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
     if (findModule) {
       //No se puede crear el elemento
       throw new HttpException(
         {
           status: HttpStatus.CONFLICT,
           type: 'UNIQUE',
-          message:
-            'El modulo ya ha sido creado o ya lo tienes asignado. Si ya lo tienes asignado puedes aplicarlo desde roles.',
+          message: 'Este modulo ya existe. Por favor cambie de nombre.',
         },
         HttpStatus.CONFLICT,
       );

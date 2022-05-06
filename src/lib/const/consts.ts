@@ -101,7 +101,7 @@ export const resourcesByDefault = [
   },
   {
     name: 'Obtener informacion por usuario', //add
-    key: 'GetOneUser',
+    key: 'canGetUser',
     description: 'Te permite obtener data de un usuario.',
     status: true,
   },
