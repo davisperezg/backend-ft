@@ -52,14 +52,14 @@ export class RoleService {
   async create(createRole: Role, userToken: any): Promise<Role> {
     const { module, name } = createRole;
     const { findUser } = userToken;
-    //console.log(creator);
+
     //Si el campo nombre no existe
     if (!name) {
       throw new HttpException(
         {
           status: HttpStatus.BAD_REQUEST,
           type: 'BAD_REQUEST',
-          message: 'Completar el campo nombre.',
+          message: 'Completar el campo Nombre.',
         },
         HttpStatus.BAD_REQUEST,
       );
@@ -139,6 +139,45 @@ export class RoleService {
   //Put a single role
   async update(id: string, bodyRole: Role | any, user?: any): Promise<Role> {
     const { status, module, name } = bodyRole;
+
+    //Si el campo nombre no existe
+    if (!name) {
+      throw new HttpException(
+        {
+          status: HttpStatus.BAD_REQUEST,
+          type: 'BAD_REQUEST',
+          message: 'Completar el campo Nombre.',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    //Si no hay modulos ingresados
+    if (!module || module.length === 0) {
+      throw new HttpException(
+        {
+          status: HttpStatus.BAD_REQUEST,
+          type: 'BAD_REQUEST',
+          message: 'El rol debe tener al menos un modulo.',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    //buscar el nombre que esta siendo modificado y que no coincida con uno registrado
+    const findRole = await this.roleModel.findById(id);
+    const findRoleRep = await this.roleModel.findOne({ name });
+    if (findRoleRep && findRoleRep.name !== findRole.name) {
+      throw new HttpException(
+        {
+          status: HttpStatus.BAD_REQUEST,
+          type: 'BAD_REQUEST',
+          message: 'El rol ya existe.',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
     if (user) {
       const { findUser } = user;
       //buscar lo que tenia

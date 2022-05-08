@@ -392,8 +392,9 @@ export class UserService implements OnApplicationBootstrap {
     const findEmail = await this.userModel.findOne({ email });
     const getRoleOfBody = await this.roleService.findRoleById(String(role));
     if (
+      findNroDocument &&
       String(findNroDocument._id).toLowerCase() !==
-      String(findForbidden._id).toLowerCase()
+        String(findForbidden._id).toLowerCase()
     ) {
       throw new HttpException(
         {
@@ -407,8 +408,9 @@ export class UserService implements OnApplicationBootstrap {
     }
 
     if (
+      findEmail &&
       String(findEmail._id).toLowerCase() !==
-      String(findForbidden._id).toLowerCase()
+        String(findForbidden._id).toLowerCase()
     ) {
       throw new HttpException(
         {

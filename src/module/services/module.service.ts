@@ -246,6 +246,18 @@ export class ModuleService implements OnApplicationBootstrap {
     const { menu, name } = createMenu;
     const { findUser } = user;
 
+    //Si name no existe
+    if (!name) {
+      throw new HttpException(
+        {
+          status: HttpStatus.BAD_REQUEST,
+          type: 'BAD_REQUEST',
+          message: 'Completar el campo Nombre.',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
     const findModule = await this.moduleModel.findOne({ name });
 
     //Si no hay modulos ingresados
@@ -318,19 +330,6 @@ export class ModuleService implements OnApplicationBootstrap {
     const { status, menu, name } = bodyModule;
     const { findUser } = user;
 
-    //el modulo as-principal no se puede eliminar
-    const findModuleForbidden = await this.moduleModel.findById(id);
-    if (findModuleForbidden.name !== name) {
-      throw new HttpException(
-        {
-          status: HttpStatus.UNAUTHORIZED,
-          type: 'UNAUTHORIZED',
-          message: 'Unauthorized Exception',
-        },
-        HttpStatus.UNAUTHORIZED,
-      );
-    }
-
     if (status) {
       throw new HttpException(
         {
@@ -372,6 +371,45 @@ export class ModuleService implements OnApplicationBootstrap {
 
     const getMenus = await this.menuService.findbyName(menu);
     const findMenus = getMenus.map((men) => men._id);
+
+    //const findModuleForbidden = await this.moduleModel.findById(id);
+    //el modulo as-principal no se puede actualizar ni modificar sus menus
+    if (
+      (findModulesForbidden.name === 'Administración de sistema - PRINCIPAL' &&
+        findModulesForbidden.name !== name) ||
+      (findModulesForbidden.name === 'Administración de sistema - PRINCIPAL' &&
+        findModulesForbidden.menu.length !== getMenus.length)
+    ) {
+      throw new HttpException(
+        {
+          status: HttpStatus.UNAUTHORIZED,
+          type: 'UNAUTHORIZED',
+          message: 'Unauthorized Exception',
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    const findModule = await this.moduleModel.findOne({ name });
+    const getModuleById = await this.moduleModel.findById(id);
+
+    //el nombre ASP no se puede modificar y no se permite el ingreso de un mismo nombre ya registrado
+    if (
+      (findModule && findModule.name !== getModuleById.name) ||
+      (findModule &&
+        String(name).trim() !== 'Administración de sistema - PRINCIPAL' &&
+        getModuleById.name === 'Administración de sistema - PRINCIPAL')
+    ) {
+      //No se puede crear el elemento
+      throw new HttpException(
+        {
+          status: HttpStatus.CONFLICT,
+          type: 'UNIQUE',
+          message: 'Este modulo ya existe. Por favor cambie de nombre.',
+        },
+        HttpStatus.CONFLICT,
+      );
+    }
 
     const modifyData: Module = {
       ...bodyModule,
