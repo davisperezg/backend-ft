@@ -214,7 +214,29 @@ export class UserService implements OnApplicationBootstrap {
         {
           status: HttpStatus.BAD_REQUEST,
           type: 'BAD_REQUEST',
-          message: 'Completar el campo rol.',
+          message: 'Completar el campo Rol.',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    //Si nro no existe
+    if (!nroDocument) {
+      throw new HttpException(
+        {
+          status: HttpStatus.BAD_REQUEST,
+          type: 'BAD_REQUEST',
+          message: 'Completar el campo Nro de documento.',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    //Si email no existe
+    if (!email) {
+      throw new HttpException(
+        {
+          status: HttpStatus.BAD_REQUEST,
+          type: 'BAD_REQUEST',
+          message: 'Completar el campo Email.',
         },
         HttpStatus.BAD_REQUEST,
       );
@@ -341,6 +363,29 @@ export class UserService implements OnApplicationBootstrap {
         path: 'creator',
       },
     ]);
+
+    //Si nro no existe
+    if (!nroDocument) {
+      throw new HttpException(
+        {
+          status: HttpStatus.BAD_REQUEST,
+          type: 'BAD_REQUEST',
+          message: 'Completar el campo Nro de documento.',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    //Si email no existe
+    if (!email) {
+      throw new HttpException(
+        {
+          status: HttpStatus.BAD_REQUEST,
+          type: 'BAD_REQUEST',
+          message: 'Completar el campo Email.',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
 
     //validar que el nro de documento o email actualizados no pertenezcan a otro usuario
     const findNroDocument = await this.userModel.findOne({ nroDocument });

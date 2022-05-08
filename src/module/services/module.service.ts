@@ -47,22 +47,12 @@ export class ModuleService implements OnApplicationBootstrap {
           creator: null,
         }).save(),
         new this.moduleModel({
-          name: 'Almacen',
+          name: 'Perfiles',
           status: true,
           creator: null,
         }).save(),
         new this.moduleModel({
-          name: 'Mantenimiento',
-          status: true,
-          creator: null,
-        }).save(),
-        new this.moduleModel({
-          name: 'Comprobantes',
-          status: true,
-          creator: null,
-        }).save(),
-        new this.moduleModel({
-          name: 'Consultas y Reportes',
+          name: 'Tickets',
           status: true,
           creator: null,
         }).save(),
@@ -71,10 +61,8 @@ export class ModuleService implements OnApplicationBootstrap {
       //ADD ROL
       const getModules = await this.findbyNames([
         'Administración de sistema - PRINCIPAL',
-        'Almacen',
-        'Mantenimiento',
-        'Comprobantes',
-        'Consultas y Reportes',
+        'Perfiles',
+        'Tickets',
       ]);
 
       await Promise.all([
