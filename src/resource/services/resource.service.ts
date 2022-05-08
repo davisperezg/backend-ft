@@ -170,8 +170,38 @@ export class ResourceService implements OnModuleInit {
     return createdResource.save();
   }
 
-  //Put a single role
+  //Put a single
   async update(id: string, bodyRole: Resource): Promise<Resource> {
+    const { name, key } = bodyRole;
+
+    //buscar el nombre que esta siendo modificado y que no coincida con uno registrado
+    const findResource = await this.resourceModel.findById(id);
+    const findNameRep = await this.resourceModel.findOne({ name });
+    if (findNameRep && findNameRep.name !== findResource.name) {
+      throw new HttpException(
+        {
+          status: HttpStatus.BAD_REQUEST,
+          type: 'BAD_REQUEST',
+          message: 'El nombre ya existe.',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    //buscar el key que esta siendo modificado y que no coincida con uno registrado
+    const findKeyRep = await this.resourceModel.findOne({ key });
+    const lowerKey = findKeyRep && findKeyRep.key.toLowerCase().trim();
+    if (findKeyRep && lowerKey !== findResource.key.toLowerCase().trim()) {
+      throw new HttpException(
+        {
+          status: HttpStatus.BAD_REQUEST,
+          type: 'BAD_REQUEST',
+          message: 'El key ya existe.',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
     const update = await this.resourceModel.findByIdAndUpdate(id, bodyRole, {
       new: true,
     });
