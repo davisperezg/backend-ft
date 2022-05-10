@@ -52,18 +52,6 @@ export class ResourceService implements OnModuleInit {
       role: findUserBack.user.role._id,
     });
 
-    // const formatedResToIds = resources.map((res) => String(res._id));
-    // const formatedAllowToIds = resourcesAlloweds.resource.map((res) =>
-    //   String(res),
-    // );
-    // console.log(resourcesAlloweds.resource.length);
-
-    // const just = formatedAllowToIds.filter((res) =>
-    //   formatedResToIds.includes(res),
-    // );
-
-    // console.log(just.length);
-
     const resourcesToUser = await this.resourceModel
       .find({
         _id: { $in: resourcesAlloweds.resource },

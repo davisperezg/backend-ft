@@ -81,7 +81,21 @@ export class RoleService {
     const arrayToString: string[] = Object.keys(module).map(
       (mod) => module[mod],
     );
-    await this.moduleService.findModulesIds(arrayToString);
+    const findModules = await this.moduleService.findModulesIds(arrayToString);
+    const isExisteModuleASP = findModules.some(
+      (a) => a.name === 'Administración de sistema - PRINCIPAL',
+    );
+
+    if (isExisteModuleASP) {
+      throw new HttpException(
+        {
+          status: HttpStatus.UNAUTHORIZED,
+          type: 'UNAUTHORIZED',
+          message: `Unauthorized Exception`,
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
 
     const findRoles = await this.roleModel.find({ name });
     const getRolByCreator = findRoles.find(
@@ -126,6 +140,18 @@ export class RoleService {
   async delete(id: string): Promise<boolean> {
     let result = false;
 
+    const findRoleForbidden = await this.roleModel.findById(id);
+    if (findRoleForbidden.name === 'OWNER') {
+      throw new HttpException(
+        {
+          status: HttpStatus.UNAUTHORIZED,
+          type: 'UNAUTHORIZED',
+          message: 'Unauthorized Exception',
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
     try {
       await this.roleModel.findByIdAndUpdate(id, { status: false });
       result = true;
@@ -139,6 +165,17 @@ export class RoleService {
   //Put a single role
   async update(id: string, bodyRole: Role | any, user?: any): Promise<Role> {
     const { status, module, name } = bodyRole;
+
+    if (status === false || status === true) {
+      throw new HttpException(
+        {
+          status: HttpStatus.UNAUTHORIZED,
+          type: 'UNAUTHORIZED',
+          message: 'Unauthorized Exception',
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
 
     //Si el campo nombre no existe
     if (!name) {
@@ -164,9 +201,33 @@ export class RoleService {
       );
     }
 
-    //buscar el nombre que esta siendo modificado y que no coincida con uno registrado
     const findRole = await this.roleModel.findById(id);
+    const findModulesByIds = await this.moduleService.findModulesIds(module);
+    const isExisteModuleASP = findModulesByIds.some(
+      (a) => a.name === 'Administración de sistema - PRINCIPAL',
+    );
+
+    //Ningun rol puede modificar el rol OWNER ni ninguno puede poner el nombre OWNER
+    if (
+      (findRole.name === 'OWNER' &&
+        String(name).toUpperCase().trim() !== 'OWNER') ||
+      (findRole.name !== 'OWNER' &&
+        String(name).toUpperCase().trim() === 'OWNER') ||
+      (findRole.name === 'OWNER' && !isExisteModuleASP) ||
+      (findRole.name !== 'OWNER' && isExisteModuleASP)
+    ) {
+      throw new HttpException(
+        {
+          status: HttpStatus.UNAUTHORIZED,
+          type: 'UNAUTHORIZED',
+          message: 'Unauthorized Exception',
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
     const findRoleRep = await this.roleModel.findOne({ name });
+    //Si actualizan el nombre primero buscamos si el rol actualizando ya existe.
     if (findRoleRep && findRoleRep.name !== findRole.name) {
       throw new HttpException(
         {
@@ -175,44 +236,6 @@ export class RoleService {
           message: 'El rol ya existe.',
         },
         HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    if (user) {
-      const { findUser } = user;
-      //buscar lo que tenia
-      const findRole = await this.roleModel.findById(id);
-
-      //validacion de, el rol owner no puede modificarse ni modificarse al mismo name "owner". Tambien validamos que cuaquier otro rol no puede modificar el rol owner ni ponerle otro nombre al rol
-      if (
-        (findUser.role === 'OWNER' && findRole.name === 'OWNER') ||
-        (findUser.role === 'OWNER' &&
-          findRole.name !== 'OWNER' &&
-          String(name).toUpperCase() === 'OWNER') ||
-        (findUser.role !== 'OWNER' && findRole.name === 'OWNER') ||
-        (findUser.role !== 'OWNER' &&
-          findRole.name !== 'OWNER' &&
-          String(name).toUpperCase() === 'OWNER')
-      ) {
-        throw new HttpException(
-          {
-            status: HttpStatus.UNAUTHORIZED,
-            type: 'UNAUTHORIZED',
-            message: 'No puedes modificar este rol.',
-          },
-          HttpStatus.UNAUTHORIZED,
-        );
-      }
-    }
-
-    if (status) {
-      throw new HttpException(
-        {
-          status: HttpStatus.UNAUTHORIZED,
-          type: 'UNAUTHORIZED',
-          message: 'Unauthorized Exception',
-        },
-        HttpStatus.UNAUTHORIZED,
       );
     }
 
@@ -319,7 +342,7 @@ export class RoleService {
           path: 'creator',
         },
       ]);
-      listRoles = rolesFindDb.filter((role) => role.name !== 'OWNER');
+      listRoles = rolesFindDb;
     } else {
       //Cualquier otro usuario puede ver sus roles creados por el mismo
       const rolesFindDb = await this.roleModel
@@ -371,37 +394,6 @@ export class RoleService {
         HttpStatus.CONFLICT,
       );
     }
-
-    // const modules = rol.module;
-    // const validaModules = [];
-
-    // if (user) {
-    //   const { findUser } = user;
-
-    //   if (
-    //     findUser.role !== 'OWNER' ||
-    //     findUser.role !== 'SUPER ADMINISTRADOR'
-    //   ) {
-    //     findUser.role.modules.filter((mod) => {
-    //       modules.filter((mods) => {
-    //         if (mod.name === mods.name) {
-    //           validaModules.push(mod);
-    //         }
-    //       });
-    //     });
-    //   }
-    // }
-
-    // const dataRol = {
-    //   ...rol._doc,
-    //   module: validaModules,
-    // };
-
-    // //formatear modulos
-    // const toListRol = {
-    //   ...rol._doc,
-    //   module: rol._doc.module.map((format) => format._id),
-    // };
 
     // //formatear modulos
     const toListData = {

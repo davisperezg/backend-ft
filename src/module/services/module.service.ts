@@ -93,14 +93,41 @@ export class ModuleService implements OnApplicationBootstrap {
   //lista los modulos en roles
   async findAll(user: any): Promise<Module[] | any> {
     const { findUser } = user;
-    let modules = [];
+    let formated = [];
     if (findUser.role === 'OWNER') {
-      modules = await this.moduleModel
+      const modules = await this.moduleModel
         .find({
           $or: [{ creator: findUser._id }, { creator: null }],
         })
         .populate({
           path: 'menu',
+        });
+
+      formated = modules
+        .map((mod) => {
+          if (mod.name === 'Administración de sistema - PRINCIPAL') {
+            return {
+              label: mod.name,
+              value: mod._id,
+              disabled: true,
+            };
+          } else {
+            return {
+              label: mod.name,
+              value: mod._id,
+              disabled: mod.status ? false : true,
+            };
+          }
+        })
+        .sort((a, b) => {
+          if (a > b) {
+            return 1;
+          }
+          if (a < b) {
+            return -1;
+          }
+          // a must be equal to b
+          return 0;
         });
     } else {
       const modulesCreateds = await this.moduleModel
@@ -115,25 +142,25 @@ export class ModuleService implements OnApplicationBootstrap {
         findUser._id,
       );
 
-      modules = myModulesAssigneds.concat(modulesCreateds);
-    }
+      const modules = myModulesAssigneds.concat(modulesCreateds);
 
-    const formated = modules
-      .map((mod) => ({
-        label: mod.name,
-        value: mod._id,
-        disabled: mod.status ? false : true,
-      }))
-      .sort((a, b) => {
-        if (a > b) {
-          return 1;
-        }
-        if (a < b) {
-          return -1;
-        }
-        // a must be equal to b
-        return 0;
-      });
+      formated = modules
+        .map((mod) => ({
+          label: mod.name,
+          value: mod._id,
+          disabled: mod.status ? false : true,
+        }))
+        .sort((a, b) => {
+          if (a > b) {
+            return 1;
+          }
+          if (a < b) {
+            return -1;
+          }
+          // a must be equal to b
+          return 0;
+        });
+    }
 
     return formated;
   }

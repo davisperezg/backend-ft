@@ -187,7 +187,14 @@ export class ResourcesRolesService implements OnApplicationBootstrap {
 
       try {
         //buscar resource existente por rol
-        isExistsRoleinRR = await this.rrModel.findOne({ role });
+        isExistsRoleinRR = await this.rrModel.findOne({ role }).populate([
+          {
+            path: 'role',
+          },
+          {
+            path: 'resource',
+          },
+        ]);
       } catch (e) {
         throw new HttpException(
           {
@@ -197,6 +204,29 @@ export class ResourcesRolesService implements OnApplicationBootstrap {
           },
           HttpStatus.BAD_REQUEST,
         );
+      }
+
+      //console.log(isExistsRoleinRR);
+
+      if (isExistsRoleinRR.role.name === 'OWNER') {
+        const resFormateds = Object.keys(resource).map((a) =>
+          resource[a].toLowerCase(),
+        );
+        const resDefaults = resourcesByDefault.map((b) => b.key.toLowerCase());
+        const isEqualsResWithResDefault = resDefaults.every((a) =>
+          resFormateds.includes(a),
+        );
+
+        if (!isEqualsResWithResDefault) {
+          throw new HttpException(
+            {
+              status: HttpStatus.UNAUTHORIZED,
+              type: 'UNAUTHORIZED',
+              message: `Unauthorized Exception`,
+            },
+            HttpStatus.UNAUTHORIZED,
+          );
+        }
       }
 
       //si existe en la bd pero no coincide con el param id

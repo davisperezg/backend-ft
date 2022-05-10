@@ -176,6 +176,25 @@ export class ServicesUsersService {
       }
     }
 
+    const arrayToString: string[] = Object.keys(modulesBody).map(
+      (mod) => modulesBody[mod],
+    );
+    const findModules = await this.moduleService.findModulesIds(arrayToString);
+    const isExisteModuleASP = findModules.some(
+      (a) => a.name === 'Administración de sistema - PRINCIPAL',
+    );
+
+    if (isExisteModuleASP) {
+      throw new HttpException(
+        {
+          status: HttpStatus.UNAUTHORIZED,
+          type: 'UNAUTHORIZED',
+          message: `Unauthorized Exception`,
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
     //si no existe buscar su mismo usuario y serivicio registrado
     const { user: userRegistered, module: servicesRegistered } = findSU;
 
