@@ -8,7 +8,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { AuthService } from 'src/auth/services/auth.service';
 import { ResourcesUsersService } from 'src/resources-users/services/resources-users.service';
-import { jwtConstants } from '../const/consts';
+import { ConfigService } from '@nestjs/config';
 
 interface JWType {
   userId: string;
@@ -19,11 +19,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     private readonly authService: AuthService,
     private readonly ruService: ResourcesUsersService,
+    private readonly configService: ConfigService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: jwtConstants.secret,
+      secretOrKey: configService.get<string>('JWT_SECRET_KEY'),
     });
   }
 

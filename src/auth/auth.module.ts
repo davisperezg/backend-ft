@@ -38,12 +38,20 @@ import {
   CopyServices_User,
 } from 'src/services-users/schemas/cp-services-user';
 import { ServicesUsersService } from 'src/services-users/services/services-users.service';
+import { ConfigService } from '@nestjs/config';
 
 @Module({
   imports: [
-    JwtModule.register({
-      secret: jwtConstants.secret,
-      signOptions: { expiresIn: '24h' },
+    JwtModule.registerAsync({
+      useFactory: (config: ConfigService) => {
+        return {
+          secret: config.get<string>('JWT_SECRET_KEY'),
+          signOptions: {
+            expiresIn: config.get<string | number>('JWT_EXPIRE'),
+          },
+        };
+      },
+      inject: [ConfigService],
     }),
     MongooseModule.forFeature([
       { name: 'User', schema: UserSchema },
