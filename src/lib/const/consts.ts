@@ -1,6 +1,5 @@
-export const jwtConstants = {
-  secret: process.env.TOKEN || 'TOKEN_DEV',
-};
+export const ROL_PRINCIPAL = 'OWNER';
+export const MOD_PRINCIPAL = 'Administración de sistema - PRINCIPAL';
 
 export const resourcesByDefault = [
   // MODULES

@@ -1,3 +1,4 @@
+import { ROL_PRINCIPAL } from 'src/lib/const/consts';
 import {
   Services_User,
   Services_UserDocument,
@@ -52,7 +53,9 @@ export class UserService implements OnApplicationBootstrap {
     try {
       const passwordHashed = await hashPassword('admin123');
 
-      const getRole = await this.roleService.findRoleByName(String('OWNER'));
+      const getRole = await this.roleService.findRoleByName(
+        String(ROL_PRINCIPAL),
+      );
 
       setTimeout(async () => {
         const count = await this.userModel.estimatedDocumentCount();
@@ -61,11 +64,11 @@ export class UserService implements OnApplicationBootstrap {
 
         await this.userModel.insertMany([
           {
-            name: 'El',
-            lastname: 'Duenio',
+            name: 'DAVIS KEINER',
+            lastname: 'PEREZ GUZMAN',
             tipDocument: 'DNI',
             nroDocument: '99999999',
-            email: 'admin@admin.com',
+            email: 'admin@admin.com.pe',
             password: passwordHashed,
             status: true,
             role: getRole._id,
@@ -81,7 +84,7 @@ export class UserService implements OnApplicationBootstrap {
   async findAll(userToken: any): Promise<any[]> {
     const { findUser } = userToken;
     let users = [];
-    if (findUser.role === 'OWNER') {
+    if (findUser.role === ROL_PRINCIPAL) {
       const listusers = await this.userModel.find().populate([
         {
           path: 'role',
@@ -90,7 +93,7 @@ export class UserService implements OnApplicationBootstrap {
           path: 'creator',
         },
       ]);
-      users = listusers.filter((user) => user.role.name !== 'OWNER');
+      users = listusers.filter((user) => user.role.name !== ROL_PRINCIPAL);
     } else {
       users = await this.userModel.find({ creator: findUser._id }).populate([
         {
@@ -145,8 +148,10 @@ export class UserService implements OnApplicationBootstrap {
     const rolToken = findUser.role;
 
     if (
-      (findForbidden.role.name === 'OWNER' && rolToken !== 'OWNER') ||
-      (findForbidden.creator.email !== findUser.email && rolToken !== 'OWNER')
+      (findForbidden.role.name === ROL_PRINCIPAL &&
+        rolToken !== ROL_PRINCIPAL) ||
+      (findForbidden.creator.email !== findUser.email &&
+        rolToken !== ROL_PRINCIPAL)
     ) {
       throw new HttpException(
         {
@@ -246,8 +251,8 @@ export class UserService implements OnApplicationBootstrap {
 
     //Ni el owner ni otro usuario puede registrar a otro owner
     if (
-      (findUser.role !== 'OWNER' && getRole.name === 'OWNER') ||
-      (findUser.role === 'OWNER' && getRole.name === 'OWNER')
+      (findUser.role !== ROL_PRINCIPAL && getRole.name === ROL_PRINCIPAL) ||
+      (findUser.role === ROL_PRINCIPAL && getRole.name === ROL_PRINCIPAL)
     ) {
       throw new HttpException(
         {
@@ -317,9 +322,12 @@ export class UserService implements OnApplicationBootstrap {
 
     //Ni el owner ni cualquier otro usuario puede eliminar al owner
     if (
-      (findForbidden.role.name === 'OWNER' && rolToken !== 'OWNER') ||
-      (findForbidden.role.name === 'OWNER' && rolToken === 'OWNER') ||
-      (findForbidden.creator.email !== findUser.email && rolToken !== 'OWNER')
+      (findForbidden.role.name === ROL_PRINCIPAL &&
+        rolToken !== ROL_PRINCIPAL) ||
+      (findForbidden.role.name === ROL_PRINCIPAL &&
+        rolToken === ROL_PRINCIPAL) ||
+      (findForbidden.creator.email !== findUser.email &&
+        rolToken !== ROL_PRINCIPAL)
     ) {
       throw new HttpException(
         {
@@ -425,11 +433,12 @@ export class UserService implements OnApplicationBootstrap {
 
     //el usuario no puede actualizar otro rol a owner o si encuentra que el usuario del owner esta siendo modificado tampoco puede actualizar
     if (
-      (findForbidden.role.name === 'OWNER' && rolToken !== 'OWNER') ||
+      (findForbidden.role.name === ROL_PRINCIPAL &&
+        rolToken !== ROL_PRINCIPAL) ||
       (findForbidden.creator.email !== findUser.email &&
-        rolToken !== 'OWNER') ||
-      (getRoleOfBody.name === 'OWNER' && rolToken !== 'OWNER') ||
-      (getRoleOfBody.name === 'OWNER' && rolToken === 'OWNER')
+        rolToken !== ROL_PRINCIPAL) ||
+      (getRoleOfBody.name === ROL_PRINCIPAL && rolToken !== ROL_PRINCIPAL) ||
+      (getRoleOfBody.name === ROL_PRINCIPAL && rolToken === ROL_PRINCIPAL)
     ) {
       throw new HttpException(
         {
@@ -477,9 +486,12 @@ export class UserService implements OnApplicationBootstrap {
 
     //Ni el owner ni cualquier otro usuario permite retaurar al owner
     if (
-      (findForbidden.role.name === 'OWNER' && rolToken !== 'OWNER') ||
-      (findForbidden.role.name === 'OWNER' && rolToken === 'OWNER') ||
-      (findForbidden.creator.email !== findUser.email && rolToken !== 'OWNER')
+      (findForbidden.role.name === ROL_PRINCIPAL &&
+        rolToken !== ROL_PRINCIPAL) ||
+      (findForbidden.role.name === ROL_PRINCIPAL &&
+        rolToken === ROL_PRINCIPAL) ||
+      (findForbidden.creator.email !== findUser.email &&
+        rolToken !== ROL_PRINCIPAL)
     ) {
       throw new HttpException(
         {

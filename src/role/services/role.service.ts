@@ -1,3 +1,4 @@
+import { MOD_PRINCIPAL, ROL_PRINCIPAL } from 'src/lib/const/consts';
 import { CopyServicesDocument } from './../../services-users/schemas/cp-services-user';
 import {
   forwardRef,
@@ -82,9 +83,7 @@ export class RoleService {
       (mod) => module[mod],
     );
     const findModules = await this.moduleService.findModulesIds(arrayToString);
-    const isExisteModuleASP = findModules.some(
-      (a) => a.name === 'Administración de sistema - PRINCIPAL',
-    );
+    const isExisteModuleASP = findModules.some((a) => a.name === MOD_PRINCIPAL);
 
     if (isExisteModuleASP) {
       throw new HttpException(
@@ -141,7 +140,7 @@ export class RoleService {
     let result = false;
 
     const findRoleForbidden = await this.roleModel.findById(id);
-    if (findRoleForbidden.name === 'OWNER') {
+    if (findRoleForbidden.name === ROL_PRINCIPAL) {
       throw new HttpException(
         {
           status: HttpStatus.UNAUTHORIZED,
@@ -204,17 +203,17 @@ export class RoleService {
     const findRole = await this.roleModel.findById(id);
     const findModulesByIds = await this.moduleService.findModulesIds(module);
     const isExisteModuleASP = findModulesByIds.some(
-      (a) => a.name === 'Administración de sistema - PRINCIPAL',
+      (a) => a.name === MOD_PRINCIPAL,
     );
 
     //Ningun rol puede modificar el rol OWNER ni ninguno puede poner el nombre OWNER
     if (
-      (findRole.name === 'OWNER' &&
-        String(name).toUpperCase().trim() !== 'OWNER') ||
-      (findRole.name !== 'OWNER' &&
-        String(name).toUpperCase().trim() === 'OWNER') ||
-      (findRole.name === 'OWNER' && !isExisteModuleASP) ||
-      (findRole.name !== 'OWNER' && isExisteModuleASP)
+      (findRole.name === ROL_PRINCIPAL &&
+        String(name).toUpperCase().trim() !== ROL_PRINCIPAL) ||
+      (findRole.name !== ROL_PRINCIPAL &&
+        String(name).toUpperCase().trim() === ROL_PRINCIPAL) ||
+      (findRole.name === ROL_PRINCIPAL && !isExisteModuleASP) ||
+      (findRole.name !== ROL_PRINCIPAL && isExisteModuleASP)
     ) {
       throw new HttpException(
         {
@@ -333,7 +332,7 @@ export class RoleService {
     let listRoles = [];
 
     //Solo el owner puede ver todos lo roles
-    if (findUser.role === 'OWNER') {
+    if (findUser.role === ROL_PRINCIPAL) {
       const rolesFindDb = await this.roleModel.find().populate([
         {
           path: 'module',

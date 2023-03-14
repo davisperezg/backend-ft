@@ -1,3 +1,4 @@
+import { ROL_PRINCIPAL } from 'src/lib/const/consts';
 import {
   HttpException,
   HttpStatus,
@@ -49,7 +50,7 @@ export class MenuService implements OnModuleInit {
   async create(createMenu: Menu, user: any): Promise<Menu> {
     const { findUser } = user;
 
-    if (findUser.role !== 'OWNER') {
+    if (findUser.role !== ROL_PRINCIPAL) {
       throw new HttpException(
         {
           status: HttpStatus.UNAUTHORIZED,
@@ -73,7 +74,7 @@ export class MenuService implements OnModuleInit {
   //Put
   async update(id: string, bodyMenu: Menu, user: any): Promise<Menu> {
     const { findUser } = user;
-    if (findUser.role !== 'OWNER') {
+    if (findUser.role !== ROL_PRINCIPAL) {
       throw new HttpException(
         {
           status: HttpStatus.UNAUTHORIZED,
@@ -103,7 +104,7 @@ export class MenuService implements OnModuleInit {
   //Delete
   async delete(id: string, user: any): Promise<boolean> {
     const { findUser } = user;
-    if (findUser.role !== 'OWNER') {
+    if (findUser.role !== ROL_PRINCIPAL) {
       throw new HttpException(
         {
           status: HttpStatus.UNAUTHORIZED,
@@ -137,7 +138,7 @@ export class MenuService implements OnModuleInit {
   //Restore
   async restore(id: string, user: any): Promise<boolean> {
     const { findUser } = user;
-    if (findUser.role !== 'OWNER') {
+    if (findUser.role !== ROL_PRINCIPAL) {
       throw new HttpException(
         {
           status: HttpStatus.UNAUTHORIZED,

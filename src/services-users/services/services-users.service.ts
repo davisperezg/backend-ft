@@ -1,3 +1,4 @@
+import { MOD_PRINCIPAL } from 'src/lib/const/consts';
 import {
   CopyServices_User,
   CopyServicesDocument,
@@ -180,9 +181,7 @@ export class ServicesUsersService {
       (mod) => modulesBody[mod],
     );
     const findModules = await this.moduleService.findModulesIds(arrayToString);
-    const isExisteModuleASP = findModules.some(
-      (a) => a.name === 'Administración de sistema - PRINCIPAL',
-    );
+    const isExisteModuleASP = findModules.some((a) => a.name === MOD_PRINCIPAL);
 
     if (isExisteModuleASP) {
       throw new HttpException(

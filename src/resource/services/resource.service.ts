@@ -12,7 +12,7 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Resource, ResourceDocument } from '../schemas/resource.schema';
 import { Model, Types } from 'mongoose';
-import { resourcesByDefault } from 'src/lib/const/consts';
+import { resourcesByDefault, ROL_PRINCIPAL } from 'src/lib/const/consts';
 import { User, UserDocument } from 'src/user/schemas/user.schema';
 
 @Injectable()
@@ -60,7 +60,7 @@ export class ResourceService implements OnModuleInit {
       .sort([['name', 'ascending']]);
 
     let formatResourcesToFront = [];
-    if (findUser.role !== 'OWNER') {
+    if (findUser.role !== ROL_PRINCIPAL) {
       formatResourcesToFront = resourcesToUser.map((res) => {
         return {
           label: res.name,

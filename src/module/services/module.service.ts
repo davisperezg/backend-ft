@@ -1,3 +1,4 @@
+import { MOD_PRINCIPAL, ROL_PRINCIPAL } from 'src/lib/const/consts';
 import {
   forwardRef,
   HttpException,
@@ -41,7 +42,7 @@ export class ModuleService implements OnApplicationBootstrap {
 
       await Promise.all([
         new this.moduleModel({
-          name: 'Administración de sistema - PRINCIPAL',
+          name: MOD_PRINCIPAL,
           status: true,
           menu: findMenus,
           creator: null,
@@ -60,21 +61,21 @@ export class ModuleService implements OnApplicationBootstrap {
 
       //ADD ROL
       const getModules = await this.findbyNames([
-        'Administración de sistema - PRINCIPAL',
+        MOD_PRINCIPAL,
         'Perfiles',
         'Tickets',
       ]);
 
       await Promise.all([
         new this.roleModel({
-          name: 'OWNER',
+          name: ROL_PRINCIPAL,
           status: true,
           module: getModules,
           creator: null,
         }).save(),
       ]);
 
-      const findOwner = await this.roleModel.findOne({ name: 'OWNER' });
+      const findOwner = await this.roleModel.findOne({ name: ROL_PRINCIPAL });
 
       setTimeout(async () => {
         const findUser = await this.userService.findUserByIdRol(findOwner._id);
@@ -94,7 +95,7 @@ export class ModuleService implements OnApplicationBootstrap {
   async findAll(user: any): Promise<Module[] | any> {
     const { findUser } = user;
     let formated = [];
-    if (findUser.role === 'OWNER') {
+    if (findUser.role === ROL_PRINCIPAL) {
       const modules = await this.moduleModel
         .find({
           $or: [{ creator: findUser._id }, { creator: null }],
@@ -105,7 +106,7 @@ export class ModuleService implements OnApplicationBootstrap {
 
       formated = modules
         .map((mod) => {
-          if (mod.name === 'Administración de sistema - PRINCIPAL') {
+          if (mod.name === MOD_PRINCIPAL) {
             return {
               label: mod.name,
               value: mod._id,
@@ -169,7 +170,7 @@ export class ModuleService implements OnApplicationBootstrap {
   async listModules(user: any): Promise<Module[]> {
     const { findUser } = user;
     let modules = [];
-    if (findUser.role === 'OWNER') {
+    if (findUser.role === ROL_PRINCIPAL) {
       modules = await this.moduleModel
         .find({
           $or: [{ creator: null }, { creator: findUser._id }],
@@ -331,7 +332,7 @@ export class ModuleService implements OnApplicationBootstrap {
 
     //el modulo as-principal no se puede eliminar
     const findModuleForbidden = await this.moduleModel.findById(id);
-    if (findModuleForbidden.name === 'Administración de sistema - PRINCIPAL') {
+    if (findModuleForbidden.name === MOD_PRINCIPAL) {
       throw new HttpException(
         {
           status: HttpStatus.UNAUTHORIZED,
@@ -382,7 +383,7 @@ export class ModuleService implements OnApplicationBootstrap {
 
     const findModulesForbidden = await this.findOne(id);
     if (
-      findUser.role !== 'OWNER' &&
+      findUser.role !== ROL_PRINCIPAL &&
       String(findModulesForbidden.creator).toLowerCase() !==
         String(findUser._id).toLowerCase()
     ) {
@@ -402,9 +403,9 @@ export class ModuleService implements OnApplicationBootstrap {
     //const findModuleForbidden = await this.moduleModel.findById(id);
     //el modulo as-principal no se puede actualizar ni modificar sus menus
     if (
-      (findModulesForbidden.name === 'Administración de sistema - PRINCIPAL' &&
+      (findModulesForbidden.name === MOD_PRINCIPAL &&
         findModulesForbidden.name !== name) ||
-      (findModulesForbidden.name === 'Administración de sistema - PRINCIPAL' &&
+      (findModulesForbidden.name === MOD_PRINCIPAL &&
         findModulesForbidden.menu.length !== getMenus.length)
     ) {
       throw new HttpException(
@@ -424,8 +425,8 @@ export class ModuleService implements OnApplicationBootstrap {
     if (
       (findModule && findModule.name !== getModuleById.name) ||
       (findModule &&
-        String(name).trim() !== 'Administración de sistema - PRINCIPAL' &&
-        getModuleById.name === 'Administración de sistema - PRINCIPAL')
+        String(name).trim() !== MOD_PRINCIPAL &&
+        getModuleById.name === MOD_PRINCIPAL)
     ) {
       //No se puede crear el elemento
       throw new HttpException(
