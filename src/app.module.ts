@@ -21,8 +21,8 @@ import { ConfigModule } from '@nestjs/config';
       cache: true,
     }),
     MongooseModule.forRoot(process.env.URL_DATABASE, {
-      useFindAndModify: false,
-      useCreateIndex: true,
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
     }),
     UserModule,
     RoleModule,
