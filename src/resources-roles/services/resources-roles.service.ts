@@ -17,7 +17,7 @@ import {
   Resource_UserDocument,
 } from 'src/resources-users/schemas/resources-user';
 import { User, UserDocument } from 'src/user/schemas/user.schema';
-import { resourcesByDefault } from 'src/lib/const/consts';
+import { resourcesByDefault, ROL_PRINCIPAL } from 'src/lib/const/consts';
 import {
   CopyResource_User,
   CopyResource_UserDocument,
@@ -208,7 +208,7 @@ export class ResourcesRolesService implements OnApplicationBootstrap {
 
       //console.log(isExistsRoleinRR);
 
-      if (isExistsRoleinRR.role.name === 'OWNER') {
+      if (isExistsRoleinRR.role.name === ROL_PRINCIPAL) {
         const resFormateds = Object.keys(resource).map((a) =>
           resource[a].toLowerCase(),
         );

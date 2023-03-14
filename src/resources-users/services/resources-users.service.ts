@@ -12,7 +12,7 @@ import {
   Resource_User,
   Resource_UserDocument,
 } from '../schemas/resources-user';
-import { resourcesByDefault } from 'src/lib/const/consts';
+import { resourcesByDefault, ROL_PRINCIPAL } from 'src/lib/const/consts';
 import { UserService } from 'src/user/services/user.service';
 import {
   CopyResource_User,
@@ -45,7 +45,7 @@ export class ResourcesUsersService implements OnApplicationBootstrap {
         const count = await this.ruModel.estimatedDocumentCount();
         if (count > 0) return;
         const getRoleOwner = await this.roleService.findRoleByName(
-          String('OWNER'),
+          String(ROL_PRINCIPAL),
         );
 
         const findUserByRol = await this.userService.findUserByIdRol(

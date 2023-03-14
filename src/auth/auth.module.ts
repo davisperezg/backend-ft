@@ -8,7 +8,6 @@ import { AuthService } from './services/auth.service';
 import { MongooseModule } from '@nestjs/mongoose';
 import { UserService } from 'src/user/services/user.service';
 import { UserSchema } from 'src/user/schemas/user.schema';
-import { jwtConstants } from 'src/lib/const/consts';
 import { JwtModule } from '@nestjs/jwt';
 import { JwtStrategy } from 'src/lib/strategies/jwt.strategies';
 import { RoleSchema } from 'src/role/schemas/role.schema';
