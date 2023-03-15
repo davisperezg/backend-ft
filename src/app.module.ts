@@ -1,3 +1,4 @@
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -24,6 +25,16 @@ import { ConfigModule } from '@nestjs/config';
       useNewUrlParser: true,
       useUnifiedTopology: true,
     }),
+    TypeOrmModule.forRoot({
+      type: process.env.MYSQL,
+      host: process.env.MYSQL_URL,
+      port: process.env.MYSQL_PORT,
+      username: process.env.MYSQL_USERNAME,
+      password: process.env.MYSQL_PASSWORD,
+      database: process.env.MYSQL_DATABASE,
+      autoLoadEntities: true,
+      synchronize: process.env.NODE_ENV == 'development' ? true : false,
+    } as any),
     UserModule,
     RoleModule,
     ResourceModule,
