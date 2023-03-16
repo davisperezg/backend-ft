@@ -1,3 +1,5 @@
+import { UserDocument } from 'src/user/schemas/user.schema';
+import { ROL_PRINCIPAL } from 'src/lib/const/consts';
 import {
   HttpException,
   HttpStatus,
@@ -9,6 +11,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { AuthService } from 'src/auth/services/auth.service';
 import { ResourcesUsersService } from 'src/resources-users/services/resources-users.service';
 import { ConfigService } from '@nestjs/config';
+import { QueryToken } from 'src/auth/dto/queryToken';
 
 interface JWType {
   userId: string;
@@ -29,21 +32,21 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JWType) {
-    const myUser: any = await this.authService.validateUser(payload.userId);
+    const myUser = await this.authService.validateUser(payload.userId);
 
     //busca los modulos y menus activos
     const modulesTrues = myUser.role.module
       .filter((mod) => mod.status === true)
       .map((mod) => {
         return {
-          ...mod._doc,
+          ...mod,
           menu: mod.menu.filter((filt) => filt.status === true),
         };
       });
 
     const validaModules = [];
-    if (myUser.role.name !== 'OWNER') {
-      myUser._doc.creator.role.module.filter((mod) => {
+    if (myUser.role.name !== ROL_PRINCIPAL) {
+      myUser.creator.role.module.filter((mod) => {
         modulesTrues.filter((mods) => {
           if (mod.name === mods.name) {
             validaModules.push(mods);
@@ -52,39 +55,56 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       });
     }
 
-    const findUser = [myUser._doc].map((format) => {
+    const { _doc: findUser } = [myUser].map((format) => {
       return {
         ...format,
         role: {
-          ...format.role._doc,
-          module: myUser.role.name === 'OWNER' ? modulesTrues : validaModules,
+          ...format.role,
+          module:
+            myUser.role.name === ROL_PRINCIPAL ? modulesTrues : validaModules,
         },
       };
-    })[0];
+    })[0] as any;
+
+    const userDocument: UserDocument = findUser;
 
     //si el usuario tiene estado false se cierra el acceso al sistema
-    if (findUser.status === false) {
-      throw new HttpException(
-        {
-          status: HttpStatus.UNAUTHORIZED,
-          type: 'UNAUTHORIZED',
-          message: 'Unauthorized Exception',
-        },
-        HttpStatus.UNAUTHORIZED,
-      );
+    if (userDocument.status === false) {
+      throw new HttpException('Acceso denegado!!', HttpStatus.UNAUTHORIZED);
     }
 
     const findResource = await this.ruService.findOneResourceByUser(
-      findUser._id,
+      userDocument._id,
     );
 
-    const user = {
-      findUser,
-      findResource,
+    const user: QueryToken = {
+      token_of_permisos: findResource,
+      tokenEntityFull: userDocument,
+      token_of_front: {
+        id: String(userDocument._id),
+        usuario: userDocument.name + ' ' + userDocument.lastname,
+        estado_usuario: userDocument.status,
+        rol: {
+          nombre: userDocument.role.name,
+          modulos: userDocument.role.module.map((a) => {
+            return {
+              nombre: a.name,
+              estado: a.status,
+              menus: a.menu.map((b) => {
+                return {
+                  nombre: b.name,
+                  estado: b.status,
+                };
+              }),
+            };
+          }),
+        },
+        estado_rol: userDocument.role.status,
+      },
     };
 
     if (!findUser) {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException('Acceso denegado!!!');
     }
 
     return user;

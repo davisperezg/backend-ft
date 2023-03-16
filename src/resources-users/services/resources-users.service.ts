@@ -73,17 +73,12 @@ export class ResourcesUsersService implements OnApplicationBootstrap {
     return resources;
   }
 
-  async findOneResourceByUser(idUser: string): Promise<Resource_User[]> {
+  async findOneResourceByUser(idUser: string): Promise<any[]> {
     const resourcesOfUser = await this.ruModel
-      .findOne({ status: true, user: idUser as any })
+      .findOne({ status: true, user: idUser })
       .populate({ path: 'resource' });
 
-    const formatToFront = {
-      ...resourcesOfUser,
-      resource: resourcesOfUser.resource.map((res: any) => res._doc.key),
-    };
-
-    return formatToFront.resource;
+    return resourcesOfUser.resource.map((res: any) => res._doc.key);
   }
 
   //Add a single role

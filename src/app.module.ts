@@ -18,6 +18,8 @@ import {
   Groupsresources,
   GroupsresourcesSchema,
 } from './groups-resources/schemas/groups-resources.schema';
+import { APP_FILTER } from '@nestjs/core';
+import { ValidationErrorFilter } from './lib/class-validator/validation-error.filter';
 
 @Module({
   imports: [
@@ -55,6 +57,12 @@ import {
     GroupsResourceModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_FILTER,
+      useClass: ValidationErrorFilter,
+    },
+  ],
 })
 export class AppModule {}
