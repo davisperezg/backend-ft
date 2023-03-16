@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { Menu, MenuSchema } from 'src/menu/schemas/menu.schema';
 import { MenuService } from 'src/menu/services/menu.service';
 import {
@@ -24,6 +25,7 @@ import {
   Services_User,
 } from 'src/services-users/schemas/services-user';
 import { ServicesUsersService } from 'src/services-users/services/services-users.service';
+import { UserEntity } from 'src/user/entities/user.entity';
 import { User, UserSchema } from 'src/user/schemas/user.schema';
 import { UserService } from 'src/user/services/user.service';
 import { RoleController } from './controllers/role.controller';
@@ -32,6 +34,7 @@ import { RoleService } from './services/role.service';
 
 @Module({
   imports: [
+    TypeOrmModule.forFeature([UserEntity]),
     MongooseModule.forFeature([
       { name: Role.name, schema: RoleSchema },
       { name: Resource_User.name, schema: Resource_UserSchema },

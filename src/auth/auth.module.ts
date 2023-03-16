@@ -38,9 +38,12 @@ import {
 } from 'src/services-users/schemas/cp-services-user';
 import { ServicesUsersService } from 'src/services-users/services/services-users.service';
 import { ConfigService } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { UserEntity } from 'src/user/entities/user.entity';
 
 @Module({
   imports: [
+    TypeOrmModule.forFeature([UserEntity]),
     JwtModule.registerAsync({
       useFactory: (config: ConfigService) => {
         return {

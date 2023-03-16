@@ -26,9 +26,12 @@ import {
   CopyServicesSchema,
   CopyServices_User,
 } from './schemas/cp-services-user';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { UserEntity } from 'src/user/entities/user.entity';
 
 @Module({
   imports: [
+    TypeOrmModule.forFeature([UserEntity]),
     MongooseModule.forFeature([
       { name: Services_User.name, schema: ServicesUserSchema },
       { name: User.name, schema: UserSchema },

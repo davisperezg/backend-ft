@@ -16,6 +16,12 @@ import { CtxUser } from 'src/lib/decorators/ctx-user.decorators';
 import { JwtAuthGuard } from 'src/lib/guards/auth.guard';
 import PermissionGuard from 'src/lib/guards/resources.guard';
 import Permission from 'src/lib/type/permission.type';
+import {
+  Ctx,
+  EventPattern,
+  Payload,
+  KafkaContext,
+} from '@nestjs/microservices';
 
 //base: http://localhost:3000/api/v1/users
 @Controller('api/v1/users')
@@ -35,12 +41,6 @@ export class UserController {
   getUser(@Param('nro') nro: string) {
     return this.userService.findUserByCodApi(nro);
   }
-
-  // Get users removes: http://localhost:3000/api/v1/users/removes
-  // @Get('/removes')
-  // getUsersRemoves() {
-  //   return this.userService.findAllDeleted();
-  // }
 
   // Get Me: http://localhost:3000/api/v1/users/whois
   @Get('/whois')

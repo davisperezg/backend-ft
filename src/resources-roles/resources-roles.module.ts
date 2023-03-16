@@ -33,9 +33,12 @@ import { MenuService } from 'src/menu/services/menu.service';
 import { ServicesUsersService } from 'src/services-users/services/services-users.service';
 import { UserService } from 'src/user/services/user.service';
 import { Menu, MenuSchema } from 'src/menu/schemas/menu.schema';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { UserEntity } from 'src/user/entities/user.entity';
 
 @Module({
   imports: [
+    TypeOrmModule.forFeature([UserEntity]),
     MongooseModule.forFeature([
       { name: Resource_Role.name, schema: Resource_RoleSchema },
       { name: Role.name, schema: RoleSchema },

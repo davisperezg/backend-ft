@@ -22,6 +22,9 @@ import {
   Resource_UserDocument,
   Resource_User,
 } from 'src/resources-users/schemas/resources-user';
+import { InjectRepository } from '@nestjs/typeorm';
+import { UserEntity } from '../entities/user.entity';
+import { Repository } from 'typeorm';
 
 @Injectable()
 export class UserService implements OnApplicationBootstrap {
@@ -34,6 +37,8 @@ export class UserService implements OnApplicationBootstrap {
     private suModel: Model<Services_UserDocument>,
     @InjectModel(Resource_Role.name)
     private rrModel: Model<Resource_RoleDocument>,
+    @InjectRepository(UserEntity)
+    private userRepository: Repository<UserEntity>,
   ) {}
 
   async onApplicationBootstrap() {
@@ -284,6 +289,18 @@ export class UserService implements OnApplicationBootstrap {
       String(resourcesOfRol.role),
     );
 
+    const creatUserMysql = this.userRepository.create({
+      _id: String(createdUser._id),
+      nombres: createdUser.name,
+      apellidos: createdUser.lastname,
+    });
+
+    //registra usuario mongo
+    await createdUser.save();
+
+    //registra usuario mysql
+    await this.userRepository.save(creatUserMysql);
+
     //data a enviar para el recurso del usuario
     const sendDataResource: Resource_User = {
       status: true,
@@ -303,7 +320,7 @@ export class UserService implements OnApplicationBootstrap {
     //crea modulos al usuario
     await new this.suModel(sendDataSu).save();
 
-    return createdUser.save();
+    return;
   }
 
   //Delete a single user
@@ -461,14 +478,33 @@ export class UserService implements OnApplicationBootstrap {
       );
     }
 
+    //Creando objeto para Mongo
     const modifyData: User = {
       ...bodyUser,
       role: role,
     };
 
-    return await this.userModel.findByIdAndUpdate(id, modifyData, {
+    //Guardamos en Mongo
+    await this.userModel.findByIdAndUpdate(id, modifyData, {
       new: true,
     });
+
+    const userMYSQL = await this.userRepository.findOne({
+      where: {
+        _id: id,
+      },
+    });
+
+    //Creados objeto para MYSQL
+    this.userRepository.merge(userMYSQL, {
+      nombres: modifyData.name,
+      apellidos: modifyData.lastname,
+    });
+
+    //Guardamos en MYSQL
+    await this.userRepository.save(userMYSQL);
+
+    return;
   }
 
   //Restore a single user
