@@ -12,6 +12,7 @@ import { AuthService } from 'src/auth/services/auth.service';
 import { ResourcesUsersService } from 'src/resources-users/services/resources-users.service';
 import { ConfigService } from '@nestjs/config';
 import { QueryToken } from 'src/auth/dto/queryToken';
+import { RoleDocument } from 'src/role/schemas/role.schema';
 
 interface JWType {
   userId: string;
@@ -79,7 +80,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     const user: QueryToken = {
       token_of_permisos: findResource,
-      tokenEntityFull: userDocument,
+      tokenEntityFull: {
+        ...userDocument,
+        role: {
+          ...(userDocument.role as any)._doc,
+        } as RoleDocument,
+      },
       token_of_front: {
         id: String(userDocument._id),
         usuario: userDocument.name + ' ' + userDocument.lastname,

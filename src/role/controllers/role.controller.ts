@@ -1,3 +1,4 @@
+import { QueryToken } from './../../auth/dto/queryToken';
 import {
   Body,
   Controller,
@@ -25,29 +26,16 @@ export class RoleController {
   // Get Roles: http://localhost:3000/api/v1/roles
   @Get()
   @UseGuards(PermissionGuard(Permission.ReadRoles))
-  getRoles(@CtxUser() user: any) {
+  getRoles(@CtxUser() user: QueryToken) {
     return this.roleService.findAll(user);
   }
 
   // Get Role: http://localhost:3000/api/v1/roles/find/6223169df6066a084cef08c2
   @Get('/find/:id')
   @UseGuards(PermissionGuard(Permission.GetOneRole))
-  getRole(@Param('id') id: string, @CtxUser() user: any) {
-    return this.roleService.findRoleById(id, user);
+  getRole(@Param('id') id: string) {
+    return this.roleService.findRoleById(id);
   }
-
-  // Get Roles removes: http://localhost:3000/api/v1/roles/removes
-  // @Get('/removes')
-  // getRolesRemoves() {
-  //   return this.roleService.findAllDeleted();
-  // }
-
-  // Get Data role by name(POST): http://localhost:3000/api/v1/roles/data
-  // @Post('/data')
-  // getDataByName(@Body() createBody: Role) {
-  //   const { name } = createBody;
-  //   return this.roleService.findRoleByName(name);
-  // }
 
   // Add Role(POST): http://localhost:3000/api/v1/roles/6223169df6066a084cef08c2
   @Post()
@@ -82,9 +70,8 @@ export class RoleController {
     @Res() res,
     @Param('id') id: string,
     @Body() createBody: Role,
-    @CtxUser() user: any,
   ): Promise<Role> {
-    const roleUpdated = await this.roleService.update(id, createBody, user);
+    const roleUpdated = await this.roleService.update(id, createBody);
     return res.status(HttpStatus.OK).json({
       message: 'Role Updated Successfully',
       roleUpdated,

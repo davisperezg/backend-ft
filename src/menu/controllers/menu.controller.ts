@@ -1,3 +1,4 @@
+import { QueryToken } from 'src/auth/dto/queryToken';
 import {
   Controller,
   Get,
@@ -35,7 +36,7 @@ export class MenuController {
   async createMenu(
     @Res() res,
     @Body() createMenu: MenuDocument,
-    @CtxUser() user: any,
+    @CtxUser() user: QueryToken,
   ): Promise<Menu> {
     const menu = await this.menuService.create(createMenu, user);
     return res.status(HttpStatus.OK).json({
@@ -51,7 +52,7 @@ export class MenuController {
     @Res() res,
     @Param('id') id: string,
     @Body() createMenu: MenuDocument,
-    @CtxUser() user: any,
+    @CtxUser() user: QueryToken,
   ): Promise<Menu> {
     const menuUpdated = await this.menuService.update(id, createMenu, user);
     return res.status(HttpStatus.OK).json({
@@ -66,7 +67,7 @@ export class MenuController {
   async deleteMenu(
     @Res() res,
     @Param('id') id: string,
-    @CtxUser() user: any,
+    @CtxUser() user: QueryToken,
   ): Promise<boolean> {
     const menuDeleted = await this.menuService.delete(id, user);
     return res.status(HttpStatus.OK).json({
@@ -81,7 +82,7 @@ export class MenuController {
   async restoreModule(
     @Res() res,
     @Param('id') id: string,
-    @CtxUser() user: any,
+    @CtxUser() user: QueryToken,
   ): Promise<Menu> {
     const menuRestored = await this.menuService.restore(id, user);
     return res.status(HttpStatus.OK).json({

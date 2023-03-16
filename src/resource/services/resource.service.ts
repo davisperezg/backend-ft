@@ -14,6 +14,7 @@ import { Resource, ResourceDocument } from '../schemas/resource.schema';
 import { Model, Types } from 'mongoose';
 import { resourcesByDefault, ROL_PRINCIPAL } from 'src/lib/const/consts';
 import { User, UserDocument } from 'src/user/schemas/user.schema';
+import { QueryToken } from 'src/auth/dto/queryToken';
 
 @Injectable()
 export class ResourceService implements OnModuleInit {
@@ -42,14 +43,14 @@ export class ResourceService implements OnModuleInit {
   //   return await this.resourceModel.findByIdAndDelete(id);
   // }
 
-  async findAll(user: any): Promise<Resource[] | any[]> {
-    const { findUserBack, findUser } = user;
+  async findAll(user: QueryToken): Promise<Resource[] | any[]> {
+    const { tokenEntityFull } = user;
     const resources = await this.resourceModel
       .find({ status: true })
       .sort([['name', 'ascending']]);
 
     const resourcesAlloweds = await this.rrModel.findOne({
-      role: findUserBack.user.role._id,
+      role: tokenEntityFull.role._id,
     });
 
     const resourcesToUser = await this.resourceModel
@@ -60,7 +61,7 @@ export class ResourceService implements OnModuleInit {
       .sort([['name', 'ascending']]);
 
     let formatResourcesToFront = [];
-    if (findUser.role !== ROL_PRINCIPAL) {
+    if (tokenEntityFull.role.name !== ROL_PRINCIPAL) {
       formatResourcesToFront = resourcesToUser.map((res) => {
         return {
           label: res.name,
