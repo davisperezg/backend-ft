@@ -96,7 +96,7 @@ export class AuthService {
   }
 
   //validate user searching by id to jwt.strategies.ts
-  async validateUser(id: string): Promise<UserDocument> {
+  async validateUser(id: string) {
     //find user by Id
     return await this.userService.findUserById(id);
   }

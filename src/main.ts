@@ -1,26 +1,25 @@
+import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { Transport, MicroserviceOptions } from '@nestjs/microservices';
 import { AppModule } from './app.module';
+import { ValidationError } from 'class-validator/types/validation/ValidationError';
+import { ValidationErrorException } from './lib/class-validator/validation-error.exception';
+import { ValidationPipeOptions } from '@nestjs/common/pipes';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableCors({ origin: process.env.URL_FRONTEND_ORIGIN });
-  await app.listen(3000);
 
-  // const microservice =
-  //   await NestFactory.createMicroservice<MicroserviceOptions>(AppModule, {
-  //     transport: Transport.KAFKA,
-  //     options: {
-  //       client: {
-  //         clientId: 'kafkajs-my-app',
-  //         brokers: ['localhost:9092'],
-  //       },
-  //       consumer: {
-  //         groupId: 'kafkajs-my-group',
-  //       },
-  //     },
-  //   });
-  // await microservice.listen();
+  const validationOptions: ValidationPipeOptions = {
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    exceptionFactory: (errors: ValidationError[]) => {
+      return new ValidationErrorException(errors);
+    },
+  };
+
+  app.useGlobalPipes(new ValidationPipe(validationOptions));
+
+  await app.listen(3000);
 }
 
 bootstrap();

@@ -1,3 +1,4 @@
+import { QueryToken } from 'src/auth/dto/queryToken';
 import { ROL_PRINCIPAL } from 'src/lib/const/consts';
 import {
   Services_User,
@@ -86,10 +87,10 @@ export class UserService implements OnApplicationBootstrap {
     }
   }
 
-  async findAll(userToken: any): Promise<any[]> {
-    const { findUser } = userToken;
+  async findAll(userToken: QueryToken): Promise<any[]> {
+    const { tokenEntityFull } = userToken;
     let users = [];
-    if (findUser.role === ROL_PRINCIPAL) {
+    if (tokenEntityFull.name === ROL_PRINCIPAL) {
       const listusers = await this.userModel.find().populate([
         {
           path: 'role',
@@ -100,14 +101,16 @@ export class UserService implements OnApplicationBootstrap {
       ]);
       users = listusers.filter((user) => user.role.name !== ROL_PRINCIPAL);
     } else {
-      users = await this.userModel.find({ creator: findUser._id }).populate([
-        {
-          path: 'role',
-        },
-        {
-          path: 'creator',
-        },
-      ]);
+      users = await this.userModel
+        .find({ creator: tokenEntityFull._id })
+        .populate([
+          {
+            path: 'role',
+          },
+          {
+            path: 'creator',
+          },
+        ]);
     }
 
     const formatUsers = users.map((user) => {
