@@ -13,9 +13,17 @@ import { ResourcesRolesModule } from './resources-roles/resources-roles.module';
 import { ResourcesUsersModule } from './resources-users/resources-users.module';
 import { ServicesUsersModule } from './services-users/services-users.module';
 import { ConfigModule } from '@nestjs/config';
+import { GroupsResourceModule } from './groups-resources/groups-resources.module';
+import {
+  Groupsresources,
+  GroupsresourcesSchema,
+} from './groups-resources/schemas/groups-resources.schema';
 
 @Module({
   imports: [
+    MongooseModule.forFeature([
+      { name: Groupsresources.name, schema: GroupsresourcesSchema },
+    ]),
     ConfigModule.forRoot({
       envFilePath: `.${process.env.NODE_ENV}.env`,
       isGlobal: true,
@@ -44,6 +52,7 @@ import { ConfigModule } from '@nestjs/config';
     ResourcesRolesModule,
     ResourcesUsersModule,
     ServicesUsersModule,
+    GroupsResourceModule,
   ],
   controllers: [AppController],
   providers: [AppService],
