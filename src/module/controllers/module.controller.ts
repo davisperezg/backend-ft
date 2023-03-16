@@ -10,6 +10,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import { QueryToken } from 'src/auth/dto/queryToken';
 import { CtxUser } from 'src/lib/decorators/ctx-user.decorators';
 import PermissionGuard from 'src/lib/guards/resources.guard';
 import Permission from 'src/lib/type/permission.type';
@@ -24,14 +25,14 @@ export class ModuleController {
   // Get Modules: http://localhost:3000/api/v1/modules
   @Get()
   @UseGuards(PermissionGuard(Permission.ReadModuleItem))
-  getModules(@CtxUser() user: any) {
+  getModules(@CtxUser() user: QueryToken) {
     return this.moduleService.findAll(user);
   }
 
   // Get Modules: http://localhost:3000/api/v1/modules/list
   @Get('/list')
   @UseGuards(PermissionGuard(Permission.ReadModuleList))
-  getModulesList(@CtxUser() user: any) {
+  getModulesList(@CtxUser() user: QueryToken) {
     return this.moduleService.listModules(user);
   }
 
@@ -48,7 +49,7 @@ export class ModuleController {
   async createMenu(
     @Res() res,
     @Body() createModule: Module,
-    @CtxUser() user: any,
+    @CtxUser() user: QueryToken,
   ): Promise<Module> {
     const module = await this.moduleService.create(createModule, user);
     return res.status(HttpStatus.OK).json({
@@ -75,7 +76,7 @@ export class ModuleController {
     @Res() res,
     @Param('id') id: string,
     @Body() createMenu: Module,
-    @CtxUser() user: any,
+    @CtxUser() user: QueryToken,
   ): Promise<Module> {
     const moduleUpdated = await this.moduleService.update(id, createMenu, user);
     return res.status(HttpStatus.OK).json({

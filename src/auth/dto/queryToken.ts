@@ -1,4 +1,5 @@
 import Permission from 'src/lib/type/permission.type';
+import { RoleDocument } from 'src/role/schemas/role.schema';
 import { UserDocument } from 'src/user/schemas/user.schema';
 
 class QueryTokenUser {
@@ -22,5 +23,5 @@ class QueryTokenUser {
 export class QueryToken {
   token_of_front: QueryTokenUser;
   token_of_permisos: Permission[];
-  tokenEntityFull: UserDocument;
+  tokenEntityFull: Partial<Omit<UserDocument, 'role'>> & { role: RoleDocument };
 }

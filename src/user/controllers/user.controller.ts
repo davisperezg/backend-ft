@@ -1,3 +1,4 @@
+import { QueryToken } from './../../auth/dto/queryToken';
 import { UserService } from '../services/user.service';
 import {
   Body,
@@ -31,7 +32,7 @@ export class UserController {
   // Get Users: http://localhost:3000/api/v1/users
   @Get()
   @UseGuards(PermissionGuard(Permission.ReadUsers))
-  getUsers(@CtxUser() user: any) {
+  getUsers(@CtxUser() user: QueryToken) {
     return this.userService.findAll(user);
   }
 
@@ -45,9 +46,9 @@ export class UserController {
   // Get Me: http://localhost:3000/api/v1/users/whois
   @Get('/whois')
   @UseGuards(JwtAuthGuard)
-  whois(@Res() res, @CtxUser() user: any): Promise<UserDocument> {
-    const { findUser } = user;
-    return res.status(HttpStatus.OK).json({ user: findUser });
+  whois(@Res() res, @CtxUser() user: QueryToken): Promise<UserDocument> {
+    const { token_of_front } = user;
+    return res.status(HttpStatus.OK).json(token_of_front);
   }
 
   // Add User(POST): http://localhost:3000/api/v1/users
@@ -56,7 +57,7 @@ export class UserController {
   async createUser(
     @Res() res,
     @Body() createBody: User,
-    @CtxUser() userToken: any,
+    @CtxUser() userToken: QueryToken,
   ): Promise<User> {
     const user = await this.userService.create(createBody, userToken);
     return res.status(HttpStatus.OK).json({
@@ -71,7 +72,7 @@ export class UserController {
   async deleteUser(
     @Res() res,
     @Param('id') id: string,
-    @CtxUser() user: any,
+    @CtxUser() user: QueryToken,
   ): Promise<boolean> {
     const userDeleted = await this.userService.delete(id, user);
     return res.status(HttpStatus.OK).json({
@@ -87,7 +88,7 @@ export class UserController {
     @Res() res,
     @Param('id') id: string,
     @Body() createBody: User,
-    @CtxUser() user: any,
+    @CtxUser() user: QueryToken,
   ): Promise<User> {
     const userUpdated = await this.userService.update(id, createBody, user);
     return res.status(HttpStatus.OK).json({
@@ -106,7 +107,7 @@ export class UserController {
     data: {
       password: string;
     },
-    @CtxUser() userToken: any,
+    @CtxUser() userToken: QueryToken,
   ): Promise<User> {
     const passwordUpdated = await this.userService.changePassword(
       id,
@@ -125,7 +126,7 @@ export class UserController {
   async restoreUser(
     @Res() res,
     @Param('id') id: string,
-    @CtxUser() user: any,
+    @CtxUser() user: QueryToken,
   ): Promise<User> {
     const userRestored = await this.userService.restore(id, user);
     return res.status(HttpStatus.OK).json({

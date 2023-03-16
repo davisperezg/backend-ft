@@ -1,3 +1,4 @@
+import { QueryToken } from 'src/auth/dto/queryToken';
 import {
   Controller,
   HttpStatus,
@@ -44,9 +45,8 @@ export class ResourcesRolesController {
   async createRR(
     @Res() res,
     @Body() createBody: Resource_Role,
-    @CtxUser() user: any,
   ): Promise<Resource_Role> {
-    const resource = await this.rrService.create(createBody, user);
+    const resource = await this.rrService.create(createBody);
     return res.status(HttpStatus.OK).json({
       message: 'Resource Successfully Created',
       resource,

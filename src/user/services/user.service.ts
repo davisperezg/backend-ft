@@ -142,7 +142,7 @@ export class UserService implements OnApplicationBootstrap {
   async changePassword(
     id: string,
     data: { password: string },
-    userToken: any,
+    userToken: QueryToken,
   ): Promise<boolean> {
     const findForbidden = await this.userModel.findById(id).populate([
       {
@@ -152,13 +152,13 @@ export class UserService implements OnApplicationBootstrap {
         path: 'creator',
       },
     ]);
-    const { findUser } = userToken;
-    const rolToken = findUser.role;
+    const { tokenEntityFull } = userToken;
+    const rolToken = tokenEntityFull.role.name;
 
     if (
       (findForbidden.role.name === ROL_PRINCIPAL &&
         rolToken !== ROL_PRINCIPAL) ||
-      (findForbidden.creator.email !== findUser.email &&
+      (findForbidden.creator.email !== tokenEntityFull.email &&
         rolToken !== ROL_PRINCIPAL)
     ) {
       throw new HttpException(
@@ -190,9 +190,9 @@ export class UserService implements OnApplicationBootstrap {
   }
 
   //Add a single user
-  async create(createUser: User, userToken: any): Promise<User> {
+  async create(createUser: User, userToken: QueryToken): Promise<User> {
     const { email, role, password, nroDocument } = createUser;
-    const { findUser } = userToken;
+    const { tokenEntityFull } = userToken;
 
     const findEmailExists = await this.userModel.findOne({ email });
     const findNroExists = await this.userModel.findOne({ nroDocument });
@@ -259,8 +259,10 @@ export class UserService implements OnApplicationBootstrap {
 
     //Ni el owner ni otro usuario puede registrar a otro owner
     if (
-      (findUser.role !== ROL_PRINCIPAL && getRole.name === ROL_PRINCIPAL) ||
-      (findUser.role === ROL_PRINCIPAL && getRole.name === ROL_PRINCIPAL)
+      (tokenEntityFull.role.name !== ROL_PRINCIPAL &&
+        getRole.name === ROL_PRINCIPAL) ||
+      (tokenEntityFull.role.name === ROL_PRINCIPAL &&
+        getRole.name === ROL_PRINCIPAL)
     ) {
       throw new HttpException(
         {
@@ -278,7 +280,7 @@ export class UserService implements OnApplicationBootstrap {
       password: passwordHashed,
       role: getRole._id,
       status: true,
-      creator: findUser._id,
+      creator: tokenEntityFull._id,
     };
 
     //crea usuario
@@ -327,10 +329,10 @@ export class UserService implements OnApplicationBootstrap {
   }
 
   //Delete a single user
-  async delete(id: string, user: any): Promise<boolean> {
+  async delete(id: string, user: QueryToken): Promise<boolean> {
     let result = false;
-    const { findUser } = user;
-    const rolToken = findUser.role;
+    const { tokenEntityFull } = user;
+    const rolToken = tokenEntityFull.role.name;
     const findForbidden = await this.userModel.findById(id).populate([
       {
         path: 'role',
@@ -346,7 +348,7 @@ export class UserService implements OnApplicationBootstrap {
         rolToken !== ROL_PRINCIPAL) ||
       (findForbidden.role.name === ROL_PRINCIPAL &&
         rolToken === ROL_PRINCIPAL) ||
-      (findForbidden.creator.email !== findUser.email &&
+      (findForbidden.creator.email !== tokenEntityFull.email &&
         rolToken !== ROL_PRINCIPAL)
     ) {
       throw new HttpException(
@@ -379,10 +381,14 @@ export class UserService implements OnApplicationBootstrap {
   }
 
   //Put a single user
-  async update(id: string, bodyUser: User, userToken: any): Promise<User> {
+  async update(
+    id: string,
+    bodyUser: User,
+    userToken: QueryToken,
+  ): Promise<User> {
     const { status, role, password, nroDocument, email } = bodyUser;
-    const { findUser } = userToken;
-    const rolToken = findUser.role;
+    const { tokenEntityFull } = userToken;
+    const rolToken = tokenEntityFull.role.name;
     const findForbidden = await this.userModel.findById(id).populate([
       {
         path: 'role',
@@ -455,7 +461,7 @@ export class UserService implements OnApplicationBootstrap {
     if (
       (findForbidden.role.name === ROL_PRINCIPAL &&
         rolToken !== ROL_PRINCIPAL) ||
-      (findForbidden.creator.email !== findUser.email &&
+      (findForbidden.creator.email !== tokenEntityFull.email &&
         rolToken !== ROL_PRINCIPAL) ||
       (getRoleOfBody.name === ROL_PRINCIPAL && rolToken !== ROL_PRINCIPAL) ||
       (getRoleOfBody.name === ROL_PRINCIPAL && rolToken === ROL_PRINCIPAL)
@@ -511,9 +517,9 @@ export class UserService implements OnApplicationBootstrap {
   }
 
   //Restore a single user
-  async restore(id: string, userToken: any): Promise<boolean> {
-    const { findUser } = userToken;
-    const rolToken = findUser.role;
+  async restore(id: string, userToken: QueryToken): Promise<boolean> {
+    const { tokenEntityFull } = userToken;
+    const rolToken = tokenEntityFull.role.name;
     const findForbidden = await this.userModel.findById(id).populate([
       {
         path: 'role',
@@ -529,7 +535,7 @@ export class UserService implements OnApplicationBootstrap {
         rolToken !== ROL_PRINCIPAL) ||
       (findForbidden.role.name === ROL_PRINCIPAL &&
         rolToken === ROL_PRINCIPAL) ||
-      (findForbidden.creator.email !== findUser.email &&
+      (findForbidden.creator.email !== tokenEntityFull.email &&
         rolToken !== ROL_PRINCIPAL)
     ) {
       throw new HttpException(

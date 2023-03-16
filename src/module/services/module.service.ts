@@ -14,6 +14,7 @@ import { MenuService } from 'src/menu/services/menu.service';
 import { RoleDocument } from 'src/role/schemas/role.schema';
 import { ServicesUsersService } from 'src/services-users/services/services-users.service';
 import { UserService } from 'src/user/services/user.service';
+import { QueryToken } from 'src/auth/dto/queryToken';
 
 @Injectable()
 export class ModuleService implements OnApplicationBootstrap {
@@ -92,13 +93,13 @@ export class ModuleService implements OnApplicationBootstrap {
   }
 
   //lista los modulos en roles
-  async findAll(user: any): Promise<Module[] | any> {
-    const { findUser } = user;
+  async findAll(user: QueryToken): Promise<Module[] | any> {
+    const { tokenEntityFull } = user;
     let formated = [];
-    if (findUser.role === ROL_PRINCIPAL) {
+    if (tokenEntityFull.role.name === ROL_PRINCIPAL) {
       const modules = await this.moduleModel
         .find({
-          $or: [{ creator: findUser._id }, { creator: null }],
+          $or: [{ creator: tokenEntityFull._id }, { creator: null }],
         })
         .populate({
           path: 'menu',
@@ -133,14 +134,14 @@ export class ModuleService implements OnApplicationBootstrap {
     } else {
       const modulesCreateds = await this.moduleModel
         .find({
-          creator: findUser._id,
+          creator: tokenEntityFull._id,
         })
         .populate({
           path: 'menu',
         });
 
       const myModulesAssigneds = await this.suService.findModulesByUser(
-        findUser._id,
+        tokenEntityFull._id,
       );
 
       const modules = myModulesAssigneds.concat(modulesCreateds);
@@ -167,13 +168,13 @@ export class ModuleService implements OnApplicationBootstrap {
   }
 
   //lista los modulos en el crud
-  async listModules(user: any): Promise<Module[]> {
-    const { findUser } = user;
+  async listModules(user: QueryToken): Promise<Module[]> {
+    const { tokenEntityFull } = user;
     let modules = [];
-    if (findUser.role === ROL_PRINCIPAL) {
+    if (tokenEntityFull.role.name === ROL_PRINCIPAL) {
       modules = await this.moduleModel
         .find({
-          $or: [{ creator: null }, { creator: findUser._id }],
+          $or: [{ creator: null }, { creator: tokenEntityFull._id }],
         })
         .populate({
           path: 'menu',
@@ -181,7 +182,7 @@ export class ModuleService implements OnApplicationBootstrap {
     } else {
       const modulesByCreator = await this.moduleModel
         .find({
-          creator: findUser._id,
+          creator: tokenEntityFull._id,
         })
         .populate({
           path: 'menu',
@@ -270,9 +271,9 @@ export class ModuleService implements OnApplicationBootstrap {
   }
 
   //Add a single module
-  async create(createMenu: Module, user: any): Promise<Module> {
+  async create(createMenu: Module, user: QueryToken): Promise<Module> {
     const { menu, name } = createMenu;
-    const { findUser } = user;
+    const { tokenEntityFull } = user;
 
     //Si name no existe
     if (!name) {
@@ -319,7 +320,7 @@ export class ModuleService implements OnApplicationBootstrap {
       ...createMenu,
       status: true,
       menu: findMenus,
-      creator: findUser._id,
+      creator: tokenEntityFull._id,
     };
 
     const createdModule = new this.moduleModel(modifyData);
@@ -354,9 +355,13 @@ export class ModuleService implements OnApplicationBootstrap {
   }
 
   //Put a single module
-  async update(id: string, bodyModule: Module, user: any): Promise<Module> {
+  async update(
+    id: string,
+    bodyModule: Module,
+    user: QueryToken,
+  ): Promise<Module> {
     const { status, menu, name } = bodyModule;
-    const { findUser } = user;
+    const { tokenEntityFull } = user;
 
     if (status) {
       throw new HttpException(
@@ -383,9 +388,9 @@ export class ModuleService implements OnApplicationBootstrap {
 
     const findModulesForbidden = await this.findOne(id);
     if (
-      findUser.role !== ROL_PRINCIPAL &&
+      tokenEntityFull.role.name !== ROL_PRINCIPAL &&
       String(findModulesForbidden.creator).toLowerCase() !==
-        String(findUser._id).toLowerCase()
+        String(tokenEntityFull._id).toLowerCase()
     ) {
       throw new HttpException(
         {

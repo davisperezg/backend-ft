@@ -25,6 +25,7 @@ import {
 } from 'src/services-users/schemas/services-user';
 import { CopyServices_User } from 'src/services-users/schemas/cp-services-user';
 import { ModuleService } from 'src/module/services/module.service';
+import { QueryToken } from 'src/auth/dto/queryToken';
 
 @Injectable()
 export class RoleService {
@@ -50,9 +51,9 @@ export class RoleService {
   }
 
   //Add a single role
-  async create(createRole: Role, userToken: any): Promise<Role> {
+  async create(createRole: Role, userToken: QueryToken): Promise<Role> {
     const { module, name } = createRole;
-    const { findUser } = userToken;
+    const { tokenEntityFull } = userToken;
 
     //Si el campo nombre no existe
     if (!name) {
@@ -98,7 +99,7 @@ export class RoleService {
 
     const findRoles = await this.roleModel.find({ name });
     const getRolByCreator = findRoles.find(
-      (role) => String(role.creator) === String(findUser._id),
+      (role) => String(role.creator) === String(tokenEntityFull._id),
     );
     //Si encuentra el rol y es el mismo rol que ha creado el creador se valida y muestra mensaje
     if (getRolByCreator) {
@@ -119,13 +120,13 @@ export class RoleService {
       ...createRole,
       status: true,
       module,
-      creator: findUser._id,
+      creator: tokenEntityFull._id,
     };
 
     const createdRole = new this.roleModel(modifyData);
 
     //cualquier rol que es creado obtendra los permisos del usuario padre o de lo contrario todos los permisos
-    const findRU = await this.ruModel.findOne({ user: findUser._id });
+    const findRU = await this.ruModel.findOne({ user: tokenEntityFull._id });
     await new this.rrModel({
       role: createdRole._id,
       status: true,
@@ -162,7 +163,7 @@ export class RoleService {
   }
 
   //Put a single role
-  async update(id: string, bodyRole: Role | any, user?: any): Promise<Role> {
+  async update(id: string, bodyRole: Role | any): Promise<Role> {
     const { status, module, name } = bodyRole;
 
     if (status === false || status === true) {
@@ -327,12 +328,12 @@ export class RoleService {
     return result;
   }
 
-  async findAll(user: any): Promise<RoleDocument[] | any[]> {
-    const { findUser } = user;
+  async findAll(user: QueryToken): Promise<RoleDocument[] | any[]> {
+    const { tokenEntityFull } = user;
     let listRoles = [];
 
     //Solo el owner puede ver todos lo roles
-    if (findUser.role === ROL_PRINCIPAL) {
+    if (tokenEntityFull.role.name === ROL_PRINCIPAL) {
       const rolesFindDb = await this.roleModel.find().populate([
         {
           path: 'module',
@@ -345,7 +346,7 @@ export class RoleService {
     } else {
       //Cualquier otro usuario puede ver sus roles creados por el mismo
       const rolesFindDb = await this.roleModel
-        .find({ creator: findUser._id })
+        .find({ creator: tokenEntityFull._id })
         .populate([
           {
             path: 'module',
@@ -377,7 +378,7 @@ export class RoleService {
     return await this.roleModel.findById(role).populate('creator');
   }
 
-  async findRoleById(role: string, user?: any): Promise<RoleDocument | any> {
+  async findRoleById(role: string): Promise<RoleDocument | any> {
     const rol: any = await this.roleModel
       .findOne({ _id: role, status: true })
       .populate({ path: 'module' });

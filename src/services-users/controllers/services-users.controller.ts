@@ -36,7 +36,6 @@ export class ServicesUsersController {
   async createRR(
     @Res() res,
     @Body() createBody: Services_User,
-    @CtxUser() user: any,
   ): Promise<Services_User> {
     const service = await this.suService.create(createBody);
     return res.status(HttpStatus.OK).json({

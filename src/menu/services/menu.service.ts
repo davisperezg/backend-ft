@@ -8,6 +8,7 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Menu, MenuDocument } from '../schemas/menu.schema';
 import { Model } from 'mongoose';
+import { QueryToken } from 'src/auth/dto/queryToken';
 
 @Injectable()
 export class MenuService implements OnModuleInit {
@@ -47,10 +48,10 @@ export class MenuService implements OnModuleInit {
     }
   }
 
-  async create(createMenu: Menu, user: any): Promise<Menu> {
-    const { findUser } = user;
+  async create(createMenu: Menu, user: QueryToken): Promise<Menu> {
+    const { tokenEntityFull } = user;
 
-    if (findUser.role !== ROL_PRINCIPAL) {
+    if (tokenEntityFull.role.name !== ROL_PRINCIPAL) {
       throw new HttpException(
         {
           status: HttpStatus.UNAUTHORIZED,
@@ -72,9 +73,9 @@ export class MenuService implements OnModuleInit {
   }
 
   //Put
-  async update(id: string, bodyMenu: Menu, user: any): Promise<Menu> {
-    const { findUser } = user;
-    if (findUser.role !== ROL_PRINCIPAL) {
+  async update(id: string, bodyMenu: Menu, user: QueryToken): Promise<Menu> {
+    const { tokenEntityFull } = user;
+    if (tokenEntityFull.role.name !== ROL_PRINCIPAL) {
       throw new HttpException(
         {
           status: HttpStatus.UNAUTHORIZED,
@@ -102,9 +103,9 @@ export class MenuService implements OnModuleInit {
   }
 
   //Delete
-  async delete(id: string, user: any): Promise<boolean> {
-    const { findUser } = user;
-    if (findUser.role !== ROL_PRINCIPAL) {
+  async delete(id: string, user: QueryToken): Promise<boolean> {
+    const { tokenEntityFull } = user;
+    if (tokenEntityFull.role.name !== ROL_PRINCIPAL) {
       throw new HttpException(
         {
           status: HttpStatus.UNAUTHORIZED,
@@ -136,9 +137,9 @@ export class MenuService implements OnModuleInit {
   }
 
   //Restore
-  async restore(id: string, user: any): Promise<boolean> {
-    const { findUser } = user;
-    if (findUser.role !== ROL_PRINCIPAL) {
+  async restore(id: string, user: QueryToken): Promise<boolean> {
+    const { tokenEntityFull } = user;
+    if (tokenEntityFull.role.name !== ROL_PRINCIPAL) {
       throw new HttpException(
         {
           status: HttpStatus.UNAUTHORIZED,

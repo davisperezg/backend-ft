@@ -1,3 +1,4 @@
+import { QueryToken } from './../../auth/dto/queryToken';
 import {
   Body,
   Controller,
@@ -22,7 +23,10 @@ export class ResourceController {
   // Get Resources
   @Get()
   @UseGuards(PermissionGuard(Permission.ReadResourcesItem))
-  async getResources(@Res() res, @CtxUser() user): Promise<Resource[]> {
+  async getResources(
+    @Res() res,
+    @CtxUser() user: QueryToken,
+  ): Promise<Resource[]> {
     const menus = await this.resourceService.findAll(user);
     return res.status(HttpStatus.OK).json(menus);
   }
