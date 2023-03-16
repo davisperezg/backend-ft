@@ -33,7 +33,7 @@ import { ConfigModule } from '@nestjs/config';
       password: process.env.MYSQL_PASSWORD,
       database: process.env.MYSQL_DATABASE,
       autoLoadEntities: true,
-      synchronize: process.env.NODE_ENV == 'development' ? true : false,
+      synchronize: process.env.NODE_ENV === 'development' ? true : false,
     } as any),
     UserModule,
     RoleModule,
