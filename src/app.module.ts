@@ -20,11 +20,13 @@ import {
 } from './groups-resources/schemas/groups-resources.schema';
 import { APP_FILTER } from '@nestjs/core';
 import { ValidationErrorFilter } from './lib/class-validator/validation-error.filter';
+import { Resource, ResourceSchema } from './resource/schemas/resource.schema';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: Groupsresources.name, schema: GroupsresourcesSchema },
+      { name: Resource.name, schema: ResourceSchema },
     ]),
     ConfigModule.forRoot({
       envFilePath: `.${process.env.NODE_ENV}.env`,

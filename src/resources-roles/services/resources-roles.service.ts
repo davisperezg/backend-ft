@@ -17,12 +17,11 @@ import {
   Resource_UserDocument,
 } from 'src/resources-users/schemas/resources-user';
 import { User, UserDocument } from 'src/user/schemas/user.schema';
-import { resourcesByDefault, ROL_PRINCIPAL } from 'src/lib/const/consts';
+import { RECURSOS_DEFECTOS, ROL_PRINCIPAL } from 'src/lib/const/consts';
 import {
   CopyResource_User,
   CopyResource_UserDocument,
 } from 'src/resources-users/schemas/cp-resource-user';
-import { QueryToken } from 'src/auth/dto/queryToken';
 
 @Injectable()
 export class ResourcesRolesService implements OnApplicationBootstrap {
@@ -44,7 +43,7 @@ export class ResourcesRolesService implements OnApplicationBootstrap {
     if (count > 0) return;
     try {
       const findResources = await this.resourceService.findResourceByKey(
-        resourcesByDefault.map((res) => res.key),
+        RECURSOS_DEFECTOS.map((res) => res.key),
       );
 
       const getIdsResources = findResources.map((res) => res._id);
@@ -53,7 +52,7 @@ export class ResourcesRolesService implements OnApplicationBootstrap {
         const count = await this.rrModel.estimatedDocumentCount();
         if (count > 0) return;
         const getRoleOwner = await this.roleService.findRoleByName(
-          String('OWNER'),
+          String(ROL_PRINCIPAL),
         );
 
         await new this.rrModel({
@@ -210,7 +209,7 @@ export class ResourcesRolesService implements OnApplicationBootstrap {
         const resFormateds = Object.keys(resource).map((a) =>
           resource[a].toLowerCase(),
         );
-        const resDefaults = resourcesByDefault.map((b) => b.key.toLowerCase());
+        const resDefaults = RECURSOS_DEFECTOS.map((b) => b.key.toLowerCase());
         const isEqualsResWithResDefault = resDefaults.every((a) =>
           resFormateds.includes(a),
         );

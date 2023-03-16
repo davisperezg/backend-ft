@@ -3,21 +3,16 @@ import {
   Resource_Role,
   Resource_RoleDocument,
 } from './../../resources-roles/schemas/resources-role';
-import {
-  HttpException,
-  HttpStatus,
-  Injectable,
-  OnModuleInit,
-} from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Resource, ResourceDocument } from '../schemas/resource.schema';
-import { Model, Types } from 'mongoose';
-import { resourcesByDefault, ROL_PRINCIPAL } from 'src/lib/const/consts';
+import { Model } from 'mongoose';
+import { ROL_PRINCIPAL } from 'src/lib/const/consts';
 import { User, UserDocument } from 'src/user/schemas/user.schema';
 import { QueryToken } from 'src/auth/dto/queryToken';
 
 @Injectable()
-export class ResourceService implements OnModuleInit {
+export class ResourceService {
   constructor(
     @InjectModel(Resource.name) private resourceModel: Model<ResourceDocument>,
     @InjectModel(Resource_Role.name)
@@ -27,17 +22,6 @@ export class ResourceService implements OnModuleInit {
     @InjectModel(User.name)
     private userModel: Model<UserDocument>,
   ) {}
-
-  async onModuleInit() {
-    const count = await this.resourceModel.estimatedDocumentCount();
-    if (count > 0) return;
-    try {
-      //inserta los recursos para los roles
-      await this.resourceModel.insertMany(resourcesByDefault);
-    } catch (e) {
-      throw new Error(`Error en ResourceService.onModuleInit ${e}`);
-    }
-  }
 
   // async delete(id: string) {
   //   return await this.resourceModel.findByIdAndDelete(id);

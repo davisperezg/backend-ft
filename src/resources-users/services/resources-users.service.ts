@@ -12,7 +12,7 @@ import {
   Resource_User,
   Resource_UserDocument,
 } from '../schemas/resources-user';
-import { resourcesByDefault, ROL_PRINCIPAL } from 'src/lib/const/consts';
+import { RECURSOS_DEFECTOS, ROL_PRINCIPAL } from 'src/lib/const/consts';
 import { UserService } from 'src/user/services/user.service';
 import {
   CopyResource_User,
@@ -36,7 +36,7 @@ export class ResourcesUsersService implements OnApplicationBootstrap {
     if (count > 0) return;
     try {
       const findResources = await this.resourceService.findResourceByKey(
-        resourcesByDefault.map((res) => res.key),
+        RECURSOS_DEFECTOS.map((res) => res.key),
       );
 
       const getIdsResources = findResources.map((res) => res._id);
