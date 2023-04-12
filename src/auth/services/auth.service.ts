@@ -24,12 +24,8 @@ export class AuthService {
     //if does not exist
     if (!findUser)
       throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          type: 'BAD_REQUEST',
-          message: 'Username or Password invalid',
-        },
-        HttpStatus.UNAUTHORIZED,
+        'Usuario y/o contraseña inválida',
+        HttpStatus.BAD_REQUEST,
       );
 
     //verify password with password hashed in db
@@ -38,21 +34,13 @@ export class AuthService {
     //if does not exist
     if (!isMatch)
       throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          type: 'BAD_REQUEST',
-          message: 'Username or Password invalid',
-        },
-        HttpStatus.UNAUTHORIZED,
+        'Usuario y/o contraseña inválida',
+        HttpStatus.BAD_REQUEST,
       );
 
     if (findUser.status !== true) {
       throw new HttpException(
-        {
-          status: HttpStatus.UNAUTHORIZED,
-          type: 'UNAUTHORIZED',
-          message: 'User does not have access',
-        },
+        'Usuario sin acceso al sistema',
         HttpStatus.UNAUTHORIZED,
       );
     }

@@ -1,9 +1,4 @@
-import {
-  HttpException,
-  HttpStatus,
-  Injectable,
-  OnApplicationBootstrap,
-} from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { ResourceService } from 'src/resource/services/resource.service';
 import { RoleService } from 'src/role/services/role.service';
@@ -12,7 +7,6 @@ import {
   Resource_User,
   Resource_UserDocument,
 } from '../schemas/resources-user';
-import { RECURSOS_DEFECTOS, ROL_PRINCIPAL } from 'src/lib/const/consts';
 import { UserService } from 'src/user/services/user.service';
 import {
   CopyResource_User,
@@ -20,7 +14,7 @@ import {
 } from '../schemas/cp-resource-user';
 
 @Injectable()
-export class ResourcesUsersService implements OnApplicationBootstrap {
+export class ResourcesUsersService {
   constructor(
     @InjectModel(Resource_User.name)
     private ruModel: Model<Resource_UserDocument>,
@@ -30,38 +24,6 @@ export class ResourcesUsersService implements OnApplicationBootstrap {
     private readonly roleService: RoleService,
     private readonly userService: UserService,
   ) {}
-
-  async onApplicationBootstrap() {
-    const count = await this.ruModel.estimatedDocumentCount();
-    if (count > 0) return;
-    try {
-      const findResources = await this.resourceService.findResourceByKey(
-        RECURSOS_DEFECTOS.map((res) => res.key),
-      );
-
-      const getIdsResources = findResources.map((res) => res._id);
-
-      setTimeout(async () => {
-        const count = await this.ruModel.estimatedDocumentCount();
-        if (count > 0) return;
-        const getRoleOwner = await this.roleService.findRoleByName(
-          String(ROL_PRINCIPAL),
-        );
-
-        const findUserByRol = await this.userService.findUserByIdRol(
-          getRoleOwner._id,
-        );
-
-        await new this.ruModel({
-          user: findUserByRol._id,
-          resource: getIdsResources,
-          status: true,
-        }).save();
-      }, 10000);
-    } catch (e) {
-      throw new Error(`Error en RUService.onModuleInit ${e}`);
-    }
-  }
 
   async findAll(): Promise<Resource_User[]> {
     const resources = await this.ruModel

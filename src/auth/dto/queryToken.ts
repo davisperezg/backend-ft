@@ -5,6 +5,7 @@ import { UserDocument } from 'src/user/schemas/user.schema';
 class QueryTokenUser {
   id: string;
   usuario: string;
+  email_usuario: string;
   estado_usuario: boolean;
   rol: {
     nombre: string;

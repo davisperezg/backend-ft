@@ -1,3 +1,7 @@
+import {
+  ServicesUserSchema,
+  Services_User,
+} from './services-users/schemas/services-user';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
@@ -21,12 +25,34 @@ import {
 import { APP_FILTER } from '@nestjs/core';
 import { ValidationErrorFilter } from './lib/class-validator/validation-error.filter';
 import { Resource, ResourceSchema } from './resource/schemas/resource.schema';
+import {
+  Resource_User,
+  Resource_UserSchema,
+} from './resources-users/schemas/resources-user';
+import { Role, RoleSchema } from './role/schemas/role.schema';
+import { User, UserSchema } from './user/schemas/user.schema';
+import { Menu, MenuSchema } from './menu/schemas/menu.schema';
+import {
+  Module as ModuleE,
+  ModuleSchema,
+} from './module/schemas/module.schema';
+import {
+  Resource_Role,
+  Resource_RoleSchema,
+} from './resources-roles/schemas/resources-role';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: Groupsresources.name, schema: GroupsresourcesSchema },
       { name: Resource.name, schema: ResourceSchema },
+      { name: Resource_User.name, schema: Resource_UserSchema },
+      { name: Role.name, schema: RoleSchema },
+      { name: User.name, schema: UserSchema },
+      { name: Menu.name, schema: MenuSchema },
+      { name: ModuleE.name, schema: ModuleSchema },
+      { name: Resource_Role.name, schema: Resource_RoleSchema },
+      { name: Services_User.name, schema: ServicesUserSchema },
     ]),
     ConfigModule.forRoot({
       envFilePath: `.${process.env.NODE_ENV}.env`,
