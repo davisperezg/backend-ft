@@ -5,7 +5,6 @@ import {
   HttpStatus,
   Inject,
   Injectable,
-  OnApplicationBootstrap,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Module, ModuleDocument } from '../schemas/module.schema';
@@ -17,7 +16,7 @@ import { UserService } from 'src/user/services/user.service';
 import { QueryToken } from 'src/auth/dto/queryToken';
 
 @Injectable()
-export class ModuleService implements OnApplicationBootstrap {
+export class ModuleService {
   constructor(
     @InjectModel(Module.name) private moduleModel: Model<ModuleDocument>,
     @InjectModel('Role') private roleModel: Model<RoleDocument>,
@@ -26,71 +25,6 @@ export class ModuleService implements OnApplicationBootstrap {
     private readonly suService: ServicesUsersService,
     private readonly userService: UserService,
   ) {}
-
-  async onApplicationBootstrap() {
-    const count = await this.moduleModel.estimatedDocumentCount();
-    if (count > 0) return;
-    try {
-      //ADD MODULES
-      const getMenus = await this.menuService.findbyName([
-        'Usuarios',
-        'Roles',
-        'Modulos',
-        'Permisos',
-      ]);
-
-      const findMenus = getMenus.map((men) => men._id);
-
-      await Promise.all([
-        new this.moduleModel({
-          name: MOD_PRINCIPAL,
-          status: true,
-          menu: findMenus,
-          creator: null,
-        }).save(),
-        new this.moduleModel({
-          name: 'Perfiles',
-          status: true,
-          creator: null,
-        }).save(),
-        new this.moduleModel({
-          name: 'Tickets',
-          status: true,
-          creator: null,
-        }).save(),
-      ]);
-
-      //ADD ROL
-      const getModules = await this.findbyNames([
-        MOD_PRINCIPAL,
-        'Perfiles',
-        'Tickets',
-      ]);
-
-      await Promise.all([
-        new this.roleModel({
-          name: ROL_PRINCIPAL,
-          status: true,
-          module: getModules,
-          creator: null,
-        }).save(),
-      ]);
-
-      const findOwner = await this.roleModel.findOne({ name: ROL_PRINCIPAL });
-
-      setTimeout(async () => {
-        const findUser = await this.userService.findUserByIdRol(findOwner._id);
-        const dataUser = {
-          user: findUser._id,
-          module: getModules,
-        };
-
-        await this.suService.create(dataUser);
-      }, 15000);
-    } catch (e) {
-      throw new Error(`Error en ModuleService.onModuleInit ${e}`);
-    }
-  }
 
   //lista los modulos en roles
   async findAll(user: QueryToken): Promise<Module[] | any> {

@@ -2,12 +2,7 @@ import {
   Resource_Role,
   Resource_RoleDocument,
 } from './../schemas/resources-role';
-import {
-  HttpException,
-  HttpStatus,
-  Injectable,
-  OnApplicationBootstrap,
-} from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { ResourceService } from 'src/resource/services/resource.service';
 import { RoleService } from 'src/role/services/role.service';
@@ -24,7 +19,7 @@ import {
 } from 'src/resources-users/schemas/cp-resource-user';
 
 @Injectable()
-export class ResourcesRolesService implements OnApplicationBootstrap {
+export class ResourcesRolesService {
   constructor(
     @InjectModel(Resource_Role.name)
     private rrModel: Model<Resource_RoleDocument>,
@@ -37,34 +32,6 @@ export class ResourcesRolesService implements OnApplicationBootstrap {
     @InjectModel(CopyResource_User.name)
     private copyRuModel: Model<CopyResource_UserDocument>,
   ) {}
-
-  async onApplicationBootstrap() {
-    const count = await this.rrModel.estimatedDocumentCount();
-    if (count > 0) return;
-    try {
-      const findResources = await this.resourceService.findResourceByKey(
-        RECURSOS_DEFECTOS.map((res) => res.key),
-      );
-
-      const getIdsResources = findResources.map((res) => res._id);
-
-      setTimeout(async () => {
-        const count = await this.rrModel.estimatedDocumentCount();
-        if (count > 0) return;
-        const getRoleOwner = await this.roleService.findRoleByName(
-          String(ROL_PRINCIPAL),
-        );
-
-        await new this.rrModel({
-          role: getRoleOwner._id,
-          resource: getIdsResources,
-          status: true,
-        }).save();
-      }, 6000);
-    } catch (e) {
-      throw new Error(`Error en RRService.onModuleInit ${e}`);
-    }
-  }
 
   async findAll(): Promise<Resource_Role[]> {
     const resources = await this.rrModel

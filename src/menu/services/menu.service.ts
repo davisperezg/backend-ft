@@ -1,52 +1,13 @@
 import { ROL_PRINCIPAL } from 'src/lib/const/consts';
-import {
-  HttpException,
-  HttpStatus,
-  Injectable,
-  OnModuleInit,
-} from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Menu, MenuDocument } from '../schemas/menu.schema';
 import { Model } from 'mongoose';
 import { QueryToken } from 'src/auth/dto/queryToken';
 
 @Injectable()
-export class MenuService implements OnModuleInit {
+export class MenuService {
   constructor(@InjectModel(Menu.name) private menuModel: Model<MenuDocument>) {}
-
-  async onModuleInit() {
-    const count = await this.menuModel.estimatedDocumentCount();
-    if (count > 0) return;
-
-    try {
-      //await this.menuModel.updateMany({ status: null }, { status: true });
-
-      await Promise.all([
-        new this.menuModel({
-          name: 'Usuarios',
-          status: true,
-          link: 'usuarios',
-        }).save(),
-        new this.menuModel({
-          name: 'Roles',
-          status: true,
-          link: 'roles',
-        }).save(),
-        new this.menuModel({
-          name: 'Modulos',
-          status: true,
-          link: 'modulos',
-        }).save(),
-        new this.menuModel({
-          name: 'Permisos',
-          status: true,
-          link: 'permisos',
-        }).save(),
-      ]);
-    } catch (e) {
-      throw new Error(`Error en MenuService.onModuleInit ${e}`);
-    }
-  }
 
   async create(createMenu: Menu, user: QueryToken): Promise<Menu> {
     const { tokenEntityFull } = user;

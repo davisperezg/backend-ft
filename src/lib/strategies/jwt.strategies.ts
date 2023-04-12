@@ -89,6 +89,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       token_of_front: {
         id: String(userDocument._id),
         usuario: userDocument.name + ' ' + userDocument.lastname,
+        email_usuario: userDocument.email,
         estado_usuario: userDocument.status,
         rol: {
           nombre: userDocument.role.name,

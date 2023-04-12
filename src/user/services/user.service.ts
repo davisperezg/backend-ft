@@ -8,12 +8,7 @@ import {
   Resource_Role,
   Resource_RoleDocument,
 } from './../../resources-roles/schemas/resources-role';
-import {
-  HttpException,
-  HttpStatus,
-  Injectable,
-  OnApplicationBootstrap,
-} from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { hashPassword } from 'src/lib/helpers/auth.helper';
@@ -28,7 +23,7 @@ import { UserEntity } from '../entities/user.entity';
 import { Repository } from 'typeorm';
 
 @Injectable()
-export class UserService implements OnApplicationBootstrap {
+export class UserService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     private readonly roleService: RoleService,
@@ -42,50 +37,13 @@ export class UserService implements OnApplicationBootstrap {
     private userRepository: Repository<UserEntity>,
   ) {}
 
-  async onApplicationBootstrap() {
-    //si haz creado una proiedad en el schema y vas actulizarla en la bd con un valor en especifico usamos el siguiente código:
-
-    // await this.userModel.updateMany(
-    //   {
-    //     updateResource: null,
-    //   },
-    //   { updateResource: false },
-    // );
-
-    const count = await this.userModel.estimatedDocumentCount();
-
-    if (count > 0) return;
-
-    try {
-      const passwordHashed = await hashPassword('admin123');
-
-      const getRole = await this.roleService.findRoleByName(
-        String(ROL_PRINCIPAL),
-      );
-
-      setTimeout(async () => {
-        const count = await this.userModel.estimatedDocumentCount();
-
-        if (count > 0) return;
-
-        await this.userModel.insertMany([
-          {
-            name: 'DAVIS KEINER',
-            lastname: 'PEREZ GUZMAN',
-            tipDocument: 'DNI',
-            nroDocument: '99999999',
-            email: 'admin@admin.com.pe',
-            password: passwordHashed,
-            status: true,
-            role: getRole._id,
-            creator: null,
-          },
-        ]);
-      }, 6000);
-    } catch (e) {
-      throw new Error(`Error en UserService.onApplicationBootstrap ${e}`);
-    }
-  }
+  //si haz creado una proiedad en el schema y vas actulizarla en la bd con un valor en especifico usamos el siguiente código:
+  // await this.userModel.updateMany(
+  //   {
+  //     updateResource: null,
+  //   },
+  //   { updateResource: false },
+  // );
 
   async findAll(userToken: QueryToken): Promise<any[]> {
     const { tokenEntityFull } = userToken;
