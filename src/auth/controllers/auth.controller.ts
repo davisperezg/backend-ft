@@ -1,12 +1,14 @@
 import { Body, Controller, HttpStatus, Post, Res } from '@nestjs/common';
+import { Get } from '@nestjs/common/decorators';
+import { Param } from '@nestjs/common/decorators/http/route-params.decorator';
 import { AuthService } from '../services/auth.service';
 
-@Controller('api/v1/auth/login')
+@Controller('api/v1/auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
   //Lgin
-  @Post()
+  @Post('/login')
   async login(@Res() res, @Body() data: { email: string; password: string }) {
     const { email, password } = data;
     const user = await this.authService.signIn(email, password);
@@ -19,5 +21,18 @@ export class AuthController {
   @Post('/token')
   async token(@Body() data: { email: string; refreshToken: string }) {
     return await this.authService.getTokenWithRefresh(data);
+  }
+
+  @Get('/ext/:tipDocumento/:nroDocumento')
+  async API_findPersona(
+    @Res() res,
+    @Param('tipDocumento') tipDocumento: string,
+    @Param('nroDocumento') nroDocumento: string,
+  ) {
+    const apiExt = await this.authService.findPersona(
+      tipDocumento,
+      nroDocumento,
+    );
+    return res.status(HttpStatus.OK).json(apiExt);
   }
 }

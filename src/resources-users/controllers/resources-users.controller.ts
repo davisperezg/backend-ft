@@ -29,7 +29,7 @@ export class ResourcesUsersController {
 
   // Get Menus
   @Get('/user/:id')
-  @UseGuards(PermissionGuard(Permission.ReadResourcesByUser))
+  //@UseGuards(PermissionGuard(Permission.ReadResourcesByUser))
   async getResourcesByUser(
     @Res() res,
     @Param('id') id: string,
@@ -40,7 +40,7 @@ export class ResourcesUsersController {
 
   // Add Resource
   @Post()
-  @UseGuards(PermissionGuard(Permission.CreateResourceU))
+  //@UseGuards(PermissionGuard(Permission.CreateResourceU))
   async createRR(
     @Res() res,
     @Body() createBody: Resource_User,

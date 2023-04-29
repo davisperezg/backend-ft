@@ -1,3 +1,4 @@
+import { Patch } from '@nestjs/common/decorators';
 import { QueryToken } from './../../auth/dto/queryToken';
 import { UserService } from '../services/user.service';
 import {
@@ -17,12 +18,7 @@ import { CtxUser } from 'src/lib/decorators/ctx-user.decorators';
 import { JwtAuthGuard } from 'src/lib/guards/auth.guard';
 import PermissionGuard from 'src/lib/guards/resources.guard';
 import Permission from 'src/lib/type/permission.type';
-import {
-  Ctx,
-  EventPattern,
-  Payload,
-  KafkaContext,
-} from '@nestjs/microservices';
+import { CreateUserDTO } from '../dto/create-user.dto';
 
 //base: http://localhost:3000/api/v1/users
 @Controller('api/v1/users')
@@ -38,7 +34,7 @@ export class UserController {
 
   // Get User: http://localhost:3000/api/v1/users/find/6223169df6066a084cef08c2
   @Get('/find/:nro')
-  @UseGuards(PermissionGuard(Permission.GetOneUser))
+  @UseGuards(PermissionGuard(Permission.GetOneUsers))
   getUser(@Param('nro') nro: string) {
     return this.userService.findUserByCodApi(nro);
   }
@@ -53,22 +49,19 @@ export class UserController {
 
   // Add User(POST): http://localhost:3000/api/v1/users
   @Post()
-  @UseGuards(PermissionGuard(Permission.CreateUser))
+  @UseGuards(PermissionGuard(Permission.CreateUsers))
   async createUser(
     @Res() res,
-    @Body() createBody: User,
+    @Body() createBody: CreateUserDTO,
     @CtxUser() userToken: QueryToken,
-  ): Promise<User> {
+  ) {
     const user = await this.userService.create(createBody, userToken);
-    return res.status(HttpStatus.OK).json({
-      message: 'User Successfully Created',
-      user,
-    });
+    return res.status(HttpStatus.OK).json(user);
   }
 
   // Delete User(DELETE): http://localhost:3000/api/v1/users/6223169df6066a084cef08c2
   @Delete(':id')
-  @UseGuards(PermissionGuard(Permission.DeleteUser))
+  @UseGuards(PermissionGuard(Permission.DeleteUsers))
   async deleteUser(
     @Res() res,
     @Param('id') id: string,
@@ -83,7 +76,7 @@ export class UserController {
 
   // Update User(PUT): http://localhost:3000/api/v1/users/6223169df6066a084cef08c2
   @Put(':id')
-  @UseGuards(PermissionGuard(Permission.UpdateUser))
+  @UseGuards(PermissionGuard(Permission.UpdateUsers))
   async updateUser(
     @Res() res,
     @Param('id') id: string,
@@ -99,7 +92,7 @@ export class UserController {
 
   // Update User(PUT): http://localhost:3000/api/v1/users/change-password/6223169df6066a084cef08c2
   @Put('/change-password/:id')
-  @UseGuards(PermissionGuard(Permission.ChangePasswordUser))
+  @UseGuards(PermissionGuard(Permission.ChangePasswordUsers))
   async changeUser(
     @Res() res,
     @Param('id') id: string,
@@ -120,9 +113,9 @@ export class UserController {
     });
   }
 
-  // Restore User: http://localhost:3000/api/v1/users/restore/6223169df6066a084cef08c2
-  @Put('restore/:id')
-  @UseGuards(PermissionGuard(Permission.RestoreUser))
+  // Restore User: http://localhost:3000/api/v1/users/6223169df6066a084cef08c2
+  @Patch(':id')
+  @UseGuards(PermissionGuard(Permission.RestoreUsers))
   async restoreUser(
     @Res() res,
     @Param('id') id: string,

@@ -14,6 +14,8 @@ import { RoleDocument } from 'src/role/schemas/role.schema';
 import { ServicesUsersService } from 'src/services-users/services/services-users.service';
 import { UserService } from 'src/user/services/user.service';
 import { QueryToken } from 'src/auth/dto/queryToken';
+import { CreateModuleDTO } from '../dto/create-module';
+import { UpdateModuleDTO } from '../dto/update-module';
 
 @Injectable()
 export class ModuleService {
@@ -109,33 +111,34 @@ export class ModuleService {
       modules = await this.moduleModel
         .find({
           $or: [{ creator: null }, { creator: tokenEntityFull._id }],
+          //status: true,
         })
-        .populate({
-          path: 'menu',
-        });
+        .populate([
+          {
+            path: 'menu',
+          },
+          { path: 'creator' },
+        ]);
     } else {
       const modulesByCreator = await this.moduleModel
         .find({
           creator: tokenEntityFull._id,
+          //status: true,
         })
-        .populate({
-          path: 'menu',
-        });
+        .populate([
+          {
+            path: 'menu',
+          },
+          { path: 'creator' },
+        ]);
 
       modules = modulesByCreator;
     }
 
-    const formated = modules.sort((a, b) => {
-      if (a > b) {
-        return 1;
-      }
-      if (a < b) {
-        return -1;
-      }
-      // a must be equal to b
-      return 0;
-    });
-    return formated;
+    //Enviar los modulos sin el principal
+    const sentToFront = modules.filter((mod) => mod.name !== MOD_PRINCIPAL);
+
+    return sentToFront;
   }
 
   async findOne(id: string): Promise<Module> {
@@ -205,55 +208,33 @@ export class ModuleService {
   }
 
   //Add a single module
-  async create(createMenu: Module, user: QueryToken): Promise<Module> {
-    const { menu, name } = createMenu;
+  async create(
+    createModulo: CreateModuleDTO,
+    user: QueryToken,
+  ): Promise<Module> {
+    const { name } = createModulo;
     const { tokenEntityFull } = user;
 
-    //Si name no existe
-    if (!name) {
-      throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          type: 'BAD_REQUEST',
-          message: 'Completar el campo Nombre.',
-        },
-        HttpStatus.BAD_REQUEST,
-      );
+    const findModulesByCreador = await this.moduleModel.find({
+      name: name,
+      creator: [null, tokenEntityFull._id],
+    });
+
+    const getOneModuleByName = findModulesByCreador.find(
+      (a) => a.name.toLowerCase() === name.toLowerCase(),
+    );
+
+    console.log(findModulesByCreador);
+    console.log('aqui');
+    console.log(getOneModuleByName);
+    //No se puede crear el elemento
+    if (getOneModuleByName) {
+      throw new HttpException('El modulo ya existe', HttpStatus.CONFLICT);
     }
 
-    const findModule = await this.moduleModel.findOne({ name });
-
-    //Si no hay modulos ingresados
-    if (!menu || menu.length === 0) {
-      throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          type: 'BAD_REQUEST',
-          message: 'El modulo debe tener al menos un menu.',
-        },
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    if (findModule) {
-      //No se puede crear el elemento
-      throw new HttpException(
-        {
-          status: HttpStatus.CONFLICT,
-          type: 'UNIQUE',
-          message: 'Este modulo ya existe. Por favor cambie de nombre.',
-        },
-        HttpStatus.CONFLICT,
-      );
-    }
-
-    const getMenus = await this.menuService.findbyName(menu);
-    const findMenus = getMenus.map((men) => men._id);
-
-    const modifyData: Module = {
-      ...createMenu,
+    const modifyData = {
+      ...createModulo,
       status: true,
-      menu: findMenus,
       creator: tokenEntityFull._id,
     };
 
@@ -269,17 +250,16 @@ export class ModuleService {
     const findModuleForbidden = await this.moduleModel.findById(id);
     if (findModuleForbidden.name === MOD_PRINCIPAL) {
       throw new HttpException(
-        {
-          status: HttpStatus.UNAUTHORIZED,
-          type: 'UNAUTHORIZED',
-          message: 'Unauthorized Exception',
-        },
+        'Unauthorized Exception',
         HttpStatus.UNAUTHORIZED,
       );
     }
 
     try {
-      await this.moduleModel.findByIdAndUpdate(id, { status: false });
+      await this.moduleModel.findByIdAndUpdate(id, {
+        status: false,
+        deletedAt: new Date(),
+      });
       result = true;
     } catch (e) {
       throw new Error(`Error en ModuleService.delete ${e}`);
@@ -291,34 +271,11 @@ export class ModuleService {
   //Put a single module
   async update(
     id: string,
-    bodyModule: Module,
+    bodyModule: UpdateModuleDTO,
     user: QueryToken,
   ): Promise<Module> {
-    const { status, menu, name } = bodyModule;
+    const { menu, name } = bodyModule;
     const { tokenEntityFull } = user;
-
-    if (status) {
-      throw new HttpException(
-        {
-          status: HttpStatus.UNAUTHORIZED,
-          type: 'UNAUTHORIZED',
-          message: 'Unauthorized Exception',
-        },
-        HttpStatus.UNAUTHORIZED,
-      );
-    }
-
-    //Si no hay modulos ingresados
-    if (!menu || menu.length === 0) {
-      throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          type: 'BAD_REQUEST',
-          message: 'El modulo debe tener al menos un menu.',
-        },
-        HttpStatus.BAD_REQUEST,
-      );
-    }
 
     const findModulesForbidden = await this.findOne(id);
     if (
@@ -327,17 +284,10 @@ export class ModuleService {
         String(tokenEntityFull._id).toLowerCase()
     ) {
       throw new HttpException(
-        {
-          status: HttpStatus.UNAUTHORIZED,
-          type: 'UNAUTHORIZED',
-          message: 'Unauthorized Exception',
-        },
+        'Unauthorized Exception',
         HttpStatus.UNAUTHORIZED,
       );
     }
-
-    const getMenus = await this.menuService.findbyName(menu);
-    const findMenus = getMenus.map((men) => men._id);
 
     //const findModuleForbidden = await this.moduleModel.findById(id);
     //el modulo as-principal no se puede actualizar ni modificar sus menus
@@ -345,42 +295,38 @@ export class ModuleService {
       (findModulesForbidden.name === MOD_PRINCIPAL &&
         findModulesForbidden.name !== name) ||
       (findModulesForbidden.name === MOD_PRINCIPAL &&
-        findModulesForbidden.menu.length !== getMenus.length)
+        findModulesForbidden.menu.length !== menu.length)
     ) {
       throw new HttpException(
-        {
-          status: HttpStatus.UNAUTHORIZED,
-          type: 'UNAUTHORIZED',
-          message: 'Unauthorized Exception',
-        },
+        'Unauthorized Exception',
         HttpStatus.UNAUTHORIZED,
       );
     }
 
-    const findModule = await this.moduleModel.findOne({ name });
+    const findModulesByCreador = await this.moduleModel.find({
+      name: name,
+      creator: [null, tokenEntityFull._id],
+    });
+
+    const getOneModuleByName = findModulesByCreador.find(
+      (a) => a.name.toLowerCase() === name.toLowerCase(),
+    );
+
     const getModuleById = await this.moduleModel.findById(id);
 
     //el nombre ASP no se puede modificar y no se permite el ingreso de un mismo nombre ya registrado
     if (
-      (findModule && findModule.name !== getModuleById.name) ||
-      (findModule &&
+      (getOneModuleByName && getOneModuleByName.name !== getModuleById.name) ||
+      (getOneModuleByName &&
         String(name).trim() !== MOD_PRINCIPAL &&
         getModuleById.name === MOD_PRINCIPAL)
     ) {
       //No se puede crear el elemento
-      throw new HttpException(
-        {
-          status: HttpStatus.CONFLICT,
-          type: 'UNIQUE',
-          message: 'Este modulo ya existe. Por favor cambie de nombre.',
-        },
-        HttpStatus.CONFLICT,
-      );
+      throw new HttpException('El modulo ya existe', HttpStatus.CONFLICT);
     }
 
-    const modifyData: Module = {
+    const modifyData = {
       ...bodyModule,
-      menu: findMenus,
     };
 
     return await this.moduleModel.findByIdAndUpdate(id, modifyData, {
@@ -393,7 +339,10 @@ export class ModuleService {
     let result = false;
 
     try {
-      await this.moduleModel.findByIdAndUpdate(id, { status: true });
+      await this.moduleModel.findByIdAndUpdate(id, {
+        status: true,
+        restoredAt: new Date(),
+      });
       result = true;
     } catch (e) {
       throw new Error(`Error en ModuleService.restore ${e}`);

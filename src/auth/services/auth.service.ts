@@ -4,6 +4,8 @@ import { UserService } from 'src/user/services/user.service';
 import { uid, suid } from 'rand-token';
 import { comparePassword } from 'src/lib/helpers/auth.helper';
 import { UserDocument } from 'src/user/schemas/user.schema';
+import { APIS_TOKEN } from 'src/lib/const/consts';
+import axios from 'axios';
 
 const refreshTokens = {};
 
@@ -15,11 +17,11 @@ export class AuthService {
   ) {}
 
   //login user
-  async signIn(email: string, password: string) {
+  async signIn(username: string, password: string) {
     const refresh_token = uid(256);
 
     //find user by username
-    const findUser = await this.userService.findUserByUsername(email);
+    const findUser = await this.userService.findUserByUsername(username);
 
     //if does not exist
     if (!findUser)
@@ -46,7 +48,7 @@ export class AuthService {
     }
 
     //email in refresh token
-    refreshTokens[refresh_token] = email;
+    refreshTokens[refresh_token] = username;
 
     //return {access_token and refresh_token}
     return { access_token: this.getToken(findUser._id), refresh_token };
@@ -67,11 +69,7 @@ export class AuthService {
       return { access_token: this.getToken(findUser._id) };
     } else {
       throw new HttpException(
-        {
-          status: HttpStatus.UNAUTHORIZED,
-          type: 'UNAUTHORIZED',
-          message: 'Ocurrio un error, recargue la pagina.',
-        },
+        'Ocurrio un error, recargue la pagina',
         HttpStatus.UNAUTHORIZED,
       );
     }
@@ -87,5 +85,42 @@ export class AuthService {
   async validateUser(id: string) {
     //find user by Id
     return await this.userService.findUserById(id);
+  }
+
+  async findPersona(tipDocumento: string, nroDocumento: string) {
+    const TIP = tipDocumento.toLowerCase();
+    const NRO = nroDocumento.toLowerCase();
+
+    try {
+      const result = await axios.get(
+        `https://api.apis.net.pe/v2/${TIP}?numero=${NRO}`,
+        {
+          headers: {
+            Accept: 'application/json',
+            Authorization: `Bearer ${APIS_TOKEN}`,
+          },
+        },
+      );
+
+      return result.data;
+    } catch (e) {
+      const dta = e.response.data;
+      if (dta) {
+        const { error } = dta;
+
+        if (dta === 'Not Found')
+          throw new HttpException(
+            `Documento no encontrado`,
+            HttpStatus.NOT_FOUND,
+          );
+
+        throw new HttpException(`${error}`, HttpStatus.BAD_REQUEST);
+      }
+
+      throw new HttpException(
+        'Ha ocurrido un error al intentar buscar a la persona. Comuniquese con el administrador del sistema e intente ingresar la data de la persona manualmente',
+        HttpStatus.FOUND,
+      );
+    }
   }
 }

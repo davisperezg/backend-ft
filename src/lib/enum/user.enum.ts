@@ -1,9 +1,10 @@
 export enum UserPermission {
+  CreateUsers = 'canCreate_users',
+  ReadRolesAvailables = 'canReadRoles_users', //Permite al usuario ver la lista de roles disponibles para asignar a un nuevo usuario.
   ReadUsers = 'canRead_users',
-  GetOneUser = 'canGetUser',
-  CreateUser = 'canCreate_users',
-  DeleteUser = 'canDelete_users',
-  UpdateUser = 'canEdit_users',
-  ChangePasswordUser = 'canChangePassword_users',
-  RestoreUser = 'canRestore_users',
-} //6
+  UpdateUsers = 'canUpdate_users',
+  DeleteUsers = 'canDelete_users',
+  GetOneUsers = 'canGet_users',
+  ChangePasswordUsers = 'canChangePassword_users',
+  RestoreUsers = 'canRestore_users',
+}

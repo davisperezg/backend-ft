@@ -153,6 +153,7 @@ export class AppService implements OnApplicationBootstrap {
       tipDocument: 'DNI',
       nroDocument: '99999999',
       email: 'admin@admin.com.pe',
+      username: 'admin',
       password: passwordHashed,
       status: true,
       role: await rol,

@@ -17,6 +17,9 @@ const PermissionGuard = (
 
       const request = context.switchToHttp().getRequest<any>();
       const permisos_token = request.user.token_of_permisos;
+      // console.log(typeof permission, permission);
+      // console.log(permisos_token);
+      // console.log(permisos_token.includes(permission));
 
       //Si el permiso es un solo valor
       if (typeof permission == 'string') {

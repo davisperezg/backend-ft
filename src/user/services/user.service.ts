@@ -21,6 +21,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { UserEntity } from '../entities/user.entity';
 import { Repository } from 'typeorm';
+import { CreateUserDTO } from '../dto/create-user.dto';
 
 @Injectable()
 export class UserService {
@@ -48,7 +49,8 @@ export class UserService {
   async findAll(userToken: QueryToken): Promise<any[]> {
     const { tokenEntityFull } = userToken;
     let users = [];
-    if (tokenEntityFull.name === ROL_PRINCIPAL) {
+
+    if (tokenEntityFull.role.name === ROL_PRINCIPAL) {
       const listusers = await this.userModel.find().populate([
         {
           path: 'role',
@@ -58,6 +60,7 @@ export class UserService {
         },
       ]);
       users = listusers.filter((user) => user.role.name !== ROL_PRINCIPAL);
+      //users = listusers
     } else {
       users = await this.userModel
         .find({ creator: tokenEntityFull._id })
@@ -81,20 +84,20 @@ export class UserService {
         nroDocument: user.nroDocument,
         status: user.status,
         email: user.email,
-        owner: user.creator
-          ? user.creator.name + ' ' + user.creator.lastname
-          : 'Ninguno',
-        role: user.role.name,
+        owner: user.creator ? user.creator.username : 'Ninguno',
+        role: {
+          name: user.role.name,
+          _id: user.role._id,
+        },
+        username: user.username,
+        fecha_creada: user.createdAt,
+        fecha_editada: user.updatedAt,
+        fecha_restaurada: user.restoredAt,
+        fecha_eliminada: user.deletedAt,
       };
     });
 
     return formatUsers;
-  }
-
-  async findAllDeleted(): Promise<User[]> {
-    return await this.userModel.find({ status: false }).populate({
-      path: 'role',
-    });
   }
 
   async changePassword(
@@ -119,14 +122,7 @@ export class UserService {
       (findForbidden.creator.email !== tokenEntityFull.email &&
         rolToken !== ROL_PRINCIPAL)
     ) {
-      throw new HttpException(
-        {
-          status: HttpStatus.UNAUTHORIZED,
-          type: 'UNAUTHORIZED',
-          message: 'Unauthorized Exception',
-        },
-        HttpStatus.UNAUTHORIZED,
-      );
+      throw new HttpException('Permiso denegado', HttpStatus.UNAUTHORIZED);
     }
 
     let result = false;
@@ -148,72 +144,23 @@ export class UserService {
   }
 
   //Add a single user
-  async create(createUser: User, userToken: QueryToken): Promise<User> {
-    const { email, role, password, nroDocument } = createUser;
+  async create(
+    createUser: CreateUserDTO,
+    userToken: QueryToken,
+  ): Promise<User> {
+    const { role, password, username } = createUser;
     const { tokenEntityFull } = userToken;
 
-    const findEmailExists = await this.userModel.findOne({ email });
-    const findNroExists = await this.userModel.findOne({ nroDocument });
-
-    //verifica si existe el email
-    if (findEmailExists) {
-      throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          type: 'BAD_REQUEST',
-          message: 'No puedes crear un email ya registrado.',
-        },
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    //verifica si existe el nro documento
-    if (findNroExists) {
-      throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          type: 'BAD_REQUEST',
-          message: 'No puedes crear un Nro. de documento ya registrado.',
-        },
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    //Si rol no existe
-    if (!role) {
-      throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          type: 'BAD_REQUEST',
-          message: 'Completar el campo Rol.',
-        },
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-    //Si nro no existe
-    if (!nroDocument) {
-      throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          type: 'BAD_REQUEST',
-          message: 'Completar el campo Nro de documento.',
-        },
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-    //Si email no existe
-    if (!email) {
-      throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          type: 'BAD_REQUEST',
-          message: 'Completar el campo Email.',
-        },
-        HttpStatus.BAD_REQUEST,
-      );
-    }
     const passwordHashed = await hashPassword(password);
     const getRole = await this.roleService.findRoleById(String(role));
+
+    //Buscamos usuario existente y mandamos error
+    const findUsername = await this.findUserByUsername(username);
+    if (findUsername)
+      throw new HttpException(
+        `El usuario ${username} ya existe`,
+        HttpStatus.FOUND,
+      );
 
     //Ni el owner ni otro usuario puede registrar a otro owner
     if (
@@ -222,18 +169,11 @@ export class UserService {
       (tokenEntityFull.role.name === ROL_PRINCIPAL &&
         getRole.name === ROL_PRINCIPAL)
     ) {
-      throw new HttpException(
-        {
-          status: HttpStatus.UNAUTHORIZED,
-          type: 'UNAUTHORIZED',
-          message: 'Unauthorized Exception',
-        },
-        HttpStatus.UNAUTHORIZED,
-      );
+      throw new HttpException('Permiso denegado', HttpStatus.CONFLICT);
     }
 
     //data a enviar para el registro de usuario
-    const sendDataUser: User = {
+    const sendDataUser = {
       ...createUser,
       password: passwordHashed,
       role: getRole._id,
@@ -259,7 +199,7 @@ export class UserService {
     });
 
     //registra usuario mongo
-    await createdUser.save();
+    const userRegistered = await createdUser.save();
 
     //registra usuario mysql
     await this.userRepository.save(creatUserMysql);
@@ -283,59 +223,7 @@ export class UserService {
     //crea modulos al usuario
     await new this.suModel(sendDataSu).save();
 
-    return;
-  }
-
-  //Delete a single user
-  async delete(id: string, user: QueryToken): Promise<boolean> {
-    let result = false;
-    const { tokenEntityFull } = user;
-    const rolToken = tokenEntityFull.role.name;
-    const findForbidden = await this.userModel.findById(id).populate([
-      {
-        path: 'role',
-      },
-      {
-        path: 'creator',
-      },
-    ]);
-
-    //Ni el owner ni cualquier otro usuario puede eliminar al owner
-    if (
-      (findForbidden.role.name === ROL_PRINCIPAL &&
-        rolToken !== ROL_PRINCIPAL) ||
-      (findForbidden.role.name === ROL_PRINCIPAL &&
-        rolToken === ROL_PRINCIPAL) ||
-      (findForbidden.creator.email !== tokenEntityFull.email &&
-        rolToken !== ROL_PRINCIPAL)
-    ) {
-      throw new HttpException(
-        {
-          status: HttpStatus.UNAUTHORIZED,
-          type: 'UNAUTHORIZED',
-          message: 'Unauthorized Exception',
-        },
-        HttpStatus.UNAUTHORIZED,
-      );
-    }
-
-    try {
-      const user = await this.userModel.findByIdAndUpdate(
-        id,
-        { status: false },
-        { new: true },
-      );
-      await this.userModel.updateMany(
-        { creator: user._id },
-        { $set: { status: false } },
-        { multi: true },
-      );
-      result = true;
-    } catch (e) {
-      throw new Error(`Error en UserService.delete ${e}`);
-    }
-
-    return result;
+    return userRegistered;
   }
 
   //Put a single user
@@ -474,6 +362,54 @@ export class UserService {
     return;
   }
 
+  //Delete a single user
+  async delete(id: string, user: QueryToken): Promise<boolean> {
+    let result = false;
+    const { tokenEntityFull } = user;
+    const rolToken = tokenEntityFull.role.name;
+    const findForbidden = await this.userModel.findById(id).populate([
+      {
+        path: 'role',
+      },
+      {
+        path: 'creator',
+      },
+    ]);
+
+    //Ni el owner ni cualquier otro usuario puede eliminar al owner
+    if (
+      (findForbidden.role.name === ROL_PRINCIPAL &&
+        rolToken !== ROL_PRINCIPAL) ||
+      (findForbidden.role.name === ROL_PRINCIPAL &&
+        rolToken === ROL_PRINCIPAL) ||
+      (findForbidden.creator.email !== tokenEntityFull.email &&
+        rolToken !== ROL_PRINCIPAL)
+    ) {
+      throw new HttpException('Permisos denegado', HttpStatus.CONFLICT);
+    }
+
+    try {
+      const user = await this.userModel.findByIdAndUpdate(
+        id,
+        { status: false, deletedAt: new Date() },
+        { new: true },
+      );
+      await this.userModel.updateMany(
+        { creator: user._id },
+        { $set: { status: false } },
+        { multi: true },
+      );
+      result = true;
+    } catch (e) {
+      throw new HttpException(
+        `Error al intentar eliminar usuario`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    return result;
+  }
+
   //Restore a single user
   async restore(id: string, userToken: QueryToken): Promise<boolean> {
     const { tokenEntityFull } = userToken;
@@ -496,20 +432,16 @@ export class UserService {
       (findForbidden.creator.email !== tokenEntityFull.email &&
         rolToken !== ROL_PRINCIPAL)
     ) {
-      throw new HttpException(
-        {
-          status: HttpStatus.UNAUTHORIZED,
-          type: 'UNAUTHORIZED',
-          message: 'Unauthorized Exception',
-        },
-        HttpStatus.UNAUTHORIZED,
-      );
+      throw new HttpException('Permiso denegado', HttpStatus.CONFLICT);
     }
 
     let result = false;
 
     try {
-      const user = await this.userModel.findByIdAndUpdate(id, { status: true });
+      const user = await this.userModel.findByIdAndUpdate(id, {
+        status: true,
+        restoredAt: new Date(),
+      });
 
       await this.userModel.updateMany(
         { creator: user._id },
@@ -519,15 +451,22 @@ export class UserService {
 
       result = true;
     } catch (e) {
-      throw new Error(`Error en UserService.restore ${e}`);
+      throw new HttpException(
+        `Error al intentar restaurar usuario`,
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     return result;
   }
 
   //find user by email
-  async findUserByUsername(email: string): Promise<UserDocument> {
-    return await this.userModel.findOne({ email });
+  async findUserByUsername(username: string): Promise<UserDocument> {
+    try {
+      return await this.userModel.findOne({ username });
+    } catch (e) {
+      throw new Error(`Error en UserService.restore ${e}`);
+    }
   }
 
   //find user by id

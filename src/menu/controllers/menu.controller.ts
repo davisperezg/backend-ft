@@ -24,7 +24,7 @@ export class MenuController {
 
   // Get Menus: http://localhost:3000/api/v1/menus
   @Get()
-  @UseGuards(PermissionGuard(Permission.ReadMenu))
+  @UseGuards(PermissionGuard(Permission.ReadModules))
   async getMenus(@Res() res): Promise<Menu[]> {
     const menus = await this.menuService.findAll();
     return res.status(HttpStatus.OK).json(menus);
@@ -32,7 +32,7 @@ export class MenuController {
 
   // Add Menu(POST): http://localhost:3000/api/v1/menus
   @Post()
-  @UseGuards(PermissionGuard(Permission.CreateMenu))
+  @UseGuards(PermissionGuard(Permission.CreateMenus))
   async createMenu(
     @Res() res,
     @Body() createMenu: MenuDocument,
@@ -47,7 +47,7 @@ export class MenuController {
 
   // Update Menu(PUT): http://localhost:3000/api/v1/menus/605ab8372ed8db2ad4839d87
   @Put(':id')
-  @UseGuards(PermissionGuard(Permission.EditMenu))
+  @UseGuards(PermissionGuard(Permission.UpdateMenus))
   async updateMenu(
     @Res() res,
     @Param('id') id: string,
@@ -63,7 +63,7 @@ export class MenuController {
 
   // Delete Menu(DELETE): http://localhost:3000/api/v1/menus/605ab8372ed8db2ad4839d87
   @Delete(':id')
-  @UseGuards(PermissionGuard(Permission.DeleteMenu))
+  @UseGuards(PermissionGuard(Permission.DeleteMenus))
   async deleteMenu(
     @Res() res,
     @Param('id') id: string,
@@ -78,7 +78,7 @@ export class MenuController {
 
   // Restore Module(PUT): http://localhost:3000/api/v1/menus/restore/605ab8372ed8db2ad4839d87
   @Put('restore/:id')
-  @UseGuards(PermissionGuard(Permission.RestoreMenu))
+  @UseGuards(PermissionGuard(Permission.RestoreMenus))
   async restoreModule(
     @Res() res,
     @Param('id') id: string,
