@@ -21,7 +21,7 @@ export class ServicesUsersController {
 
   //Get Modules By User
   @Get('/user/:id')
-  @UseGuards(PermissionGuard(Permission.ReadServicesBUser))
+  //@UseGuards(PermissionGuard(Permission.ReadServicesBUser))
   async getModulesByUser(
     @Res() res,
     @Param('id') id: string,
@@ -32,7 +32,7 @@ export class ServicesUsersController {
 
   //Add Service
   @Post()
-  @UseGuards(PermissionGuard(Permission.CreateServiceUser))
+  //@UseGuards(PermissionGuard(Permission.CreateServiceUser))
   async createRR(
     @Res() res,
     @Body() createBody: Services_User,

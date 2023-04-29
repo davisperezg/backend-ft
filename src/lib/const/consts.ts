@@ -1,5 +1,6 @@
 export const ROL_PRINCIPAL = 'OWNER';
-export const MOD_PRINCIPAL = 'Administración de sistema - PRINCIPAL';
+export const MOD_PRINCIPAL = 'ADMINISTRACIÓN DE SISTEMA - PRINCIPAL';
+export const APIS_TOKEN = 'apis-token-4405.d6HzT1gR9U21WkW0LLpN8WK1WQdfhmm2';
 export const CATEGORIA_1 = 'Usuarios';
 export const CATEGORIA_2 = 'Modulos';
 export const CATEGORIA_3 = 'Roles';
@@ -261,6 +262,13 @@ export const RECURSOS_DEFECTOS = [
     name: 'Crear Usuarios', //add
     key: 'canCreate_users',
     description: 'Te permite crear usuarios.',
+    group_resource: CATEGORIA_1,
+  },
+  {
+    name: 'Listar rol para asignar usuario', //add
+    key: 'canReadRoles_users',
+    description:
+      'Permite al usuario ver la lista de roles disponibles para asignar a un nuevo usuario.',
     group_resource: CATEGORIA_1,
   },
   {

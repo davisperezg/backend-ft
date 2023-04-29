@@ -23,7 +23,7 @@ export class Role {
       { type: mongoose.Schema.Types.ObjectId, ref: 'Module', required: true },
     ],
   })
-  module?: Module[];
+  module: Module[];
 }
 
 export const RoleSchema = SchemaFactory.createForClass(Role);

@@ -1,9 +1,8 @@
 export enum ModulePermission {
-  ReadModuleList = 'canRead_modulesList',
-  ReadModuleItem = 'canRead_modulesItem',
-  GetOneModule = 'canGetModule',
-  CreateModule = 'canCreate_modules',
-  EditModule = 'canEdit_modules',
-  DeleteModule = 'canDelete_modules',
+  CreateModules = 'canCreate_modules',
+  ReadModules = 'canRead_modules',
+  UpdateModules = 'canUpdate_modules',
+  DeleteModules = 'canDelete_modules',
+  GetOneModules = 'canGet_modules',
   RestoreModule = 'canRestore_modules',
-} //5
+}

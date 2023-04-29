@@ -1,7 +1,7 @@
 export enum MenuPermission {
-  ReadMenu = 'canRead_menus',
-  CreateMenu = 'canCreate_menus',
-  EditMenu = 'canEdit_menus',
-  DeleteMenu = 'canDelete_menus',
-  RestoreMenu = 'canRestore_menus',
-} //5
+  CreateMenus = 'canCreate_menus',
+  ReadMenus = 'canRead_menus',
+  UpdateMenus = 'canUpdate_menus',
+  DeleteMenus = 'canDelete_menus',
+  RestoreMenus = 'canRestore_menus',
+}

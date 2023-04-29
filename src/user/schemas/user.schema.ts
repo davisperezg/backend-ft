@@ -14,11 +14,14 @@ export class User {
   @Prop({ trim: true, requerid: true, uppercase: true })
   tipDocument: string;
 
-  @Prop({ trim: true, requerid: true, unique: true, uppercase: true })
+  @Prop({ trim: true, requerid: true })
   nroDocument: string;
 
-  @Prop({ trim: true, requerid: true, unique: true, lowercase: true })
+  @Prop({ trim: true, requerid: true, lowercase: true })
   email: string;
+
+  @Prop({ trim: true, requerid: true, unique: true, lowercase: true })
+  username: string;
 
   @Prop({ trim: true, requerid: true })
   password: string;
@@ -36,6 +39,12 @@ export class User {
 
   @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'User' })
   creator: User;
+
+  @Prop()
+  deletedAt?: Date;
+
+  @Prop()
+  restoredAt?: Date;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

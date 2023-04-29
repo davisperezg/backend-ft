@@ -6,7 +6,7 @@ export type ModuleDocument = Module & mongoose.Document;
 
 @Schema({ timestamps: true, versionKey: false })
 export class Module {
-  @Prop({ trim: true, unique: true })
+  @Prop({ trim: true, uppercase: true })
   name: string;
 
   @Prop({ trim: true, uppercase: true })
@@ -28,6 +28,12 @@ export class Module {
 
   @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'User' })
   creator: User;
+
+  @Prop()
+  deletedAt?: Date;
+
+  @Prop()
+  restoredAt?: Date;
 }
 
 export const ModuleSchema = SchemaFactory.createForClass(Module);

@@ -1,5 +1,5 @@
 import { UserDocument } from 'src/user/schemas/user.schema';
-import { ROL_PRINCIPAL } from 'src/lib/const/consts';
+import { MOD_PRINCIPAL, ROL_PRINCIPAL } from 'src/lib/const/consts';
 import {
   HttpException,
   HttpStatus,
@@ -93,18 +93,26 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         estado_usuario: userDocument.status,
         rol: {
           nombre: userDocument.role.name,
-          modulos: userDocument.role.module.map((a) => {
-            return {
-              nombre: a.name,
-              estado: a.status,
-              menus: a.menu.map((b) => {
-                return {
-                  nombre: b.name,
-                  estado: b.status,
-                };
-              }),
-            };
-          }),
+          modulos: userDocument.role.module
+            .map((a) => {
+              return {
+                nombre: a.name,
+                estado: a.status,
+                menus: a.menu.map((b) => {
+                  return {
+                    nombre: b.name,
+                    estado: b.status,
+                  };
+                }),
+              };
+            })
+            .sort((a, b) =>
+              a.nombre === MOD_PRINCIPAL
+                ? -1
+                : b.nombre === MOD_PRINCIPAL
+                ? 1
+                : 0,
+            ),
         },
         estado_rol: userDocument.role.status,
       },
