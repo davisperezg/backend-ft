@@ -102,23 +102,35 @@ export class AuthService {
         },
       );
 
+      if (!result.data.apellidoMaterno && !result.data.apellidoPaterno) {
+        throw new HttpException('Entidad no encontrada.', HttpStatus.NOT_FOUND);
+      }
+
       return result.data;
     } catch (e) {
+      if (e.response === 'Entidad no encontrada.') {
+        throw new HttpException(e.response, HttpStatus.NOT_FOUND);
+      }
+
       const dta = e.response.data;
+
       if (dta) {
         const { error } = dta;
 
         if (dta === 'Not Found')
           throw new HttpException(
-            `Documento no encontrado`,
+            `Documento no encontrado.`,
             HttpStatus.NOT_FOUND,
           );
+
+        if (dta.message)
+          throw new HttpException(dta.message, HttpStatus.NOT_FOUND);
 
         throw new HttpException(`${error}`, HttpStatus.BAD_REQUEST);
       }
 
       throw new HttpException(
-        'Ha ocurrido un error al intentar buscar a la persona. Comuniquese con el administrador del sistema e intente ingresar la data de la persona manualmente',
+        'Ha ocurrido un error al intentar buscar a la persona. Comuniquese con el administrador del sistema o intente ingresar la información de la entidad manualmente.',
         HttpStatus.FOUND,
       );
     }

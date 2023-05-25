@@ -344,11 +344,11 @@ export class RoleService {
       const roles = await this.roleModel.find({
         creator: tokenEntityFull._id,
       });
-
+      throw Error;
       return roles.map((a) => ({ name: a.name, _id: a._id }));
     } catch (e) {
       throw new HttpException(
-        'Error al lista los roles disponibles',
+        'Error al obtener la lista de roles disponibles.',
         HttpStatus.CONFLICT,
       );
     }
@@ -367,7 +367,7 @@ export class RoleService {
         .populate({ path: 'module' });
     } catch (e) {
       throw new HttpException(
-        'Error al obtener el id del rol',
+        'Error al obtener el rol.',
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -375,7 +375,7 @@ export class RoleService {
     //si no encuentra un rol de estado true, se valida y muestra mensaje
     if (!rol) {
       throw new HttpException(
-        'El rol no existe o está inactivo',
+        'El rol no existe o está inactivo.',
         HttpStatus.CONFLICT,
       );
     }

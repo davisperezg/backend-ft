@@ -29,75 +29,62 @@ export class ModuleService {
   ) {}
 
   //lista los modulos en roles
-  async findAll(user: QueryToken): Promise<Module[] | any> {
+  async findAvailables(user: QueryToken): Promise<Module[] | any> {
     const { tokenEntityFull } = user;
+
     let formated = [];
     if (tokenEntityFull.role.name === ROL_PRINCIPAL) {
-      const modules = await this.moduleModel
-        .find({
-          $or: [{ creator: tokenEntityFull._id }, { creator: null }],
-        })
-        .populate({
-          path: 'menu',
-        });
+      try {
+        const modules = await this.moduleModel
+          .find({
+            $or: [{ creator: tokenEntityFull._id }, { creator: null }],
+          })
+          .populate({
+            path: 'menu',
+          });
 
-      formated = modules
-        .map((mod) => {
-          if (mod.name === MOD_PRINCIPAL) {
+        formated = modules
+          .filter((mod) => mod.name !== MOD_PRINCIPAL)
+          .map((x) => {
             return {
-              label: mod.name,
-              value: mod._id,
-              disabled: true,
+              label: x.name,
+              value: x._id,
+              disabled: x.status ? false : true,
             };
-          } else {
-            return {
-              label: mod.name,
-              value: mod._id,
-              disabled: mod.status ? false : true,
-            };
-          }
-        })
-        .sort((a, b) => {
-          if (a > b) {
-            return 1;
-          }
-          if (a < b) {
-            return -1;
-          }
-          // a must be equal to b
-          return 0;
-        });
+          });
+      } catch (e) {
+        throw new HttpException(
+          'Error al listar los modulos disponibles.',
+          HttpStatus.CONFLICT,
+        );
+      }
     } else {
-      const modulesCreateds = await this.moduleModel
-        .find({
-          creator: tokenEntityFull._id,
-        })
-        .populate({
-          path: 'menu',
-        });
+      try {
+        const modulesCreateds = await this.moduleModel
+          .find({
+            creator: tokenEntityFull._id,
+          })
+          .populate({
+            path: 'menu',
+          });
 
-      const myModulesAssigneds = await this.suService.findModulesByUser(
-        tokenEntityFull._id,
-      );
+        const myModulesAssigneds = await this.suService.findModulesByUser(
+          tokenEntityFull._id,
+        );
 
-      const modules = myModulesAssigneds.concat(modulesCreateds);
+        const modules = myModulesAssigneds.concat(modulesCreateds);
 
-      formated = modules
-        .map((mod) => ({
+        formated = modules.map((mod) => ({
           label: mod.name,
           value: mod._id,
           disabled: mod.status ? false : true,
-        }))
-        .sort((a, b) => {
-          if (a > b) {
-            return 1;
-          }
-          if (a < b) {
-            return -1;
-          }
-          // a must be equal to b
-          return 0;
-        });
+        }));
+      } catch (e) {
+        throw new HttpException(
+          'Error al listar los modulos disponibles.',
+          HttpStatus.CONFLICT,
+        );
+      }
     }
 
     return formated;

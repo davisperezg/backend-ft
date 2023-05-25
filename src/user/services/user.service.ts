@@ -20,8 +20,9 @@ import {
 } from 'src/resources-users/schemas/resources-user';
 import { InjectRepository } from '@nestjs/typeorm';
 import { UserEntity } from '../entities/user.entity';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { CreateUserDTO } from '../dto/create-user.dto';
+import { UpdateUserDTO } from '../dto/update-user.dto';
 
 @Injectable()
 export class UserService {
@@ -36,6 +37,7 @@ export class UserService {
     private rrModel: Model<Resource_RoleDocument>,
     @InjectRepository(UserEntity)
     private userRepository: Repository<UserEntity>,
+    private dataSource: DataSource,
   ) {}
 
   //si haz creado una proiedad en el schema y vas actulizarla en la bd con un valor en especifico usamos el siguiente código:
@@ -102,7 +104,7 @@ export class UserService {
 
   async changePassword(
     id: string,
-    data: { password: string },
+    password: string,
     userToken: QueryToken,
   ): Promise<boolean> {
     const findForbidden = await this.userModel.findById(id).populate([
@@ -126,19 +128,25 @@ export class UserService {
     }
 
     let result = false;
-    const { password } = data;
+
     try {
       const passwordHashed = await hashPassword(password);
+
       await this.userModel.findByIdAndUpdate(
         id,
-        { password: passwordHashed },
+        {
+          password: passwordHashed,
+        },
         {
           new: true,
         },
       );
       result = true;
     } catch (e) {
-      throw new Error(`Error en UserService.changePassword ${e}`);
+      throw new HttpException(
+        `Error al intentar actualizar la contraseña del usuario`,
+        HttpStatus.BAD_REQUEST,
+      );
     }
     return result;
   }
@@ -158,7 +166,7 @@ export class UserService {
     const findUsername = await this.findUserByUsername(username);
     if (findUsername)
       throw new HttpException(
-        `El usuario ${username} ya existe`,
+        `El usuario ${username} ya existe.`,
         HttpStatus.FOUND,
       );
 
@@ -169,7 +177,7 @@ export class UserService {
       (tokenEntityFull.role.name === ROL_PRINCIPAL &&
         getRole.name === ROL_PRINCIPAL)
     ) {
-      throw new HttpException('Permiso denegado', HttpStatus.CONFLICT);
+      throw new HttpException('Permiso denegado.', HttpStatus.CONFLICT);
     }
 
     //data a enviar para el registro de usuario
@@ -229,10 +237,10 @@ export class UserService {
   //Put a single user
   async update(
     id: string,
-    bodyUser: User,
+    bodyUser: UpdateUserDTO,
     userToken: QueryToken,
   ): Promise<User> {
-    const { status, role, password, nroDocument, email } = bodyUser;
+    const { role, username } = bodyUser;
     const { tokenEntityFull } = userToken;
     const rolToken = tokenEntityFull.role.name;
     const findForbidden = await this.userModel.findById(id).populate([
@@ -244,61 +252,17 @@ export class UserService {
       },
     ]);
 
-    //Si nro no existe
-    if (!nroDocument) {
-      throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          type: 'BAD_REQUEST',
-          message: 'Completar el campo Nro de documento.',
-        },
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-    //Si email no existe
-    if (!email) {
-      throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          type: 'BAD_REQUEST',
-          message: 'Completar el campo Email.',
-        },
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
     //validar que el nro de documento o email actualizados no pertenezcan a otro usuario
-    const findNroDocument = await this.userModel.findOne({ nroDocument });
-    const findEmail = await this.userModel.findOne({ email });
+    const findUsername = await this.userModel.findOne({ username });
     const getRoleOfBody = await this.roleService.findRoleById(String(role));
-    if (
-      findNroDocument &&
-      String(findNroDocument._id).toLowerCase() !==
-        String(findForbidden._id).toLowerCase()
-    ) {
-      throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          type: 'BAD_REQUEST',
-          message:
-            'El nro de documento ya le pertenece a otro usuario registrado.',
-        },
-        HttpStatus.BAD_REQUEST,
-      );
-    }
 
     if (
-      findEmail &&
-      String(findEmail._id).toLowerCase() !==
+      findUsername &&
+      String(findUsername._id).toLowerCase() !==
         String(findForbidden._id).toLowerCase()
     ) {
       throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          type: 'BAD_REQUEST',
-          message:
-            'El username o email ya le pertenece a otro usuario registrado.',
-        },
+        'El username ya le pertenece a otro usuario registrado.',
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -312,54 +276,60 @@ export class UserService {
       (getRoleOfBody.name === ROL_PRINCIPAL && rolToken !== ROL_PRINCIPAL) ||
       (getRoleOfBody.name === ROL_PRINCIPAL && rolToken === ROL_PRINCIPAL)
     ) {
-      throw new HttpException(
-        {
-          status: HttpStatus.UNAUTHORIZED,
-          type: 'UNAUTHORIZED',
-          message: 'Unauthorized Exception',
-        },
-        HttpStatus.UNAUTHORIZED,
-      );
-    }
-
-    if (status === true || status === false || password) {
-      throw new HttpException(
-        {
-          status: HttpStatus.UNAUTHORIZED,
-          type: 'UNAUTHORIZED',
-          message: 'Unauthorized Exception',
-        },
-        HttpStatus.UNAUTHORIZED,
-      );
+      throw new HttpException('Permiso denegado.', HttpStatus.CONFLICT);
     }
 
     //Creando objeto para Mongo
-    const modifyData: User = {
+    const modifyData = {
       ...bodyUser,
       role: role,
+      updatedBy: tokenEntityFull._id,
     };
 
-    //Guardamos en Mongo
-    await this.userModel.findByIdAndUpdate(id, modifyData, {
-      new: true,
-    });
+    const _queryRunner = this.dataSource.createQueryRunner();
 
-    const userMYSQL = await this.userRepository.findOne({
-      where: {
-        _id: id,
-      },
-    });
+    //Inicia transaccion
+    await _queryRunner.connect();
+    await _queryRunner.startTransaction();
 
-    //Creados objeto para MYSQL
-    this.userRepository.merge(userMYSQL, {
-      nombres: modifyData.name,
-      apellidos: modifyData.lastname,
-    });
+    try {
+      //Guardamos en Mongo
+      const user_updated = await this.userModel.findByIdAndUpdate(
+        id,
+        modifyData,
+        {
+          new: true,
+        },
+      );
 
-    //Guardamos en MYSQL
-    await this.userRepository.save(userMYSQL);
+      //Buscamos id para actualizar en MYSQL
+      const userMYSQL = await this.userRepository.findOne({
+        where: {
+          _id: id,
+        },
+      });
 
-    return;
+      //Creados objeto para MYSQL
+      this.userRepository.merge(userMYSQL, {
+        nombres: modifyData.name,
+        apellidos: modifyData.lastname,
+      });
+
+      //Guardamos en MYSQL
+      await this.userRepository.save(userMYSQL);
+
+      // Confirmar la transacción
+      await _queryRunner.commitTransaction();
+
+      return user_updated;
+    } catch (error) {
+      // Revertir la transacción en caso de error
+      await _queryRunner.rollbackTransaction();
+      // Relanzar el error para que sea manejado en otro lugar
+      console.log('error', error);
+    } finally {
+      await _queryRunner.release(); // Liberar el queryRunner
+    }
   }
 
   //Delete a single user
@@ -391,7 +361,11 @@ export class UserService {
     try {
       const user = await this.userModel.findByIdAndUpdate(
         id,
-        { status: false, deletedAt: new Date() },
+        {
+          status: false,
+          deletedAt: new Date(),
+          deletedBy: tokenEntityFull._id,
+        },
         { new: true },
       );
       await this.userModel.updateMany(
@@ -441,6 +415,7 @@ export class UserService {
       const user = await this.userModel.findByIdAndUpdate(id, {
         status: true,
         restoredAt: new Date(),
+        restoredBy: tokenEntityFull._id,
       });
 
       await this.userModel.updateMany(

@@ -21,8 +21,13 @@ export class ResourceController {
   constructor(private readonly resourceService: ResourceService) {}
 
   // Get Resources
-  @Get()
-  @UseGuards(PermissionGuard(Permission.ReadPermisos))
+  @Get('/to-dual')
+  @UseGuards(
+    PermissionGuard([
+      Permission.ReadPermisosAvailables,
+      Permission.ReadPermisos2Availables,
+    ]),
+  )
   async getResources(
     @Res() res,
     @CtxUser() user: QueryToken,
@@ -33,22 +38,22 @@ export class ResourceController {
 
   // Get Resources to CRUD
   @Get('/list')
-  //@UseGuards(PermissionGuard(Permission.ReadResourcesList))
+  @UseGuards(PermissionGuard(Permission.ReadPermisos))
   async getResourcesToCRUD(@Res() res): Promise<Resource[]> {
     const menus = await this.resourceService.findAllToCRUD();
     return res.status(HttpStatus.OK).json(menus);
   }
 
   // Get One Resource To Edit
-  @Get('/find/:id')
-  //@UseGuards(PermissionGuard(Permission.GetOneResource))
-  getPermission(@Param('id') id: string) {
-    return this.resourceService.findOne(id);
-  }
+  // @Get('/find/:id')
+  // //@UseGuards(PermissionGuard(Permission.GetOneResource))
+  // getPermission(@Param('id') id: string) {
+  //   return this.resourceService.findOne(id);
+  // }
 
   // Add Resource
   @Post()
-  //@UseGuards(PermissionGuard(Permission.CreateResource))
+  @UseGuards(PermissionGuard(Permission.CreatePermisos))
   async createResource(
     @Res() res,
     @Body() createBody: Resource,
@@ -62,7 +67,7 @@ export class ResourceController {
 
   // Update Resource: /resources/605ab8372ed8db2ad4839d87
   @Put(':id')
-  //@UseGuards(PermissionGuard(Permission.EditResource))
+  @UseGuards(PermissionGuard(Permission.UpdatePermisos))
   async updateResource(
     @Res() res,
     @Param('id') id: string,

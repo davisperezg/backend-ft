@@ -265,10 +265,24 @@ export const RECURSOS_DEFECTOS = [
     group_resource: CATEGORIA_1,
   },
   {
-    name: 'Listar rol para asignar usuario', //add
+    name: 'Listar roles para asignar usuario', //add
     key: 'canReadRoles_users',
     description:
       'Permite al usuario ver la lista de roles disponibles para asignar a un nuevo usuario.',
+    group_resource: CATEGORIA_1,
+  },
+  {
+    name: 'Listar modulos para asignar usuario', //add
+    key: 'canReadModulos_users',
+    description:
+      'Permite al usuario ver la lista de modulos disponibles para asignar a un nuevo usuario.',
+    group_resource: CATEGORIA_1,
+  },
+  {
+    name: 'Listar permisos para asignar usuario', //add
+    key: 'canReadPermisos_users',
+    description:
+      'Permite al usuario ver la lista de permisos disponibles para asignar a un nuevo usuario.',
     group_resource: CATEGORIA_1,
   },
   {
@@ -364,6 +378,20 @@ export const RECURSOS_DEFECTOS = [
     name: 'Leer Roles', //add
     key: 'canRead_roles',
     description: 'Te permite leer roles.',
+    group_resource: CATEGORIA_3,
+  },
+  {
+    name: 'Listar permisos para asignar rol', //add
+    key: 'canReadPermisos_roles',
+    description:
+      'Permite al rol ver la lista de permisos disponibles para asignar a un nuevo rol.',
+    group_resource: CATEGORIA_3,
+  },
+  {
+    name: 'Listar modulos para asignar rol', //add
+    key: 'canReadModulos_roles',
+    description:
+      'Permite al rol ver la lista de modulos disponibles para asignar a un nuevo rol.',
     group_resource: CATEGORIA_3,
   },
   {

@@ -31,6 +31,7 @@ export class ResourceService {
     const { tokenEntityFull } = user;
     const resources = await this.resourceModel
       .find({ status: true })
+      .populate('group_resource')
       .sort([['name', 'ascending']]);
 
     const resourcesAlloweds = await this.rrModel.findOne({
@@ -42,6 +43,7 @@ export class ResourceService {
         _id: { $in: resourcesAlloweds.resource },
         status: true,
       })
+      .populate('group_resource')
       .sort([['name', 'ascending']]);
 
     let formatResourcesToFront = [];
@@ -50,6 +52,7 @@ export class ResourceService {
         return {
           label: res.name,
           value: res.key,
+          category: res.group_resource.name,
         };
       });
     } else {
@@ -57,11 +60,50 @@ export class ResourceService {
         return {
           label: res.name,
           value: res.key,
+          category: res.group_resource.name,
         };
       });
     }
 
-    return formatResourcesToFront;
+    const resourcesByCategory = formatResourcesToFront.reduce(
+      (acumulador, item) => {
+        /**
+         * Buscar la misma categoria en el array acumulador.
+         * El acumulador inicia vacio([]) por lo que index inicia con -1
+         */
+        const index = acumulador.findIndex(
+          (elemento) => elemento.category === item.category,
+        );
+
+        /**
+         * Si no se encuentra la categoria o el acumulador esta vacio([])
+         * se agrega al acumulador
+         */
+        if (index === -1) {
+          acumulador = [
+            ...acumulador,
+            {
+              category: item.category,
+              resources: [{ label: item.label, value: item.value }],
+            },
+          ];
+        } else {
+          /**
+           * Si se encuentra la misma categoria en el array, entramos
+           * a su objeto ENCONTRADO y solo agregamos el recurso del objeto actual
+           */
+          acumulador[index].resources = [
+            ...acumulador[index].resources,
+            { label: item.label, value: item.value },
+          ];
+        }
+
+        return acumulador;
+      },
+      [],
+    );
+
+    return resourcesByCategory;
   }
 
   async findAllToCRUD(): Promise<Resource[] | any[]> {

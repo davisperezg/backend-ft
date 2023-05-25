@@ -12,6 +12,7 @@ import {
   CopyResource_User,
   CopyResource_UserDocument,
 } from '../schemas/cp-resource-user';
+import { CreateResourcesDTO } from '../dto/create-resources.dto';
 
 @Injectable()
 export class ResourcesUsersService {
@@ -44,33 +45,12 @@ export class ResourcesUsersService {
   }
 
   //Add a single role
-  async create(
-    createResource: Resource_User,
-    userToken: any,
-  ): Promise<Resource_User> {
-    const { user, resource } = createResource;
-
-    if (!user || !resource) {
-      throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          type: 'BAD_REQUEST',
-          message: `Los campos usuario y recursos son requeridos.`,
-        },
-        HttpStatus.BAD_REQUEST,
-      );
-    }
+  async create(createResource: CreateResourcesDTO, userToken: any) {
+    const { user, resources } = createResource;
 
     const findIfExisteUser = await this.userService.findUserById(String(user));
     if (!findIfExisteUser) {
-      throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          type: 'BAD_REQUEST',
-          message: `El usuario no existe.`,
-        },
-        HttpStatus.BAD_REQUEST,
-      );
+      throw new HttpException('El usuario no existe', HttpStatus.BAD_REQUEST);
     }
 
     //buscar recurso de usuario existente
@@ -79,15 +59,15 @@ export class ResourcesUsersService {
       const bodyExists = {
         ...createResource,
         user,
-        resource,
+        resources,
       };
 
       return await this.update(isExistsResource._id, bodyExists);
     }
 
     //formateo el tipo de datos para string[]
-    const resourceInput: string[] = Object.keys(resource).map(
-      (res) => resource[res],
+    const resourceInput: string[] = Object.keys(resources).map(
+      (res) => resources[res],
     );
 
     //busca recurso existentes por keys desde el schema resources
@@ -96,7 +76,7 @@ export class ResourcesUsersService {
     );
 
     //preparo la data
-    const modifyData: Resource_User = {
+    const modifyData = {
       ...createResource,
       status: true,
       resource: findResourcesBody,
@@ -109,35 +89,17 @@ export class ResourcesUsersService {
   }
 
   //Put a single role
-  async update(
-    id: string,
-    bodyUser: Resource_User,
-  ): Promise<Resource_User | any> {
-    const { status, user, resource } = bodyUser;
+  async update(id: string, bodyUser: CreateResourcesDTO) {
+    const { user, resources } = bodyUser;
 
     let findResourceToData;
-    //no se permite el ingreso del estado
-    if (status === true || status === false) {
-      throw new HttpException(
-        {
-          status: HttpStatus.UNAUTHORIZED,
-          type: 'UNAUTHORIZED',
-          message: 'Unauthorized Exception',
-        },
-        HttpStatus.UNAUTHORIZED,
-      );
-    }
 
     //validamos si el recurso no existe o esta inactivo
     const findRR = await this.ruModel.findById(id);
 
     if (!findRR) {
       throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          type: 'BAD_REQUEST',
-          message: `El recurso no existe o esta inactivo.`,
-        },
+        'El recurso no existe o esta inactivo',
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -177,9 +139,9 @@ export class ResourcesUsersService {
     const { user: userRegistered, resource: resourcesRegistered } = findRR;
 
     //si existe recursos en el body, buscar los ids
-    if (resource) {
-      const resourceInput: string[] = Object.keys(resource).map(
-        (res) => resource[res],
+    if (resources) {
+      const resourceInput: string[] = Object.keys(resources).map(
+        (res) => resources[res],
       );
 
       findResourceToData = await this.resourceService.findResourceByKey(
@@ -188,10 +150,10 @@ export class ResourcesUsersService {
     }
 
     //si no existe recursos ni usuario en el body usar los mismo registrados
-    const modifyData: Resource_User = {
+    const modifyData = {
       ...bodyUser,
       user: user ? user : userRegistered,
-      resource: resource ? findResourceToData : resourcesRegistered,
+      resource: resources ? findResourceToData : resourcesRegistered,
     };
 
     //lo formateo para poder hacer la consulta con los registrado
@@ -316,7 +278,7 @@ export class ResourcesUsersService {
       );
 
       //enviar al esquema modificados
-      const sendDataToModified: CopyResource_User = {
+      const sendDataToModified = {
         status: true,
         user: modifyData.user,
         resource: findResourceToDataRU,

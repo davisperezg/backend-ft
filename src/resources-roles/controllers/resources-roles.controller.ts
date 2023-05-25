@@ -15,6 +15,7 @@ import PermissionGuard from 'src/lib/guards/resources.guard';
 import Permission from 'src/lib/type/permission.type';
 import { Resource_Role } from '../schemas/resources-role';
 import { ResourcesRolesService } from '../services/resources-roles.service';
+import { CreateResourcesRolDTO } from '../dto/create-resource.dto';
 
 @Controller('api/v1/resources-roles')
 export class ResourcesRolesController {
@@ -30,7 +31,7 @@ export class ResourcesRolesController {
 
   // Get Menus
   @Get('/role/:id')
-  //@UseGuards(PermissionGuard(Permission.ReadResourcesByRol))
+  @UseGuards(PermissionGuard(Permission.ReadPermisos2Availables))
   async getResourcesByRol(
     @Res() res,
     @Param('id') id: string,
@@ -41,11 +42,8 @@ export class ResourcesRolesController {
 
   // Add Resource
   @Post()
-  //@UseGuards(PermissionGuard(Permission.CreateResourceR))
-  async createRR(
-    @Res() res,
-    @Body() createBody: Resource_Role,
-  ): Promise<Resource_Role> {
+  @UseGuards(PermissionGuard(Permission.ReadPermisos2Availables))
+  async createRR(@Res() res, @Body() createBody: CreateResourcesRolDTO) {
     const resource = await this.rrService.create(createBody);
     return res.status(HttpStatus.OK).json({
       message: 'Resource Successfully Created',

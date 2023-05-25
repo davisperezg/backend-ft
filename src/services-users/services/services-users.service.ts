@@ -18,6 +18,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { UserService } from 'src/user/services/user.service';
 import { ModuleService } from 'src/module/services/module.service';
+import { CreateServicesDTO } from '../dto/create-services.dto';
 
 @Injectable()
 export class ServicesUsersService {
@@ -54,46 +55,29 @@ export class ServicesUsersService {
   }
 
   //Add a single module_user
-  async create(createSU: Services_User): Promise<Services_UserDocument> {
-    const { user, module } = createSU;
-
-    if (!user || !module) {
-      throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          type: 'BAD_REQUEST',
-          message: `Los campos usuario y modulos son requeridos.`,
-        },
-        HttpStatus.BAD_REQUEST,
-      );
-    }
+  async create(createSU: CreateServicesDTO) {
+    const { user, modules } = createSU;
 
     const findIfExisteUser = await this.userService.findUserById(String(user));
     if (!findIfExisteUser) {
-      throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          type: 'BAD_REQUEST',
-          message: `El usuario no existe.`,
-        },
-        HttpStatus.BAD_REQUEST,
-      );
+      throw new HttpException('El usuario no existe', HttpStatus.BAD_REQUEST);
     }
 
     //buscar modulos de usuario existente
     const isExistsSU = await this.suModel.findOne({ user: user });
     if (isExistsSU) {
       const bodyExists = {
-        ...createSU,
         user,
-        module,
+        modules,
       };
 
       return await this.update(isExistsSU._id, bodyExists);
     }
 
     //formateo el tipo de datos para string[]
-    const moduleInput: string[] = Object.keys(module).map((res) => module[res]);
+    const moduleInput: string[] = Object.keys(modules).map(
+      (res) => modules[res],
+    );
 
     //busca modulos existentes por ids desde el schema modules
     const findModulesBody = await this.moduleService.findModulesIds(
@@ -101,7 +85,7 @@ export class ServicesUsersService {
     );
 
     //preparo la data
-    const modifyData: Services_User = {
+    const modifyData = {
       ...createSU,
       status: true,
       module: findModulesBody,
@@ -115,33 +99,18 @@ export class ServicesUsersService {
 
   async update(
     id: string,
-    bodySU: Services_User,
+    bodySU: CreateServicesDTO,
   ): Promise<Services_User | any> {
-    const { status, user, module: modulesBody } = bodySU;
+    const { user, modules: modulesBody } = bodySU;
 
     let findServiceToData;
-    //no se permite el ingreso del estado
-    if (status === true || status === false) {
-      throw new HttpException(
-        {
-          status: HttpStatus.UNAUTHORIZED,
-          type: 'UNAUTHORIZED',
-          message: 'Unauthorized Exception',
-        },
-        HttpStatus.UNAUTHORIZED,
-      );
-    }
 
     //validamos si el servicio no existe o esta inactivo
     const findSU = await this.suModel.findById(id);
 
     if (!findSU) {
       throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          type: 'BAD_REQUEST',
-          message: `El servicio no existe o esta inactivo.`,
-        },
+        'El servicio no existe o esta inactivo',
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -155,11 +124,7 @@ export class ServicesUsersService {
         isExistsUserinSU = await this.suModel.findOne({ user });
       } catch (e) {
         throw new HttpException(
-          {
-            status: HttpStatus.BAD_REQUEST,
-            type: 'BAD_REQUEST',
-            message: `No hay un servicio registrado con ese usuario.`,
-          },
+          'No hay un servicio registrado con ese usuario',
           HttpStatus.BAD_REQUEST,
         );
       }
@@ -167,11 +132,7 @@ export class ServicesUsersService {
       //si existe en la bd pero no coincide con el param id
       if (String(id) !== String(isExistsUserinSU._id)) {
         throw new HttpException(
-          {
-            status: HttpStatus.BAD_REQUEST,
-            type: 'BAD_REQUEST',
-            message: `El id no coincide con el usuario ingresado.`,
-          },
+          'El id no coincide con el usuario ingresado',
           HttpStatus.BAD_REQUEST,
         );
       }
@@ -184,14 +145,7 @@ export class ServicesUsersService {
     const isExisteModuleASP = findModules.some((a) => a.name === MOD_PRINCIPAL);
 
     if (isExisteModuleASP) {
-      throw new HttpException(
-        {
-          status: HttpStatus.UNAUTHORIZED,
-          type: 'UNAUTHORIZED',
-          message: `Unauthorized Exception`,
-        },
-        HttpStatus.UNAUTHORIZED,
-      );
+      throw new HttpException('Permiso denegado', HttpStatus.UNAUTHORIZED);
     }
 
     //si no existe buscar su mismo usuario y serivicio registrado
@@ -209,7 +163,7 @@ export class ServicesUsersService {
     }
 
     //si no existe servicios ni usuario en el body usar los mismo registrados
-    const modifyData: Services_User = {
+    const modifyData = {
       ...bodySU,
       user: user ? user : userRegistered,
       module: modulesBody ? findServiceToData : servicesRegistered,
@@ -337,7 +291,7 @@ export class ServicesUsersService {
       );
 
       //enviar al esquema modificados
-      const sendDataToModified: CopyServices_User = {
+      const sendDataToModified = {
         status: true,
         user: modifyData.user,
         module: finServicesToDataSU,
