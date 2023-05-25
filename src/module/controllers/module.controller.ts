@@ -33,11 +33,16 @@ export class ModuleController {
   }
   //this.moduleService.findAll(user);
 
-  // Get Modules: http://localhost:3000/api/v1/modules/list
-  @Get('/list')
-  //@UseGuards(PermissionGuard(Permission.ReadModules))
-  getModulesList(@CtxUser() user: QueryToken) {
-    return this.moduleService.listModules(user);
+  // Get Modules: http://localhost:3000/api/v1/modules/to-users
+  @Get('/to-dual')
+  @UseGuards(
+    PermissionGuard([
+      Permission.ReadModulosAvailables,
+      Permission.ReadModulos2Availables,
+    ]),
+  )
+  getModulesListToUser(@CtxUser() user: QueryToken) {
+    return this.moduleService.findAvailables(user);
   }
 
   // Get Module: http://localhost:3000/api/v1/modules/find/6223169df6066a084cef08c2

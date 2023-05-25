@@ -12,6 +12,7 @@ import {
 import { CtxUser } from 'src/lib/decorators/ctx-user.decorators';
 import PermissionGuard from 'src/lib/guards/resources.guard';
 import Permission from 'src/lib/type/permission.type';
+import { CreateResourcesDTO } from '../dto/create-resources.dto';
 import { Resource_User } from '../schemas/resources-user';
 import { ResourcesUsersService } from '../services/resources-users.service';
 
@@ -29,7 +30,7 @@ export class ResourcesUsersController {
 
   // Get Menus
   @Get('/user/:id')
-  //@UseGuards(PermissionGuard(Permission.ReadResourcesByUser))
+  @UseGuards(PermissionGuard(Permission.ReadPermisosAvailables))
   async getResourcesByUser(
     @Res() res,
     @Param('id') id: string,
@@ -40,12 +41,12 @@ export class ResourcesUsersController {
 
   // Add Resource
   @Post()
-  //@UseGuards(PermissionGuard(Permission.CreateResourceU))
+  @UseGuards(PermissionGuard(Permission.ReadPermisosAvailables))
   async createRR(
     @Res() res,
-    @Body() createBody: Resource_User,
+    @Body() createBody: CreateResourcesDTO,
     @CtxUser() user: any,
-  ): Promise<Resource_User> {
+  ) {
     const resource = await this.rrService.create(createBody, user);
     return res.status(HttpStatus.OK).json({
       message: 'Resource Successfully Created',

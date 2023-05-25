@@ -12,6 +12,7 @@ import {
 import { CtxUser } from 'src/lib/decorators/ctx-user.decorators';
 import PermissionGuard from 'src/lib/guards/resources.guard';
 import Permission from 'src/lib/type/permission.type';
+import { CreateServicesDTO } from '../dto/create-services.dto';
 import { Services_User } from '../schemas/services-user';
 import { ServicesUsersService } from '../services/services-users.service';
 
@@ -21,7 +22,7 @@ export class ServicesUsersController {
 
   //Get Modules By User
   @Get('/user/:id')
-  //@UseGuards(PermissionGuard(Permission.ReadServicesBUser))
+  @UseGuards(PermissionGuard(Permission.ReadModulosAvailables))
   async getModulesByUser(
     @Res() res,
     @Param('id') id: string,
@@ -32,11 +33,8 @@ export class ServicesUsersController {
 
   //Add Service
   @Post()
-  //@UseGuards(PermissionGuard(Permission.CreateServiceUser))
-  async createRR(
-    @Res() res,
-    @Body() createBody: Services_User,
-  ): Promise<Services_User> {
+  @UseGuards(PermissionGuard(Permission.ReadModulosAvailables))
+  async createRR(@Res() res, @Body() createBody: CreateServicesDTO) {
     const service = await this.suService.create(createBody);
     return res.status(HttpStatus.OK).json({
       message: 'Service Successfully Created',

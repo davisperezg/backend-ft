@@ -25,7 +25,7 @@ const PermissionGuard = (
       if (typeof permission == 'string') {
         if (!permisos_token.includes(permission))
           throw new ForbiddenException(
-            'No tienes permiso para acceder a este recurso',
+            `No tienes permiso para acceder a este recurso "${permission}"`,
           );
 
         //Si el permiso existe con los permisos del token generamos la solicitud

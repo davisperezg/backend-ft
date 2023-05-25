@@ -89,10 +89,10 @@ export class CreateUserDTO {
   username: string;
 
   //CONTRASENIA
-  @Matches(/((?=.*\d)(?=.*\W+))(?![.\n])(?=.*[A-Z])(?=.*[a-z]).*$/, {
-    message:
-      'La contraseña debe contener una mayúscula, números y caracter especial',
-  })
+  // @Matches(/((?=.*\d)(?=.*\W+))(?![.\n])(?=.*[A-Z])(?=.*[a-z]).*$/, {
+  //   message:
+  //     'La contraseña debe contener una mayúscula, números y caracter especial',
+  // })
   @MaxLength(200, {
     message:
       'La contraseña del usuario debe ser igual o menor a 200 caracteres',
@@ -146,5 +146,5 @@ export class CreateUserDTO {
     message: 'El rol debe contener un id válido',
   })
   @IsNotEmpty({ message: 'Por favor, ingrese el rol del usuario' })
-  role: number;
+  role: string;
 }

@@ -17,6 +17,7 @@ import {
   CopyResource_User,
   CopyResource_UserDocument,
 } from 'src/resources-users/schemas/cp-resource-user';
+import { CreateResourcesRolDTO } from '../dto/create-resource.dto';
 
 @Injectable()
 export class ResourcesRolesService {
@@ -53,30 +54,12 @@ export class ResourcesRolesService {
   }
 
   //Add a single role
-  async create(createResource: Resource_Role): Promise<Resource_Role> {
-    const { role, resource } = createResource;
-
-    if (!role || !resource) {
-      throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          type: 'BAD_REQUEST',
-          message: `Los campos rol y recurso son requeridos.`,
-        },
-        HttpStatus.BAD_REQUEST,
-      );
-    }
+  async create(createResource: CreateResourcesRolDTO) {
+    const { role, resources } = createResource;
 
     const findIfExisteRole = await this.roleService.findRoleById(String(role));
     if (!findIfExisteRole) {
-      throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          type: 'BAD_REQUEST',
-          message: `El rol no existe.`,
-        },
-        HttpStatus.BAD_REQUEST,
-      );
+      throw new HttpException('El rol no existe', HttpStatus.BAD_REQUEST);
     }
 
     //buscar rol existente en el recurso
@@ -85,13 +68,13 @@ export class ResourcesRolesService {
       const bodyExists = {
         ...createResource,
         role,
-        resource,
+        resources,
       };
       return await this.update(isExistsResource._id, bodyExists);
     }
 
-    const resourceInput: string[] = Object.keys(resource).map(
-      (res) => resource[res],
+    const resourceInput: string[] = Object.keys(resources).map(
+      (res) => resources[res],
     );
 
     //busca recurso
@@ -99,7 +82,7 @@ export class ResourcesRolesService {
       resourceInput,
     );
 
-    const modifyData: Resource_Role = {
+    const modifyData = {
       ...createResource,
       status: true,
       role: role,
@@ -112,34 +95,15 @@ export class ResourcesRolesService {
   }
 
   //Put a single role
-  async update(
-    id: string,
-    bodyRole: Resource_Role,
-  ): Promise<Resource_Role | any> {
-    const { status, role, resource } = bodyRole;
+  async update(id: string, bodyRole: CreateResourcesRolDTO) {
+    const { role, resources } = bodyRole;
     let findResource;
-
-    //no se permite el ingreso del estado
-    if (status === true || status === false) {
-      throw new HttpException(
-        {
-          status: HttpStatus.UNAUTHORIZED,
-          type: 'UNAUTHORIZED',
-          message: 'Unauthorized Exception',
-        },
-        HttpStatus.UNAUTHORIZED,
-      );
-    }
 
     // //validamos si el recurso no existe o esta inactivo
     const findRR = await this.rrModel.findById(id);
     if (!findRR) {
       throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          type: 'BAD_REQUEST',
-          message: `El recurso no existe o esta inactivo.`,
-        },
+        'El recurso no existe o esta inactivo',
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -161,11 +125,7 @@ export class ResourcesRolesService {
         ]);
       } catch (e) {
         throw new HttpException(
-          {
-            status: HttpStatus.BAD_REQUEST,
-            type: 'BAD_REQUEST',
-            message: `No hay un recurso registrado con ese rol.`,
-          },
+          'No hay un recurso registrado con ese rol',
           HttpStatus.BAD_REQUEST,
         );
       }
@@ -173,8 +133,8 @@ export class ResourcesRolesService {
       //console.log(isExistsRoleinRR);
 
       if (isExistsRoleinRR.role.name === ROL_PRINCIPAL) {
-        const resFormateds = Object.keys(resource).map((a) =>
-          resource[a].toLowerCase(),
+        const resFormateds = Object.keys(resources).map((a) =>
+          resources[a].toLowerCase(),
         );
         const resDefaults = RECURSOS_DEFECTOS.map((b) => b.key.toLowerCase());
         const isEqualsResWithResDefault = resDefaults.every((a) =>
@@ -182,25 +142,14 @@ export class ResourcesRolesService {
         );
 
         if (!isEqualsResWithResDefault) {
-          throw new HttpException(
-            {
-              status: HttpStatus.UNAUTHORIZED,
-              type: 'UNAUTHORIZED',
-              message: `Unauthorized Exception`,
-            },
-            HttpStatus.UNAUTHORIZED,
-          );
+          throw new HttpException('Permiso denegado', HttpStatus.UNAUTHORIZED);
         }
       }
 
       //si existe en la bd pero no coincide con el param id
       if (String(id) !== String(isExistsRoleinRR._id)) {
         throw new HttpException(
-          {
-            status: HttpStatus.BAD_REQUEST,
-            type: 'BAD_REQUEST',
-            message: `El id no coincide con el rol ingresado.`,
-          },
+          'El id no coincide con el rol ingresado',
           HttpStatus.BAD_REQUEST,
         );
       }
@@ -210,9 +159,9 @@ export class ResourcesRolesService {
     const { role: roleRegistered, resource: resourceRegistered } = findRR;
 
     //si existe recursos en el body, buscar los ids
-    if (resource) {
-      const resourceInput: string[] = Object.keys(resource).map(
-        (res) => resource[res],
+    if (resources) {
+      const resourceInput: string[] = Object.keys(resources).map(
+        (res) => resources[res],
       );
 
       findResource = await this.resourceService.findResourceByKey(
@@ -222,10 +171,10 @@ export class ResourcesRolesService {
 
     //enviar data
     //si no existe recursos ni rol en el body usar los mismo registrados
-    const sendData: Resource_Role = {
+    const sendData = {
       ...bodyRole,
       role: role ? role : roleRegistered,
-      resource: resource ? findResource : resourceRegistered,
+      resource: resources ? findResource : resourceRegistered,
     };
 
     //se actualiza los recursos del rol

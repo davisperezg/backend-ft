@@ -40,6 +40,15 @@ export class User {
   @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'User' })
   creator: User;
 
+  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'User' })
+  deletedBy: User;
+
+  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'User' })
+  updatedBy: User;
+
+  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'User' })
+  restoredBy: User;
+
   @Prop()
   deletedAt?: Date;
 
