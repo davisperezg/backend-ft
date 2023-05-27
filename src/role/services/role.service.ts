@@ -344,7 +344,6 @@ export class RoleService {
       const roles = await this.roleModel.find({
         creator: tokenEntityFull._id,
       });
-      throw Error;
       return roles.map((a) => ({ name: a.name, _id: a._id }));
     } catch (e) {
       throw new HttpException(

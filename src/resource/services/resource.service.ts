@@ -29,10 +29,19 @@ export class ResourceService {
 
   async findAll(user: QueryToken): Promise<Resource[] | any[]> {
     const { tokenEntityFull } = user;
-    const resources = await this.resourceModel
-      .find({ status: true })
-      .populate('group_resource')
-      .sort([['name', 'ascending']]);
+    let resources = [];
+
+    try {
+      resources = await this.resourceModel
+        .find({ status: true })
+        .populate('group_resource')
+        .sort([['name', 'ascending']]);
+    } catch (e) {
+      throw new HttpException(
+        'Error al listar los recursos disponibles.',
+        HttpStatus.CONFLICT,
+      );
+    }
 
     const resourcesAlloweds = await this.rrModel.findOne({
       role: tokenEntityFull.role._id,
