@@ -59,7 +59,7 @@ export class ResourcesRolesService {
 
     const findIfExisteRole = await this.roleService.findRoleById(String(role));
     if (!findIfExisteRole) {
-      throw new HttpException('El rol no existe', HttpStatus.BAD_REQUEST);
+      throw new HttpException('El rol no existe.', HttpStatus.BAD_REQUEST);
     }
 
     //buscar rol existente en el recurso
@@ -91,7 +91,14 @@ export class ResourcesRolesService {
 
     const createdResource = new this.rrModel(modifyData);
 
-    return createdResource.save();
+    try {
+      return await createdResource.save();
+    } catch (e) {
+      throw new HttpException(
+        'Ocurrio un problema al intentar crear los permisos del rol.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 
   //Put a single role
@@ -103,7 +110,7 @@ export class ResourcesRolesService {
     const findRR = await this.rrModel.findById(id);
     if (!findRR) {
       throw new HttpException(
-        'El recurso no existe o esta inactivo',
+        'El recurso no existe o esta inactivo.',
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -125,7 +132,7 @@ export class ResourcesRolesService {
         ]);
       } catch (e) {
         throw new HttpException(
-          'No hay un recurso registrado con ese rol',
+          'No hay un recurso registrado con ese rol.',
           HttpStatus.BAD_REQUEST,
         );
       }
@@ -142,14 +149,14 @@ export class ResourcesRolesService {
         );
 
         if (!isEqualsResWithResDefault) {
-          throw new HttpException('Permiso denegado', HttpStatus.UNAUTHORIZED);
+          throw new HttpException('Permiso denegado.', HttpStatus.UNAUTHORIZED);
         }
       }
 
       //si existe en la bd pero no coincide con el param id
       if (String(id) !== String(isExistsRoleinRR._id)) {
         throw new HttpException(
-          'El id no coincide con el rol ingresado',
+          'El id no coincide con el rol ingresado.',
           HttpStatus.BAD_REQUEST,
         );
       }
@@ -178,9 +185,18 @@ export class ResourcesRolesService {
     };
 
     //se actualiza los recursos del rol
-    const userRole = await this.rrModel.findByIdAndUpdate(id, sendData, {
-      new: true,
-    });
+    let userRole;
+
+    try {
+      userRole = await this.rrModel.findByIdAndUpdate(id, sendData, {
+        new: true,
+      });
+    } catch (e) {
+      throw new HttpException(
+        'Ocurrio un problema al intentar crear los permisos del rol.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
 
     //segun el rol actualizado busco a los usuarios quien tiene el rol
     const findUsersByRol = await this.userModel.find({
