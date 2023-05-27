@@ -85,7 +85,14 @@ export class ResourcesUsersService {
     //inserto la data para el recurso del usuario
     const createdResource = new this.ruModel(modifyData);
 
-    return createdResource.save();
+    try {
+      return await createdResource.save();
+    } catch (e) {
+      throw new HttpException(
+        'Ocurrio un problema al intentar crear los permisos del usuario.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 
   //Put a single role
@@ -181,11 +188,18 @@ export class ResourcesUsersService {
         iranAModificados,
       );
 
-      await new this.copyRuModel({
-        status: true,
-        user: modifyData.user,
-        resource: findResourceToDataRU,
-      }).save();
+      try {
+        await new this.copyRuModel({
+          status: true,
+          user: modifyData.user,
+          resource: findResourceToDataRU,
+        }).save();
+      } catch (e) {
+        throw new HttpException(
+          'Ocurrio un problema al intentar crear los permisos del usuario.',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
     } else {
       const formatRegisteredModifieds = isExistResourceModified.resource.map(
         (res) => String(res),
@@ -284,17 +298,31 @@ export class ResourcesUsersService {
         resource: findResourceToDataRU,
       };
 
-      await this.copyRuModel.findOneAndUpdate(
-        { user: sendDataToModified.user },
-        {
-          resource: sendDataToModified.resource,
-        },
-        { new: true },
-      );
+      try {
+        await this.copyRuModel.findOneAndUpdate(
+          { user: sendDataToModified.user },
+          {
+            resource: sendDataToModified.resource,
+          },
+          { new: true },
+        );
+      } catch (e) {
+        throw new HttpException(
+          'Ocurrio un problema al intentar crear los permisos del usuario.',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
     }
 
-    return await this.ruModel.findByIdAndUpdate(id, modifyData, {
-      new: true,
-    });
+    try {
+      return await this.ruModel.findByIdAndUpdate(id, modifyData, {
+        new: true,
+      });
+    } catch (e) {
+      throw new HttpException(
+        'Ocurrio un problema al intentar crear los permisos del usuario.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 }
