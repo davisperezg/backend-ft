@@ -13,10 +13,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { CtxUser } from 'src/lib/decorators/ctx-user.decorators';
-import { JwtAuthGuard } from 'src/lib/guards/auth.guard';
 import PermissionGuard from 'src/lib/guards/resources.guard';
 import Permission from 'src/lib/type/permission.type';
-import { Role } from '../schemas/role.schema';
 import { RoleService } from '../services/role.service';
 import { CreateRolDTO } from '../dto/create-rol.dto';
 import { UpdateModuleDTO } from '../dto/update-rol.dto';
@@ -55,16 +53,11 @@ export class RoleController {
     @Body() createBody: CreateRolDTO,
     @CtxUser() user: QueryToken,
   ) {
-    const role = await this.roleService.create(createBody, user);
-    return res.status(HttpStatus.OK).json(role);
-  }
-
-  // Delete Role(DELETE): http://localhost:3000/api/v1/roles/6223169df6066a084cef08c2
-  @Delete(':id')
-  @UseGuards(PermissionGuard(Permission.DeleteRoles))
-  async deleteRole(@Res() res, @Param('id') id: string): Promise<boolean> {
-    const roleDeleted = await this.roleService.delete(id);
-    return res.status(HttpStatus.OK).json(roleDeleted);
+    const responde = await this.roleService.create(createBody, user);
+    return res.status(HttpStatus.OK).json({
+      message: 'El rol ha sido creado éxitosamente.',
+      responde,
+    });
   }
 
   // Update Role(PUT): http://localhost:3000/api/v1/roles/6223169df6066a084cef08c2
@@ -76,8 +69,19 @@ export class RoleController {
     @Body() createBody: UpdateModuleDTO,
     @CtxUser() user: QueryToken,
   ) {
-    const roleUpdated = await this.roleService.update(id, createBody, user);
-    return res.status(HttpStatus.OK).json(roleUpdated);
+    const response = await this.roleService.update(id, createBody, user);
+    return res.status(HttpStatus.OK).json({
+      message: 'El rol ha sido actualizado éxitosamente.',
+      response,
+    });
+  }
+
+  // Delete Role(DELETE): http://localhost:3000/api/v1/roles/6223169df6066a084cef08c2
+  @Delete(':id')
+  @UseGuards(PermissionGuard(Permission.DeleteRoles))
+  async deleteRole(@Res() res, @Param('id') id: string): Promise<boolean> {
+    const roleDeleted = await this.roleService.delete(id);
+    return res.status(HttpStatus.OK).json(roleDeleted);
   }
 
   // Restore Role(PUT): http://localhost:3000/api/v1/roles/restore/6223169df6066a084cef08c2
