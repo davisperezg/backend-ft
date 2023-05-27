@@ -94,7 +94,14 @@ export class ServicesUsersService {
     //inserto la data para el modulo del usuario
     const createdResource = new this.suModel(modifyData);
 
-    return createdResource.save();
+    try {
+      return await createdResource.save();
+    } catch (e) {
+      throw new HttpException(
+        'Ocurrio un problema al intentar crear los servicios del usuario.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 
   async update(
@@ -110,7 +117,7 @@ export class ServicesUsersService {
 
     if (!findSU) {
       throw new HttpException(
-        'El servicio no existe o esta inactivo',
+        'El servicio no existe o esta inactivo.',
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -124,7 +131,7 @@ export class ServicesUsersService {
         isExistsUserinSU = await this.suModel.findOne({ user });
       } catch (e) {
         throw new HttpException(
-          'No hay un servicio registrado con ese usuario',
+          'No hay un servicio registrado con ese usuario.',
           HttpStatus.BAD_REQUEST,
         );
       }
@@ -132,7 +139,7 @@ export class ServicesUsersService {
       //si existe en la bd pero no coincide con el param id
       if (String(id) !== String(isExistsUserinSU._id)) {
         throw new HttpException(
-          'El id no coincide con el usuario ingresado',
+          'El id no coincide con el usuario ingresado.',
           HttpStatus.BAD_REQUEST,
         );
       }
@@ -145,7 +152,7 @@ export class ServicesUsersService {
     const isExisteModuleASP = findModules.some((a) => a.name === MOD_PRINCIPAL);
 
     if (isExisteModuleASP) {
-      throw new HttpException('Permiso denegado', HttpStatus.UNAUTHORIZED);
+      throw new HttpException('Permiso denegado.', HttpStatus.UNAUTHORIZED);
     }
 
     //si no existe buscar su mismo usuario y serivicio registrado
@@ -194,11 +201,18 @@ export class ServicesUsersService {
         iranAModificados,
       );
 
-      await new this.copySuModel({
-        status: true,
-        user: modifyData.user,
-        module: findResourceToDataRU,
-      }).save();
+      try {
+        await new this.copySuModel({
+          status: true,
+          user: modifyData.user,
+          module: findResourceToDataRU,
+        }).save();
+      } catch (e) {
+        throw new HttpException(
+          'Ocurrio un problema al intentar crear los servicios del usuario.',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
     } else {
       const formatRegisteredModifieds = isExistServicesModified.module.map(
         (res) => String(res),
@@ -297,17 +311,31 @@ export class ServicesUsersService {
         module: finServicesToDataSU,
       };
 
-      await this.copySuModel.findOneAndUpdate(
-        { user: sendDataToModified.user },
-        {
-          module: sendDataToModified.module,
-        },
-        { new: true },
-      );
+      try {
+        await this.copySuModel.findOneAndUpdate(
+          { user: sendDataToModified.user },
+          {
+            module: sendDataToModified.module,
+          },
+          { new: true },
+        );
+      } catch (e) {
+        throw new HttpException(
+          'Ocurrio un problema al intentar crear los servicios del usuario.',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
     }
 
-    return await this.suModel.findByIdAndUpdate(id, modifyData, {
-      new: true,
-    });
+    try {
+      return await this.suModel.findByIdAndUpdate(id, modifyData, {
+        new: true,
+      });
+    } catch (e) {
+      throw new HttpException(
+        'Ocurrio un problema al intentar crear los servicios del usuario.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 }
