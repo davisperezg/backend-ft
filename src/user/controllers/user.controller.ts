@@ -34,13 +34,6 @@ export class UserController {
     return this.userService.findAll(user);
   }
 
-  // Get User: http://localhost:3000/api/v1/users/find/6223169df6066a084cef08c2
-  @Get('/find/:nro')
-  @UseGuards(PermissionGuard(Permission.GetOneUsers))
-  getUser(@Param('nro') nro: string) {
-    return this.userService.findUserByCodApi(nro);
-  }
-
   // Get Me: http://localhost:3000/api/v1/users/whois
   @Get('/whois')
   @UseGuards(JwtAuthGuard)

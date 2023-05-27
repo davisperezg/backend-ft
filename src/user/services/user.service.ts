@@ -53,20 +53,8 @@ export class UserService {
     let users = [];
 
     if (tokenEntityFull.role.name === ROL_PRINCIPAL) {
-      const listusers = await this.userModel.find().populate([
-        {
-          path: 'role',
-        },
-        {
-          path: 'creator',
-        },
-      ]);
-      users = listusers.filter((user) => user.role.name !== ROL_PRINCIPAL);
-      //users = listusers
-    } else {
-      users = await this.userModel
-        .find({ creator: tokenEntityFull._id })
-        .populate([
+      try {
+        const listusers = await this.userModel.find().populate([
           {
             path: 'role',
           },
@@ -74,6 +62,32 @@ export class UserService {
             path: 'creator',
           },
         ]);
+
+        users = listusers.filter((user) => user.role.name !== ROL_PRINCIPAL);
+      } catch (e) {
+        throw new HttpException(
+          'Error al listar usuarios.',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+    } else {
+      try {
+        users = await this.userModel
+          .find({ creator: tokenEntityFull._id })
+          .populate([
+            {
+              path: 'role',
+            },
+            {
+              path: 'creator',
+            },
+          ]);
+      } catch (e) {
+        throw new HttpException(
+          'Error al listar usuarios.',
+          HttpStatus.NOT_FOUND,
+        );
+      }
     }
 
     const formatUsers = users.map((user) => {
@@ -107,14 +121,7 @@ export class UserService {
     password: string,
     userToken: QueryToken,
   ): Promise<boolean> {
-    const findForbidden = await this.userModel.findById(id).populate([
-      {
-        path: 'role',
-      },
-      {
-        path: 'creator',
-      },
-    ]);
+    const findForbidden = await this.findUserById(id);
     const { tokenEntityFull } = userToken;
     const rolToken = tokenEntityFull.role.name;
 
@@ -124,14 +131,13 @@ export class UserService {
       (findForbidden.creator.email !== tokenEntityFull.email &&
         rolToken !== ROL_PRINCIPAL)
     ) {
-      throw new HttpException('Permiso denegado', HttpStatus.UNAUTHORIZED);
+      throw new HttpException('Permiso denegado.', HttpStatus.UNAUTHORIZED);
     }
 
     let result = false;
 
     try {
       const passwordHashed = await hashPassword(password);
-
       await this.userModel.findByIdAndUpdate(
         id,
         {
@@ -152,10 +158,7 @@ export class UserService {
   }
 
   //Add a single user
-  async create(
-    createUser: CreateUserDTO,
-    userToken: QueryToken,
-  ): Promise<User> {
+  async create(createUser: CreateUserDTO, userToken: QueryToken) {
     const { role, password, username } = createUser;
     const { tokenEntityFull } = userToken;
 
@@ -206,32 +209,52 @@ export class UserService {
       apellidos: createdUser.lastname,
     });
 
-    //registra usuario mongo
-    const userRegistered = await createdUser.save();
+    const _queryRunner = this.dataSource.createQueryRunner();
+    //Inicia transaccion
+    await _queryRunner.connect();
+    await _queryRunner.startTransaction();
 
-    //registra usuario mysql
-    await this.userRepository.save(creatUserMysql);
+    try {
+      //registra usuario mongo
+      const userRegistered = await createdUser.save();
 
-    //data a enviar para el recurso del usuario
-    const sendDataResource: Resource_User = {
-      status: true,
-      resource: resourcesOfRol?.resource || [],
-      user: createdUser._id,
-    };
+      //registra usuario mysql
+      await this.userRepository.save(creatUserMysql);
 
-    const sendDataSu: Services_User = {
-      status: true,
-      user: createdUser._id,
-      module: modulesOfRol.module,
-    };
+      //data a enviar para el recurso del usuario
+      const sendDataResource: Resource_User = {
+        status: true,
+        resource: resourcesOfRol?.resource || [],
+        user: createdUser._id,
+      };
 
-    //crea recursos al usuario
-    await new this.ruModel(sendDataResource).save();
+      const sendDataSu: Services_User = {
+        status: true,
+        user: createdUser._id,
+        module: modulesOfRol.module,
+      };
 
-    //crea modulos al usuario
-    await new this.suModel(sendDataSu).save();
+      //crea recursos al usuario
+      await new this.ruModel(sendDataResource).save();
 
-    return userRegistered;
+      //crea modulos al usuario
+      await new this.suModel(sendDataSu).save();
+
+      // Confirmar la transacción
+      await _queryRunner.commitTransaction();
+
+      return userRegistered;
+    } catch (error) {
+      // Revertir la transacción en caso de error
+      await _queryRunner.rollbackTransaction();
+      // Relanzar el error para que sea manejado en otro lugar
+      throw new HttpException(
+        `Error al intentar crear usuario.`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    } finally {
+      await _queryRunner.release(); // Liberar el queryRunner
+    }
   }
 
   //Put a single user
@@ -243,17 +266,10 @@ export class UserService {
     const { role, username } = bodyUser;
     const { tokenEntityFull } = userToken;
     const rolToken = tokenEntityFull.role.name;
-    const findForbidden = await this.userModel.findById(id).populate([
-      {
-        path: 'role',
-      },
-      {
-        path: 'creator',
-      },
-    ]);
+    const findForbidden = await this.findUserById(id);
 
     //validar que el nro de documento o email actualizados no pertenezcan a otro usuario
-    const findUsername = await this.userModel.findOne({ username });
+    const findUsername = await this.findUserByUsername(username);
     const getRoleOfBody = await this.roleService.findRoleById(String(role));
 
     if (
@@ -326,7 +342,10 @@ export class UserService {
       // Revertir la transacción en caso de error
       await _queryRunner.rollbackTransaction();
       // Relanzar el error para que sea manejado en otro lugar
-      console.log('error', error);
+      throw new HttpException(
+        `Error al intentar editar usuario.`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     } finally {
       await _queryRunner.release(); // Liberar el queryRunner
     }
@@ -337,14 +356,7 @@ export class UserService {
     let result = false;
     const { tokenEntityFull } = user;
     const rolToken = tokenEntityFull.role.name;
-    const findForbidden = await this.userModel.findById(id).populate([
-      {
-        path: 'role',
-      },
-      {
-        path: 'creator',
-      },
-    ]);
+    const findForbidden = await this.findUserById(id);
 
     //Ni el owner ni cualquier otro usuario puede eliminar al owner
     if (
@@ -355,8 +367,13 @@ export class UserService {
       (findForbidden.creator.email !== tokenEntityFull.email &&
         rolToken !== ROL_PRINCIPAL)
     ) {
-      throw new HttpException('Permisos denegado', HttpStatus.CONFLICT);
+      throw new HttpException('Permisos denegado.', HttpStatus.CONFLICT);
     }
+
+    const _queryRunner = this.dataSource.createQueryRunner();
+    //Inicia transaccion
+    await _queryRunner.connect();
+    await _queryRunner.startTransaction();
 
     try {
       const user = await this.userModel.findByIdAndUpdate(
@@ -368,17 +385,27 @@ export class UserService {
         },
         { new: true },
       );
+
       await this.userModel.updateMany(
         { creator: user._id },
         { $set: { status: false } },
         { multi: true },
       );
+
+      // Confirmar la transacción
+      await _queryRunner.commitTransaction();
+
       result = true;
     } catch (e) {
+      // Revertir la transacción en caso de error
+      await _queryRunner.rollbackTransaction();
+
       throw new HttpException(
-        `Error al intentar eliminar usuario`,
+        `Error al intentar eliminar usuario.`,
         HttpStatus.BAD_REQUEST,
       );
+    } finally {
+      await _queryRunner.release(); // Liberar el queryRunner
     }
 
     return result;
@@ -388,14 +415,7 @@ export class UserService {
   async restore(id: string, userToken: QueryToken): Promise<boolean> {
     const { tokenEntityFull } = userToken;
     const rolToken = tokenEntityFull.role.name;
-    const findForbidden = await this.userModel.findById(id).populate([
-      {
-        path: 'role',
-      },
-      {
-        path: 'creator',
-      },
-    ]);
+    const findForbidden = await this.findUserById(id);
 
     //Ni el owner ni cualquier otro usuario permite retaurar al owner
     if (
@@ -406,10 +426,16 @@ export class UserService {
       (findForbidden.creator.email !== tokenEntityFull.email &&
         rolToken !== ROL_PRINCIPAL)
     ) {
-      throw new HttpException('Permiso denegado', HttpStatus.CONFLICT);
+      throw new HttpException('Permiso denegado.', HttpStatus.CONFLICT);
     }
 
     let result = false;
+
+    const _queryRunner = this.dataSource.createQueryRunner();
+
+    //Inicia transaccion
+    await _queryRunner.connect();
+    await _queryRunner.startTransaction();
 
     try {
       const user = await this.userModel.findByIdAndUpdate(id, {
@@ -424,12 +450,20 @@ export class UserService {
         { multi: true },
       );
 
+      // Confirmar la transacción
+      await _queryRunner.commitTransaction();
+
       result = true;
     } catch (e) {
+      // Revertir la transacción en caso de error
+      await _queryRunner.rollbackTransaction();
+
       throw new HttpException(
-        `Error al intentar restaurar usuario`,
+        `Error al intentar restaurar usuario.`,
         HttpStatus.BAD_REQUEST,
       );
+    } finally {
+      await _queryRunner.release(); // Liberar el queryRunner
     }
 
     return result;
@@ -440,84 +474,41 @@ export class UserService {
     try {
       return await this.userModel.findOne({ username });
     } catch (e) {
-      throw new Error(`Error en UserService.restore ${e}`);
+      throw new HttpException(
+        `Error al intentar buscar username.`,
+        HttpStatus.NOT_FOUND,
+      );
     }
   }
 
   //find user by id
   async findUserById(id: string): Promise<UserDocument> {
-    return await this.userModel.findById(id).populate([
-      {
-        path: 'role',
-        populate: [
-          {
-            path: 'module',
-            populate: [{ path: 'menu' }],
-          },
-        ],
-      },
-      {
-        path: 'creator',
-        populate: {
+    try {
+      return await this.userModel.findById(id).populate([
+        {
           path: 'role',
+          populate: [
+            {
+              path: 'module',
+              populate: [{ path: 'menu' }],
+            },
+          ],
+        },
+        {
+          path: 'creator',
           populate: {
-            path: 'module',
+            path: 'role',
+            populate: {
+              path: 'module',
+            },
           },
         },
-      },
-    ]);
-  }
-
-  //find user by nroDocument
-  async findUserByCodApi(nro: string): Promise<UserDocument | any> {
-    const user = await this.userModel.findById(nro).populate([
-      {
-        path: 'role',
-        populate: [
-          {
-            path: 'module',
-            populate: [{ path: 'menu' }],
-          },
-        ],
-      },
-      {
-        path: 'resource',
-      },
-      {
-        path: 'creator',
-        populate: {
-          path: 'role',
-          populate: {
-            path: 'module',
-          },
-        },
-      },
-    ]);
-
-    const formatUsers = {
-      _id: user._id,
-      name: user.name,
-      lastname: user.lastname,
-      fullname: user.name + ' ' + user.lastname,
-      tipDocument: user.tipDocument,
-      nroDocument: user.nroDocument,
-      status: user.status,
-      email: user.email,
-      owner: user.creator
-        ? user.creator.name + ' ' + user.creator.lastname
-        : 'Ninguno',
-      role: user.role.name,
-      roleId: (<any>user.role)._id,
-    };
-
-    return formatUsers;
-  }
-
-  async findUserByIdRol(id: string): Promise<UserDocument> {
-    const user = await this.userModel.findOne({
-      role: id as any,
-    });
-
-    return user;
+      ]);
+    } catch (e) {
+      throw new HttpException(
+        `Error al intentar buscar usuario.`,
+        HttpStatus.NOT_FOUND,
+      );
+    }
   }
 }
