@@ -28,6 +28,7 @@ import { ModuleService } from 'src/module/services/module.service';
 import { QueryToken } from 'src/auth/dto/queryToken';
 import { CreateRolDTO } from '../dto/create-rol.dto';
 import { UpdateModuleDTO } from '../dto/update-rol.dto';
+import { DataSource } from 'typeorm';
 
 @Injectable()
 export class RoleService {
@@ -44,13 +45,8 @@ export class RoleService {
     private copySUModel: Model<CopyServicesDocument>,
     @Inject(forwardRef(() => ModuleService))
     private readonly moduleService: ModuleService,
+    private dataSource: DataSource,
   ) {}
-
-  async findAllDeleted(): Promise<Role[]> {
-    return this.roleModel.find({ status: false }).populate({
-      path: 'module',
-    });
-  }
 
   //Add a single role
   async create(createRole: CreateRolDTO, userToken: QueryToken): Promise<Role> {
@@ -59,13 +55,13 @@ export class RoleService {
 
     //No pueden crear el rol principal
     if (name.toLowerCase() === ROL_PRINCIPAL.toLowerCase())
-      throw new HttpException('Permiso denegado', HttpStatus.CONFLICT);
+      throw new HttpException('Permiso denegado.', HttpStatus.CONFLICT);
 
     //Validamos si los modulos entrantes existen o estan inactivos y que no puedan crear el modulo principal
     const findModules = await this.moduleService.findModulesIds(module);
     const isExisteModuleASP = findModules.some((a) => a.name === MOD_PRINCIPAL);
     if (isExisteModuleASP)
-      throw new HttpException('Permiso denegado', HttpStatus.CONFLICT);
+      throw new HttpException('Permiso denegado.', HttpStatus.CONFLICT);
 
     //Si encuentra el rol creado por el mismo usuario se valida y muestra mensaje
     const findRoles = await this.roleModel.find({
@@ -77,7 +73,7 @@ export class RoleService {
     );
 
     if (getRolByCreator)
-      throw new HttpException('El rol ya existe', HttpStatus.BAD_REQUEST);
+      throw new HttpException('El rol ya existe.', HttpStatus.BAD_REQUEST);
 
     //preparamos objeto para enviar data
     const modifyData = {
@@ -91,55 +87,36 @@ export class RoleService {
     //cualquier rol que es creado obtendra los permisos del usuario padre o de lo contrario todos los permisos
     const findRU = await this.ruModel.findOne({ user: tokenEntityFull._id });
 
+    const _queryRunner = this.dataSource.createQueryRunner();
+
+    //Inicia transaccion
+    await _queryRunner.connect();
+    await _queryRunner.startTransaction();
+
     try {
       await new this.rrModel({
         role: createdRole._id,
         status: true,
         resource: findRU.resource,
       }).save();
+
+      const roleRegistered = await createdRole.save();
+
+      // Confirmar la transacción
+      await _queryRunner.commitTransaction();
+
+      return roleRegistered;
     } catch (e) {
+      // Revertir la transacción en caso de error
+      await _queryRunner.rollbackTransaction();
+
       throw new HttpException(
-        'No se pueden obtener los permisos del usuario creador',
-        HttpStatus.BAD_REQUEST,
+        'Error al intentar crear rol.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
+    } finally {
+      await _queryRunner.release(); // Liberar el queryRunner
     }
-
-    try {
-      return createdRole.save();
-    } catch (e) {
-      throw new HttpException(
-        'Error al intentar crear rol',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-  }
-
-  //Delete a single role
-  async delete(id: string): Promise<boolean> {
-    let result = false;
-
-    const findRoleForbidden = await this.roleModel.findById(id);
-
-    if (findRoleForbidden.status === false)
-      throw new HttpException(
-        'El rol ya ha sido desactivado',
-        HttpStatus.BAD_REQUEST,
-      );
-
-    if (findRoleForbidden.name === ROL_PRINCIPAL)
-      throw new HttpException('Permiso denegado', HttpStatus.CONFLICT);
-
-    try {
-      await this.roleModel.findByIdAndUpdate(id, { status: false });
-      result = true;
-    } catch (e) {
-      throw new HttpException(
-        'Error al desactivar rol',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    return result;
   }
 
   //Put a single role
@@ -162,7 +139,7 @@ export class RoleService {
       (findRole.name === ROL_PRINCIPAL && !isExisteModuleASP) ||
       (findRole.name !== ROL_PRINCIPAL && isExisteModuleASP)
     )
-      throw new HttpException('Permiso denegado', HttpStatus.CONFLICT);
+      throw new HttpException('Permiso denegado.', HttpStatus.CONFLICT);
 
     //Si actualizan el nombre primero buscamos si el rol actualizando ya existe.
     const findRolesRep = await this.roleModel.find({
@@ -179,7 +156,7 @@ export class RoleService {
       existRoleRegistered &&
       tokenEntityFull.role.name.toLowerCase() !== ROL_PRINCIPAL.toLowerCase()
     )
-      throw new HttpException('El rol ya existe', HttpStatus.BAD_REQUEST);
+      throw new HttpException('El rol ya existe.', HttpStatus.BAD_REQUEST);
 
     //Validamos si los modulos entrantes existen o estan inactivos
     const arrayToString: string[] = Object.keys(module).map(
@@ -189,79 +166,125 @@ export class RoleService {
 
     const users = await this.findUsersWithOneRole_Local(id);
 
-    if (users.length > 0) {
-      const arrayOfStringIds = users.map((format) => format._id);
-      const findCopysSU = await this.copySUModel.find({ status: true });
+    const _queryRunner = this.dataSource.createQueryRunner();
+    //Inicia transaccion
+    await _queryRunner.connect();
+    await _queryRunner.startTransaction();
 
-      const modificados = [];
-      users.filter((a) => {
-        findCopysSU.filter((x) => {
-          if (String(x.user) === String(a._id)) {
-            modificados.push(a);
-          }
-        });
-      });
+    try {
+      if (users.length > 0) {
+        const arrayOfStringIds = users.map((format) => format._id);
+        const findCopysSU = await this.copySUModel.find({ status: true });
 
-      const noModificados = users.filter((fil) => !modificados.includes(fil));
-
-      noModificados.map(async (noMod) => {
-        //actualiza los mismo recursos enviados al rol hacia los usuarios que contienen el rol
-        await this.suModel.findOneAndUpdate(
-          {
-            user: noMod._id,
-            //resources: { $elemMatch: { userUpdated: false } },
-          },
-          { $set: { module: module } },
-          { new: true },
-        );
-      });
-
-      const findRUModifieds = await this.copySUModel.find({
-        user: { $in: arrayOfStringIds },
-      });
-
-      const dataSUMofied = findRUModifieds.map(async (ru) => {
-        const enru = await this.suModel.findOne({
-          user: ru.user,
-          status: true,
+        const modificados = [];
+        users.filter((a) => {
+          findCopysSU.filter((x) => {
+            if (String(x.user) === String(a._id)) {
+              modificados.push(a);
+            }
+          });
         });
 
-        const buscarModificadosARU = enru.module.filter((t) =>
-          ru.module.includes(t),
-        ) as any[];
+        const noModificados = users.filter((fil) => !modificados.includes(fil));
 
-        console.log(
-          module.filter(
-            (res: any) => !ru.module.map((a) => String(a)).includes(res),
-          ),
-        );
-        console.log('--------------------');
-        console.log(buscarModificadosARU);
+        noModificados.map(async (noMod) => {
+          //actualiza los mismo recursos enviados al rol hacia los usuarios que contienen el rol
+          await this.suModel.findOneAndUpdate(
+            {
+              user: noMod._id,
+              //resources: { $elemMatch: { userUpdated: false } },
+            },
+            { $set: { module: module } },
+            { new: true },
+          );
+        });
 
-        return {
-          module: module
-            .filter(
-              (res: any) => !ru.module.map((a) => String(a)).includes(res),
-            )
-            .concat(buscarModificadosARU),
-          user: ru.user,
-        };
-      });
+        const findRUModifieds = await this.copySUModel.find({
+          user: { $in: arrayOfStringIds },
+        });
 
-      dataSUMofied.map(async (data) => {
-        await this.suModel.findOneAndUpdate(
-          { user: (await data).user },
-          {
-            module: (await data).module,
-          },
-          { new: true },
-        );
-      });
+        const dataSUMofied = findRUModifieds.map(async (ru) => {
+          const enru = await this.suModel.findOne({
+            user: ru.user,
+            status: true,
+          });
+
+          const buscarModificadosARU = enru.module.filter((t) =>
+            ru.module.includes(t),
+          ) as any[];
+
+          return {
+            module: module
+              .filter(
+                (res: any) => !ru.module.map((a) => String(a)).includes(res),
+              )
+              .concat(buscarModificadosARU),
+            user: ru.user,
+          };
+        });
+
+        dataSUMofied.map(async (data) => {
+          await this.suModel.findOneAndUpdate(
+            { user: (await data).user },
+            {
+              module: (await data).module,
+            },
+            { new: true },
+          );
+        });
+      }
+
+      const role_updated = await this.roleModel.findByIdAndUpdate(
+        id,
+        bodyRole,
+        {
+          new: true,
+        },
+      );
+
+      // Confirmar la transacción
+      await _queryRunner.commitTransaction();
+
+      return role_updated;
+    } catch (e) {
+      // Revertir la transacción en caso de error
+      await _queryRunner.rollbackTransaction();
+      // Relanzar el error para que sea manejado en otro lugar
+      throw new HttpException(
+        `Error al intentar actualizar rol.`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    } finally {
+      await _queryRunner.release(); // Liberar el queryRunner
+    }
+  }
+
+  //Delete a single role
+  async delete(id: string): Promise<boolean> {
+    let result = false;
+
+    const findRoleForbidden = await this.roleModel.findById(id);
+
+    if (findRoleForbidden.status === false)
+      throw new HttpException(
+        'El rol ya ha sido desactivado.',
+        HttpStatus.BAD_REQUEST,
+      );
+
+    if (findRoleForbidden.name === ROL_PRINCIPAL)
+      throw new HttpException('Permiso denegado.', HttpStatus.CONFLICT);
+
+    try {
+      await this.roleModel.findByIdAndUpdate(id, { status: false });
+      result = true;
+    } catch (e) {
+      throw new HttpException(
+        'Error al desactivar rol.',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
-    return await this.roleModel.findByIdAndUpdate(id, bodyRole, {
-      new: true,
-    });
+    return result;
   }
 
   //Restore a single role
@@ -270,16 +293,19 @@ export class RoleService {
 
     const findRol = await this.roleModel.findById(id);
     if (findRol.status === true)
-      throw new HttpException('El rol ya está activo', HttpStatus.BAD_REQUEST);
+      throw new HttpException('El rol ya está activo.', HttpStatus.BAD_REQUEST);
 
     if (findRol.name === ROL_PRINCIPAL)
-      throw new HttpException('Permiso denegado', HttpStatus.CONFLICT);
+      throw new HttpException('Permiso denegado.', HttpStatus.CONFLICT);
 
     try {
       await this.roleModel.findByIdAndUpdate(id, { status: true });
       result = true;
     } catch (e) {
-      throw new HttpException('Error al restaurar rol', HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        'Error al restaurar rol.',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     return result;
@@ -353,10 +379,7 @@ export class RoleService {
     }
   }
 
-  async findOneCreator(role: string) {
-    return await this.roleModel.findById(role).populate('creator');
-  }
-
+  //USE
   async findRoleById(role: string) {
     let rol;
 
@@ -388,43 +411,18 @@ export class RoleService {
     return toListData;
   }
 
-  async findRoleByName(role: string): Promise<RoleDocument> {
-    const rol = await this.roleModel.findOne({ name: role, status: true });
-
-    if (!rol) {
-      throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          type: 'BAD_REQUEST',
-          message: 'El rol está inactivo.',
-        },
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    return rol;
-  }
-
-  async findRoleByNames(name: string[]): Promise<RoleDocument[]> {
-    return await this.roleModel.find({ name: { $in: name }, status: true });
-  }
-
+  //USE
   async findModulesByOneRol(idRol: string): Promise<RoleDocument> {
     return await this.roleModel.findById(idRol);
   }
 
+  //USE
   async findUsersWithOneRole_Local(idRol: string): Promise<any> {
     const users = await this.userModel.find({ role: idRol as any });
     return users;
   }
 
-  async findOneRolAndUpdateUsersModules_Local(
-    isUsers: string[],
-  ): Promise<Services_UserDocument[]> {
-    const users = await this.suModel.find({ user: { $in: isUsers as any } });
-    return users;
-  }
-
+  //USE
   async findRolesWithManyCreators_Local(idCreator: string[]): Promise<any[]> {
     const roles = await this.roleModel.find({
       creator: { $in: idCreator as any },

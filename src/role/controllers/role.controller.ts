@@ -53,10 +53,10 @@ export class RoleController {
     @Body() createBody: CreateRolDTO,
     @CtxUser() user: QueryToken,
   ) {
-    const responde = await this.roleService.create(createBody, user);
+    const response = await this.roleService.create(createBody, user);
     return res.status(HttpStatus.OK).json({
       message: 'El rol ha sido creado éxitosamente.',
-      responde,
+      response,
     });
   }
 
