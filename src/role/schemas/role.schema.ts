@@ -18,6 +18,21 @@ export class Role {
   @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'User' })
   creator: User;
 
+  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'User' })
+  deletedBy: User;
+
+  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'User' })
+  updatedBy: User;
+
+  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'User' })
+  restoredBy: User;
+
+  @Prop()
+  deletedAt?: Date;
+
+  @Prop()
+  restoredAt?: Date;
+
   @Prop({
     type: [
       { type: mongoose.Schema.Types.ObjectId, ref: 'Module', required: true },
