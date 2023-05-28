@@ -167,6 +167,7 @@ export class RoleService {
     const users = await this.findUsersWithOneRole_Local(id);
 
     const _queryRunner = this.dataSource.createQueryRunner();
+
     //Inicia transaccion
     await _queryRunner.connect();
     await _queryRunner.startTransaction();
@@ -236,7 +237,10 @@ export class RoleService {
 
       const role_updated = await this.roleModel.findByIdAndUpdate(
         id,
-        bodyRole,
+        {
+          ...bodyRole,
+          updatedBy: tokenEntityFull._id,
+        },
         {
           new: true,
         },
@@ -260,8 +264,9 @@ export class RoleService {
   }
 
   //Delete a single role
-  async delete(id: string): Promise<boolean> {
+  async delete(id: string, user: QueryToken): Promise<boolean> {
     let result = false;
+    const { tokenEntityFull } = user;
 
     const findRoleForbidden = await this.roleModel.findById(id);
 
@@ -275,7 +280,11 @@ export class RoleService {
       throw new HttpException('Permiso denegado.', HttpStatus.CONFLICT);
 
     try {
-      await this.roleModel.findByIdAndUpdate(id, { status: false });
+      await this.roleModel.findByIdAndUpdate(id, {
+        status: false,
+        deletedAt: new Date(),
+        deletedBy: tokenEntityFull._id,
+      });
       result = true;
     } catch (e) {
       throw new HttpException(
@@ -288,10 +297,11 @@ export class RoleService {
   }
 
   //Restore a single role
-  async restore(id: string): Promise<boolean> {
+  async restore(id: string, user: QueryToken): Promise<boolean> {
     let result = false;
-
+    const { tokenEntityFull } = user;
     const findRol = await this.roleModel.findById(id);
+
     if (findRol.status === true)
       throw new HttpException('El rol ya está activo.', HttpStatus.BAD_REQUEST);
 
@@ -299,7 +309,11 @@ export class RoleService {
       throw new HttpException('Permiso denegado.', HttpStatus.CONFLICT);
 
     try {
-      await this.roleModel.findByIdAndUpdate(id, { status: true });
+      await this.roleModel.findByIdAndUpdate(id, {
+        status: true,
+        restoredAt: new Date(),
+        restoredBy: tokenEntityFull._id,
+      });
       result = true;
     } catch (e) {
       throw new HttpException(

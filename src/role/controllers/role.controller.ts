@@ -79,16 +79,24 @@ export class RoleController {
   // Delete Role(DELETE): http://localhost:3000/api/v1/roles/6223169df6066a084cef08c2
   @Delete(':id')
   @UseGuards(PermissionGuard(Permission.DeleteRoles))
-  async deleteRole(@Res() res, @Param('id') id: string): Promise<boolean> {
-    const roleDeleted = await this.roleService.delete(id);
+  async deleteRole(
+    @Res() res,
+    @Param('id') id: string,
+    @CtxUser() user: QueryToken,
+  ): Promise<boolean> {
+    const roleDeleted = await this.roleService.delete(id, user);
     return res.status(HttpStatus.OK).json(roleDeleted);
   }
 
   // Restore Role(PUT): http://localhost:3000/api/v1/roles/restore/6223169df6066a084cef08c2
   @Patch(':id')
   @UseGuards(PermissionGuard(Permission.RestoreRoles))
-  async restoreRole(@Res() res, @Param('id') id: string) {
-    const roleRestored = await this.roleService.restore(id);
+  async restoreRole(
+    @Res() res,
+    @Param('id') id: string,
+    @CtxUser() user: QueryToken,
+  ) {
+    const roleRestored = await this.roleService.restore(id, user);
     return res.status(HttpStatus.OK).json(roleRestored);
   }
 }
