@@ -128,72 +128,6 @@ export class ModuleService {
     return sentToFront;
   }
 
-  async findOne(id: string): Promise<Module> {
-    const module = await this.moduleModel
-      .findOne({ _id: id, status: true })
-      .populate({
-        path: 'menu',
-      });
-
-    if (!module) {
-      throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          type: 'BAD_REQUEST',
-          message: 'El modulo no existe o está inactivo.',
-        },
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    return module;
-  }
-
-  async findAllDeleted(): Promise<Module[]> {
-    return await this.moduleModel.find({ status: false }).populate({
-      path: 'menu',
-    });
-  }
-
-  //Find modules by names
-  async findbyNames(name: any[]): Promise<ModuleDocument[]> {
-    const modules = await this.moduleModel.find({
-      name: { $in: name },
-      status: true,
-    });
-
-    if (!modules || modules.length === 0) {
-      throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          type: 'BAD_REQUEST',
-          message: 'Hay un modulo inactivo o no existe.',
-        },
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    return modules;
-  }
-
-  //Find modules by names
-  async findbyName(name: string): Promise<ModuleDocument> {
-    const module = await this.moduleModel.findOne({ name, status: true });
-
-    if (!module) {
-      throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          type: 'BAD_REQUEST',
-          message: 'Hay un modulo inactivo o no existe.',
-        },
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    return module;
-  }
-
   //Add a single module
   async create(
     createModulo: CreateModuleDTO,
@@ -211,12 +145,9 @@ export class ModuleService {
       (a) => a.name.toLowerCase() === name.toLowerCase(),
     );
 
-    console.log(findModulesByCreador);
-    console.log('aqui');
-    console.log(getOneModuleByName);
     //No se puede crear el elemento
     if (getOneModuleByName) {
-      throw new HttpException('El modulo ya existe', HttpStatus.CONFLICT);
+      throw new HttpException('El modulo ya existe.', HttpStatus.CONFLICT);
     }
 
     const modifyData = {
@@ -226,33 +157,15 @@ export class ModuleService {
     };
 
     const createdModule = new this.moduleModel(modifyData);
-    return createdModule.save();
-  }
-
-  //Delete a single module
-  async delete(id: string): Promise<boolean> {
-    let result = false;
-
-    //el modulo as-principal no se puede eliminar
-    const findModuleForbidden = await this.moduleModel.findById(id);
-    if (findModuleForbidden.name === MOD_PRINCIPAL) {
-      throw new HttpException(
-        'Unauthorized Exception',
-        HttpStatus.UNAUTHORIZED,
-      );
-    }
 
     try {
-      await this.moduleModel.findByIdAndUpdate(id, {
-        status: false,
-        deletedAt: new Date(),
-      });
-      result = true;
+      return await createdModule.save();
     } catch (e) {
-      throw new Error(`Error en ModuleService.delete ${e}`);
+      throw new HttpException(
+        'Error intentar crear modulo.',
+        HttpStatus.BAD_REQUEST,
+      );
     }
-
-    return result;
   }
 
   //Put a single module
@@ -270,10 +183,7 @@ export class ModuleService {
       String(findModulesForbidden.creator).toLowerCase() !==
         String(tokenEntityFull._id).toLowerCase()
     ) {
-      throw new HttpException(
-        'Unauthorized Exception',
-        HttpStatus.UNAUTHORIZED,
-      );
+      throw new HttpException('Permiso denegado.', HttpStatus.CONFLICT);
     }
 
     //const findModuleForbidden = await this.moduleModel.findById(id);
@@ -284,10 +194,7 @@ export class ModuleService {
       (findModulesForbidden.name === MOD_PRINCIPAL &&
         findModulesForbidden.menu.length !== menu.length)
     ) {
-      throw new HttpException(
-        'Unauthorized Exception',
-        HttpStatus.UNAUTHORIZED,
-      );
+      throw new HttpException('Permiso denegado.', HttpStatus.CONFLICT);
     }
 
     const findModulesByCreador = await this.moduleModel.find({
@@ -309,56 +216,136 @@ export class ModuleService {
         getModuleById.name === MOD_PRINCIPAL)
     ) {
       //No se puede crear el elemento
-      throw new HttpException('El modulo ya existe', HttpStatus.CONFLICT);
+      throw new HttpException('El modulo ya existe.', HttpStatus.CONFLICT);
     }
 
     const modifyData = {
       ...bodyModule,
     };
 
-    return await this.moduleModel.findByIdAndUpdate(id, modifyData, {
-      new: true,
-    });
+    try {
+      return await this.moduleModel.findByIdAndUpdate(id, modifyData, {
+        new: true,
+      });
+    } catch (e) {
+      throw new HttpException(
+        'Error intentar actualizar modulo.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
   }
 
-  //Restore a single module
-  async restore(id: string): Promise<boolean> {
+  //Delete a single module
+  async delete(id: string, user: QueryToken): Promise<boolean> {
     let result = false;
+    const { tokenEntityFull } = user;
+
+    //el modulo as-principal no se puede eliminar
+    const findModuleForbidden = await this.moduleModel.findById(id);
+
+    if (findModuleForbidden.status === false)
+      throw new HttpException(
+        'El modulo ya ha sido desactivado.',
+        HttpStatus.BAD_REQUEST,
+      );
+
+    if (findModuleForbidden.name === MOD_PRINCIPAL) {
+      throw new HttpException('Permiso denegado.', HttpStatus.CONFLICT);
+    }
 
     try {
       await this.moduleModel.findByIdAndUpdate(id, {
-        status: true,
-        restoredAt: new Date(),
+        status: false,
+        deletedAt: new Date(),
+        deletedBy: tokenEntityFull._id,
       });
       result = true;
     } catch (e) {
-      throw new Error(`Error en ModuleService.restore ${e}`);
+      throw new HttpException(
+        'Error al desactivar modulo.',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     return result;
   }
 
+  //Restore a single module
+  async restore(id: string, user: QueryToken): Promise<boolean> {
+    let result = false;
+    const { tokenEntityFull } = user;
+    const findModule = await this.findOne(id);
+
+    if (findModule.status === true)
+      throw new HttpException(
+        'El modulo ya está activo.',
+        HttpStatus.BAD_REQUEST,
+      );
+
+    if (findModule.name === MOD_PRINCIPAL)
+      throw new HttpException('Permiso denegado.', HttpStatus.BAD_REQUEST);
+
+    try {
+      await this.moduleModel.findByIdAndUpdate(id, {
+        status: true,
+        restoredAt: new Date(),
+        restoredBy: tokenEntityFull._id,
+      });
+      result = true;
+    } catch (e) {
+      throw new HttpException(
+        'Error al restaurar modulo.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    return result;
+  }
+
+  async findOne(id: string): Promise<Module> {
+    try {
+      const module = await this.moduleModel
+        .findOne({ _id: id, status: true })
+        .populate({
+          path: 'menu',
+        });
+
+      if (!module) {
+        throw new HttpException(
+          'El modulo no existe o está inactivo.',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      return module;
+    } catch (e) {
+      throw new HttpException(
+        'Ocurrio un error al intentar buscar modulo.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   async findModulesIds(ids: string[]): Promise<ModuleDocument[]> {
-    const modules = await this.moduleModel.find({
-      _id: { $in: ids },
-      status: true,
-    });
+    try {
+      const modules = await this.moduleModel.find({
+        _id: { $in: ids },
+        status: true,
+      });
 
-    // if (validate || validate === undefined) {
-    //   const modulesDesctivateds = modules.filter((mod) => mod.status === false);
-    //   if (modulesDesctivateds.length > 0) {
-    //     const showNames = modulesDesctivateds.map((mod) => mod.name);
-    //     throw new HttpException(
-    //       {
-    //         status: HttpStatus.BAD_REQUEST,
-    //         type: 'BAD_REQUEST',
-    //         message: `Los modulos [${showNames}] no existen o esta inactivos.`,
-    //       },
-    //       HttpStatus.BAD_REQUEST,
-    //     );
-    //   }
-    // }
+      if (modules.length === 0) {
+        throw new HttpException(
+          'Los modulos no existen o está inactivos.',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
 
-    return modules;
+      return modules;
+    } catch (e) {
+      throw new HttpException(
+        'Ocurrio un error al intentar buscar modulos por ids.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 }

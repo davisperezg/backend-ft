@@ -60,16 +60,11 @@ export class ModuleController {
     @Body() createModule: CreateModuleDTO,
     @CtxUser() user: QueryToken,
   ) {
-    const module = await this.moduleService.create(createModule, user);
-    return res.status(HttpStatus.OK).json(module);
-  }
-
-  // Delete Module(DELETE): http://localhost:3000/api/v1/modules/605ab8372ed8db2ad4839d87
-  @Delete(':id')
-  @UseGuards(PermissionGuard(Permission.DeleteModules))
-  async deleteModule(@Res() res, @Param('id') id: string): Promise<boolean> {
-    const moduleDeleted = await this.moduleService.delete(id);
-    return res.status(HttpStatus.OK).json(moduleDeleted);
+    const response = await this.moduleService.create(createModule, user);
+    return res.status(HttpStatus.OK).json({
+      message: 'El módulo ha sido creado éxitosamente.',
+      response,
+    });
   }
 
   // Update Module(PUT): http://localhost:3000/api/v1/modules/605ab8372ed8db2ad4839d87
@@ -81,15 +76,34 @@ export class ModuleController {
     @Body() createMenu: UpdateModuleDTO,
     @CtxUser() user: QueryToken,
   ) {
-    const update = await this.moduleService.update(id, createMenu, user);
-    return res.status(HttpStatus.OK).json(update);
+    const response = await this.moduleService.update(id, createMenu, user);
+    return res.status(HttpStatus.OK).json({
+      message: 'El módulo ha sido actualizado éxitosamente.',
+      response,
+    });
+  }
+
+  // Delete Module(DELETE): http://localhost:3000/api/v1/modules/605ab8372ed8db2ad4839d87
+  @Delete(':id')
+  @UseGuards(PermissionGuard(Permission.DeleteModules))
+  async deleteModule(
+    @Res() res,
+    @Param('id') id: string,
+    @CtxUser() user: QueryToken,
+  ): Promise<boolean> {
+    const moduleDeleted = await this.moduleService.delete(id, user);
+    return res.status(HttpStatus.OK).json(moduleDeleted);
   }
 
   // Restore Module(PUT): http://localhost:3000/api/v1/modules/restore/605ab8372ed8db2ad4839d87
   @Patch(':id')
   @UseGuards(PermissionGuard(Permission.RestoreModule))
-  async restoreModule(@Res() res, @Param('id') id: string): Promise<Module> {
-    const moduleRestored = await this.moduleService.restore(id);
+  async restoreModule(
+    @Res() res,
+    @Param('id') id: string,
+    @CtxUser() user: QueryToken,
+  ): Promise<Module> {
+    const moduleRestored = await this.moduleService.restore(id, user);
     return res.status(HttpStatus.OK).json(moduleRestored);
   }
 }
