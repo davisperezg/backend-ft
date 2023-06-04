@@ -92,7 +92,7 @@ export class UserController {
     @Res() res,
     @Param('id') id: string,
     @CtxUser() user: QueryToken,
-  ): Promise<User> {
+  ): Promise<boolean> {
     const userRestored = await this.userService.restore(id, user);
     return res.status(HttpStatus.OK).json(userRestored);
   }

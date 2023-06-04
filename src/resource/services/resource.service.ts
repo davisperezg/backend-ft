@@ -10,6 +10,8 @@ import { Model } from 'mongoose';
 import { ROL_PRINCIPAL } from 'src/lib/const/consts';
 import { User, UserDocument } from 'src/user/schemas/user.schema';
 import { QueryToken } from 'src/auth/dto/queryToken';
+import { CreateResourceDTO } from '../dto/create-resource';
+import { UpdateResourceDTO } from '../dto/update-resource';
 
 @Injectable()
 export class ResourceService {
@@ -117,8 +119,11 @@ export class ResourceService {
 
   async findAllToCRUD(): Promise<Resource[] | any[]> {
     const resources = await this.resourceModel
-      .find({ status: true })
-      .sort([['name', 'ascending']]);
+      .find()
+      .populate({
+        path: 'group_resource',
+      })
+      .sort([['group_resource.name', 'ascending']]);
 
     return resources;
   }
@@ -144,32 +149,8 @@ export class ResourceService {
   }
 
   //Add a single role
-  async create(createResource: Resource): Promise<Resource> {
+  async create(createResource: CreateResourceDTO): Promise<Resource> {
     const { name, key } = createResource;
-
-    if (!name || !key) {
-      throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          type: 'BAD_REQUEST',
-          message: `Los campos nombre y key son requeridos.`,
-        },
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    //Solo se permite letras
-    const patt = new RegExp(/^[A-Za-z]+$/g);
-    if (!patt.test(key)) {
-      throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          type: 'BAD_REQUEST',
-          message: `El key solo permite letras y sin espacios en blanco.`,
-        },
-        HttpStatus.BAD_REQUEST,
-      );
-    }
 
     const findExistsXName = await this.resourceModel.findOne({ name });
     const findExistsXKey = await this.resourceModel.findOne({ key });
@@ -185,7 +166,7 @@ export class ResourceService {
       );
     }
 
-    const modifyData: Resource = {
+    const modifyData = {
       ...createResource,
       status: true,
     };
@@ -195,7 +176,7 @@ export class ResourceService {
   }
 
   //Put a single
-  async update(id: string, bodyRole: Resource): Promise<Resource> {
+  async update(id: string, bodyRole: UpdateResourceDTO): Promise<Resource> {
     const { name, key } = bodyRole;
 
     //buscar el nombre que esta siendo modificado y que no coincida con uno registrado
@@ -244,5 +225,51 @@ export class ResourceService {
       _id: { $in: id },
       status: true,
     });
+  }
+
+  async delete(id: string) {
+    let result = false;
+
+    try {
+      await this.resourceModel.findByIdAndUpdate(
+        id,
+        {
+          status: false,
+        },
+        { new: true },
+      );
+
+      result = true;
+    } catch (e) {
+      throw new HttpException(
+        `Error al intentar actualizar recurso.`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    return result;
+  }
+
+  async restore(id: string) {
+    let result = false;
+
+    try {
+      await this.resourceModel.findByIdAndUpdate(
+        id,
+        {
+          status: true,
+        },
+        { new: true },
+      );
+
+      result = true;
+    } catch (e) {
+      throw new HttpException(
+        `Error al intentar actualizar recurso.`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    return result;
   }
 }

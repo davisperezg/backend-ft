@@ -309,6 +309,7 @@ export const RECURSOS_DEFECTOS = [
     description:
       'Te permite ver el description o data de un usuario en especifico.',
     group_resource: CATEGORIA_1,
+    status: false,
   },
   {
     name: 'Cambiar contraseña de usuarios', //add
@@ -353,6 +354,7 @@ export const RECURSOS_DEFECTOS = [
     description:
       'Te permite ver el description o data de un modulo en especifico.',
     group_resource: CATEGORIA_2,
+    status: false,
   },
   {
     name: 'Restaurar Modulos', //add
@@ -412,6 +414,7 @@ export const RECURSOS_DEFECTOS = [
     description:
       'Te permite ver el description o data de un rol en especifico.',
     group_resource: CATEGORIA_3,
+    status: false,
   },
   {
     name: 'Restaurar Roles', //add
@@ -439,11 +442,24 @@ export const RECURSOS_DEFECTOS = [
     group_resource: CATEGORIA_4,
   },
   {
+    name: 'Desactivar Permisos', //add
+    key: 'canDesactivate_permisos',
+    description: 'Te permite desactivar permisos.',
+    group_resource: CATEGORIA_4,
+  },
+  {
+    name: 'Activar Permisos', //add
+    key: 'canActivate_permisos',
+    description: 'Te permite activar permisos.',
+    group_resource: CATEGORIA_4,
+  },
+  {
     name: 'Vizualizar data de permisos', //add
     key: 'canGet_permisos',
     description:
       'Te permite ver el description o data de un permiso en especifico.',
     group_resource: CATEGORIA_4,
+    status: false,
   }, //FIN PERMISOS
   // {
   //   name: 'Leer Permisos en otras entidades', //add
@@ -471,30 +487,35 @@ export const RECURSOS_DEFECTOS = [
     key: 'canCreate_menus',
     description: 'Te permite crear menus.',
     group_resource: CATEGORIA_4,
+    status: false,
   },
   {
     name: 'Leer Menus', //add
     key: 'canRead_menus',
     description: 'Te permite leer menus.',
     group_resource: CATEGORIA_4,
+    status: false,
   },
   {
     name: 'Editar Menus', //add
     key: 'canUpdate_menus',
     description: 'Te permite editar menus.',
     group_resource: CATEGORIA_4,
+    status: false,
   },
   {
     name: 'Desactivar Menus', //add
     key: 'canDelete_menus',
     description: 'Te permite desactivar menus.',
     group_resource: CATEGORIA_4,
+    status: false,
   },
   {
     name: 'Restaurar Menu', //add
     key: 'canRestore_menus',
     description: 'Te permite restaurar menus.',
     group_resource: CATEGORIA_4,
+    status: false,
   },
   // RU
   // {
