@@ -24,63 +24,57 @@ export class GroupsResourceController {
   @Get()
   @UseGuards(PermissionGuard(Permission.ReadPermisos))
   async getGroups(@Res() res) {
-    const menus = await this.groupService.findAll();
-    return res.status(HttpStatus.OK).json(menus);
+    const groups = await this.groupService.findAll();
+    return res.status(HttpStatus.OK).json(groups);
   }
 
   // Add Menu(POST): http://localhost:3000/api/v1/groups-resources
-  @Post()
-  @UseGuards(PermissionGuard(Permission.CreateGroups))
-  async createGroup(@Res() res, @Body() createGroup: any) {
-    const menu = await this.groupService.create(createGroup);
-    return res.status(HttpStatus.OK).json({
-      message: 'Group Successfully Created',
-      menu,
-    });
-  }
+  // @Post()
+  // @UseGuards(PermissionGuard(Permission.CreateGroups))
+  // async createGroup(@Res() res, @Body() createGroup: any) {
+  //   const response = await this.groupService.create(createGroup);
+  //   return res.status(HttpStatus.OK).json({
+  //     message: 'Grupo creado éxitosamente',
+  //     response,
+  //   });
+  // }
 
   // Update Menu(PUT): http://localhost:3000/api/v1/groups-resources/605ab8372ed8db2ad4839d87
-  @Put(':id')
-  @UseGuards(PermissionGuard(Permission.UpdateGroups))
-  async updateGroup(
-    @Res() res,
-    @Param('id') id: string,
-    @Body() createGroup: any,
-  ) {
-    const GroupUpdated = await this.groupService.update(id, createGroup);
-    return res.status(HttpStatus.OK).json({
-      message: 'Group Updated Successfully',
-      GroupUpdated,
-    });
-  }
+  // @Put(':id')
+  // @UseGuards(PermissionGuard(Permission.UpdateGroups))
+  // async updateGroup(
+  //   @Res() res,
+  //   @Param('id') id: string,
+  //   @Body() createGroup: any,
+  // ) {
+  //   const response = await this.groupService.update(id, createGroup);
+  //   return res.status(HttpStatus.OK).json({
+  //     message: 'Grupo actualizado éxitosamente',
+  //     response,
+  //   });
+  // }
 
   // Delete Group(DELETE): http://localhost:3000/api/v1/groups-resources/605ab8372ed8db2ad4839d87
-  @Delete(':id')
-  @UseGuards(PermissionGuard(Permission.DeleteGroups))
-  async deleteGroup(
-    @Res() res,
-    @Param('id') id: string,
-    @CtxUser() user: any,
-  ): Promise<boolean> {
-    const GroupDeleted = await this.groupService.delete(id, user);
-    return res.status(HttpStatus.OK).json({
-      message: 'Group Deleted Successfully',
-      GroupDeleted,
-    });
-  }
+  // @Delete(':id')
+  // @UseGuards(PermissionGuard(Permission.DeleteGroups))
+  // async deleteGroup(
+  //   @Res() res,
+  //   @Param('id') id: string,
+  //   @CtxUser() user: any,
+  // ): Promise<boolean> {
+  //   const deleted = await this.groupService.delete(id, user);
+  //   return res.status(HttpStatus.OK).json(deleted);
+  // }
 
   // Restore Module(PUT): http://localhost:3000/api/v1/groups-resources/restore/605ab8372ed8db2ad4839d87
-  @Put('restore/:id')
-  @UseGuards(PermissionGuard(Permission.RestoreGroups))
-  async restoreGroup(
-    @Res() res,
-    @Param('id') id: string,
-    @CtxUser() user: any,
-  ) {
-    const groupRestored = await this.groupService.restore(id, user);
-    return res.status(HttpStatus.OK).json({
-      message: 'Group Restored Successfully',
-      groupRestored,
-    });
-  }
+  // @Put('restore/:id')
+  // @UseGuards(PermissionGuard(Permission.RestoreGroups))
+  // async restoreGroup(
+  //   @Res() res,
+  //   @Param('id') id: string,
+  //   @CtxUser() user: any,
+  // ) {
+  //   const restore = await this.groupService.restore(id, user);
+  //   return res.status(HttpStatus.OK).json(restore);
+  // }
 }
