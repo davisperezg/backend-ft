@@ -327,25 +327,20 @@ export class ModuleService {
   }
 
   async findModulesIds(ids: string[]): Promise<ModuleDocument[]> {
+    let modules = [];
+
     try {
-      const modules = await this.moduleModel.find({
+      modules = await this.moduleModel.find({
         _id: { $in: ids },
         status: true,
       });
-
-      if (modules.length === 0) {
-        throw new HttpException(
-          'Los modulos no existen o está inactivos.',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-
-      return modules;
     } catch (e) {
       throw new HttpException(
         'Ocurrio un error al intentar buscar modulos por ids.',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+
+    return modules;
   }
 }
