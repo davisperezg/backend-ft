@@ -8,6 +8,13 @@ import {
 } from 'class-validator';
 
 export class CreateResourceDTO {
+  //GROUP_RESOURCE
+  @IsString({
+    message: 'El nombre del permiso debe contener una cadena de texto.',
+  })
+  @IsNotEmpty({ message: 'Por favor, ingrese la categoría del permiso.' })
+  group_resource: string;
+
   //NOMBRE
   @Matches(/^[A-Za-zÑñ\s]+$/, {
     message: 'El nombre del permiso solo puede contener letras.',

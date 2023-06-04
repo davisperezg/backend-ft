@@ -157,11 +157,7 @@ export class ResourceService {
 
     if (findExistsXName || findExistsXKey) {
       throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          type: 'BAD_REQUEST',
-          message: `El nombre o el key ya existe.`,
-        },
+        'El nombre o el key ya existe.',
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -183,28 +179,14 @@ export class ResourceService {
     const findResource = await this.resourceModel.findById(id);
     const findNameRep = await this.resourceModel.findOne({ name });
     if (findNameRep && findNameRep.name !== findResource.name) {
-      throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          type: 'BAD_REQUEST',
-          message: 'El nombre ya existe.',
-        },
-        HttpStatus.BAD_REQUEST,
-      );
+      throw new HttpException('El nombre ya existe.', HttpStatus.BAD_REQUEST);
     }
 
     //buscar el key que esta siendo modificado y que no coincida con uno registrado
     const findKeyRep = await this.resourceModel.findOne({ key });
     const lowerKey = findKeyRep && findKeyRep.key.toLowerCase().trim();
     if (findKeyRep && lowerKey !== findResource.key.toLowerCase().trim()) {
-      throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          type: 'BAD_REQUEST',
-          message: 'El key ya existe.',
-        },
-        HttpStatus.BAD_REQUEST,
-      );
+      throw new HttpException('El key ya existe.', HttpStatus.BAD_REQUEST);
     }
 
     const update = await this.resourceModel.findByIdAndUpdate(id, bodyRole, {
