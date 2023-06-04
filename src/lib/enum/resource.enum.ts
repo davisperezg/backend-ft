@@ -3,6 +3,8 @@ export enum ResourcePermission {
   ReadPermisos = 'canRead_permisos', //muestra los recursos en su crud
   UpdatePermisos = 'canUpdate_permisos',
   GetOnePermisos = 'canGet_permisos',
+  ActivatePermisos = 'canActivate_permisos',
+  DesactivatePermisos = 'canDesactivate_permisos',
   //GetOneResource = 'canGetResource', //muestra valores de un solo recurso
   //RR
   // ReadResourceR = 'canRead_ResourceR', //inactivo

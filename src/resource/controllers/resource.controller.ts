@@ -15,6 +15,9 @@ import PermissionGuard from 'src/lib/guards/resources.guard';
 import Permission from 'src/lib/type/permission.type';
 import { Resource } from '../schemas/resource.schema';
 import { ResourceService } from '../services/resource.service';
+import { Delete, Patch } from '@nestjs/common/decorators';
+import { CreateResourceDTO } from '../dto/create-resource';
+import { UpdateResourceDTO } from '../dto/update-resource';
 
 @Controller('api/v1/resources')
 export class ResourceController {
@@ -54,14 +57,11 @@ export class ResourceController {
   // Add Resource
   @Post()
   @UseGuards(PermissionGuard(Permission.CreatePermisos))
-  async createResource(
-    @Res() res,
-    @Body() createBody: Resource,
-  ): Promise<Resource> {
-    const created = await this.resourceService.create(createBody);
+  async createResource(@Res() res, @Body() createBody: CreateResourceDTO) {
+    const response = await this.resourceService.create(createBody);
     return res.status(HttpStatus.OK).json({
-      message: 'Resource Successfully Created',
-      created,
+      message: 'Recurso creado éxitosamente.',
+      response,
     });
   }
 
@@ -71,12 +71,28 @@ export class ResourceController {
   async updateResource(
     @Res() res,
     @Param('id') id: string,
-    @Body() createBody: Resource,
+    @Body() createBody: UpdateResourceDTO,
   ): Promise<Resource> {
-    const updated = await this.resourceService.update(id, createBody);
+    const response = await this.resourceService.update(id, createBody);
     return res.status(HttpStatus.OK).json({
-      message: 'Resource Updated Successfully',
-      updated,
+      message: 'Recurso actualizado éxitosamente.',
+      response,
     });
+  }
+
+  // Delete Resource(DELETE): http://localhost:3000/api/v1/resource/6223169df6066a084cef08c2
+  @Delete(':id')
+  @UseGuards(PermissionGuard(Permission.DesactivatePermisos))
+  async deleteResource(@Res() res, @Param('id') id: string): Promise<boolean> {
+    const userDeleted = await this.resourceService.delete(id);
+    return res.status(HttpStatus.OK).json(userDeleted);
+  }
+
+  // Restore Resource: http://localhost:3000/api/v1/resource/6223169df6066a084cef08c2
+  @Patch(':id')
+  @UseGuards(PermissionGuard(Permission.ActivatePermisos))
+  async restoreResource(@Res() res, @Param('id') id: string): Promise<boolean> {
+    const userRestored = await this.resourceService.restore(id);
+    return res.status(HttpStatus.OK).json(userRestored);
   }
 }
