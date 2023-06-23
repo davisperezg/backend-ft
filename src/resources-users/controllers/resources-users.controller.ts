@@ -15,18 +15,22 @@ import Permission from 'src/lib/type/permission.type';
 import { CreateResourcesDTO } from '../dto/create-resources.dto';
 import { Resource_User } from '../schemas/resources-user';
 import { ResourcesUsersService } from '../services/resources-users.service';
+import { JwtAuthGuard } from 'src/lib/guards/auth.guard';
 
 @Controller('api/v1/resources-users')
 export class ResourcesUsersController {
   constructor(private readonly rrService: ResourcesUsersService) {}
 
-  // Get Menus
-  // @Get()
-  // @UseGuards(PermissionGuard(Permission.ReadResourceR))
-  // async getResources(@Res() res): Promise<Resource_User[]> {
-  //   const resources = await this.rrService.findAll();
-  //   return res.status(HttpStatus.OK).json(resources);
-  // }
+  // Get Resources Availables
+  @Get('view/:id')
+  @UseGuards(JwtAuthGuard)
+  async getResources(
+    @Res() res,
+    @Param('id') id: string,
+  ): Promise<Resource_User[]> {
+    const resources = await this.rrService.findOneResourceByUser(id);
+    return res.status(HttpStatus.OK).json(resources);
+  }
 
   // Get Menus
   @Get('/user/:id')
