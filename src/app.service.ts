@@ -126,12 +126,12 @@ export class AppService implements OnApplicationBootstrap {
         creator: null,
       }).save(),
       new this.moduleModel({
-        name: 'Perfiles',
+        name: 'Ventas',
         status: true,
         creator: null,
       }).save(),
       new this.moduleModel({
-        name: 'Tickets',
+        name: 'Almacen',
         status: true,
         creator: null,
       }).save(),
