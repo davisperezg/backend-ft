@@ -40,6 +40,8 @@ import {
   Resource_Role,
   Resource_RoleSchema,
 } from './resources-roles/schemas/resources-role';
+import { InvoiceModule } from './invoice/invoice.module';
+import { EntidadModule } from './entidad/entidad.module';
 
 @Module({
   imports: [
@@ -83,6 +85,8 @@ import {
     ResourcesUsersModule,
     ServicesUsersModule,
     GroupsResourceModule,
+    InvoiceModule,
+    EntidadModule,
   ],
   controllers: [AppController],
   providers: [

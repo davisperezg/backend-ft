@@ -117,6 +117,93 @@ export class AppService implements OnApplicationBootstrap {
       }).save(),
     ]);
 
+    //Agregando menus ventas
+    const menusToVentas = await Promise.all([
+      new this.menuModel({
+        name: 'Factura',
+        status: true,
+        link: 'factura',
+      }).save(),
+      new this.menuModel({
+        name: 'Boleta',
+        status: true,
+        link: 'boleta',
+      }).save(),
+      new this.menuModel({
+        name: 'Nota de Credito',
+        status: true,
+        link: 'nota-credito',
+      }).save(),
+      new this.menuModel({
+        name: 'Nota de Debito',
+        status: true,
+        link: 'nota-debito',
+      }).save(),
+      new this.menuModel({
+        name: 'Guia Remitente',
+        status: true,
+        link: 'guia-remitente',
+      }).save(),
+      new this.menuModel({
+        name: 'Guia Transportista',
+        status: true,
+        link: 'guia-transportista',
+      }).save(),
+      new this.menuModel({
+        name: 'Cotizaciones',
+        status: true,
+        link: 'cotizaciones',
+      }).save(),
+      new this.menuModel({
+        name: 'Pedidos',
+        status: true,
+        link: 'pedidos',
+      }).save(),
+    ]);
+
+    //Agregando almacen
+    const menusToAlmacen = await Promise.all([
+      new this.menuModel({
+        name: 'Unidades',
+        status: true,
+        link: 'unidades',
+      }).save(),
+      new this.menuModel({
+        name: 'Categorias',
+        status: true,
+        link: 'categorias',
+      }).save(),
+      new this.menuModel({
+        name: 'Productos',
+        status: true,
+        link: 'productos',
+      }).save(),
+      new this.menuModel({
+        name: 'Movimiento Almacen',
+        status: true,
+        link: 'movimiento-almacen',
+      }).save(),
+      new this.menuModel({
+        name: 'Pedido Almacen',
+        status: true,
+        link: 'pedido-almacen',
+      }).save(),
+    ]);
+
+    //Agregando mnus a entidades
+    const menusToEntidades = await Promise.all([
+      new this.menuModel({
+        name: 'Clientes',
+        status: true,
+        link: 'clientes',
+      }).save(),
+      new this.menuModel({
+        name: 'Proveedores',
+        status: true,
+        link: 'proveedores',
+      }).save(),
+    ]);
+
     //Agregamos modulos
     const modulesToADM = await Promise.all([
       new this.moduleModel({
@@ -126,13 +213,21 @@ export class AppService implements OnApplicationBootstrap {
         creator: null,
       }).save(),
       new this.moduleModel({
+        name: 'Entidades',
+        status: true,
+        menu: menusToEntidades,
+        creator: null,
+      }).save(),
+      new this.moduleModel({
         name: 'Ventas',
         status: true,
+        menu: menusToVentas,
         creator: null,
       }).save(),
       new this.moduleModel({
         name: 'Almacen',
         status: true,
+        menu: menusToAlmacen,
         creator: null,
       }).save(),
     ]);
