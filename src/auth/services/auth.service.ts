@@ -102,8 +102,13 @@ export class AuthService {
         },
       );
 
-      if (!result.data.apellidoMaterno && !result.data.apellidoPaterno) {
-        throw new HttpException('Entidad no encontrada.', HttpStatus.NOT_FOUND);
+      if (TIP === 'dni') {
+        if (!result.data.apellidoMaterno && !result.data.apellidoPaterno) {
+          throw new HttpException(
+            'Entidad no encontrada.',
+            HttpStatus.NOT_FOUND,
+          );
+        }
       }
 
       return result.data;
@@ -130,7 +135,7 @@ export class AuthService {
       }
 
       throw new HttpException(
-        'Ha ocurrido un error al intentar buscar a la persona. Comuniquese con el administrador del sistema o intente ingresar la información de la entidad manualmente.',
+        'Ha ocurrido un error al intentar buscar a la entidad. Comuniquese con el administrador del sistema o intente ingresar la información de la entidad manualmente.',
         HttpStatus.FOUND,
       );
     }

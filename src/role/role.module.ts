@@ -31,10 +31,12 @@ import { UserService } from 'src/user/services/user.service';
 import { RoleController } from './controllers/role.controller';
 import { Role, RoleSchema } from './schemas/role.schema';
 import { RoleService } from './services/role.service';
+import { EmpresaEntity } from 'src/empresa/entities/empresa.entity';
+import { EmpresaService } from 'src/empresa/services/empresa.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([UserEntity]),
+    TypeOrmModule.forFeature([UserEntity, EmpresaEntity]),
     MongooseModule.forFeature([
       { name: Role.name, schema: RoleSchema },
       { name: Resource_User.name, schema: Resource_UserSchema },
@@ -53,6 +55,7 @@ import { RoleService } from './services/role.service';
     MenuService,
     ServicesUsersService,
     UserService,
+    EmpresaService,
   ],
 })
 export class RoleModule {}

@@ -42,9 +42,16 @@ import {
 } from './resources-roles/schemas/resources-role';
 import { InvoiceModule } from './invoice/invoice.module';
 import { EntidadModule } from './entidad/entidad.module';
+import { EstablecimientoModule } from './establecimiento/establecimiento.module';
+import { TipodocsModule } from './tipodocs/tipodocs.module';
+import { SeriesModule } from './series/series.module';
+import { TipodocsEntity } from './tipodocs/entities/tipodocs.entity';
+import { TipodocsEmpresaModule } from './tipodocs_empresa/tipodocs_empresa.module';
+import { EmpresaModule } from './empresa/empresa.module';
 
 @Module({
   imports: [
+    TypeOrmModule.forFeature([TipodocsEntity]),
     MongooseModule.forFeature([
       { name: Groupsresources.name, schema: GroupsresourcesSchema },
       { name: Resource.name, schema: ResourceSchema },
@@ -64,6 +71,7 @@ import { EntidadModule } from './entidad/entidad.module';
     MongooseModule.forRoot(process.env.URL_DATABASE, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
+      retryAttempts: 2,
     }),
     TypeOrmModule.forRoot({
       type: process.env.MYSQL,
@@ -87,6 +95,11 @@ import { EntidadModule } from './entidad/entidad.module';
     GroupsResourceModule,
     InvoiceModule,
     EntidadModule,
+    EstablecimientoModule,
+    TipodocsModule,
+    SeriesModule,
+    TipodocsEmpresaModule,
+    EmpresaModule,
   ],
   controllers: [AppController],
   providers: [

@@ -40,10 +40,12 @@ import { ServicesUsersService } from 'src/services-users/services/services-users
 import { ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UserEntity } from 'src/user/entities/user.entity';
+import { EmpresaEntity } from 'src/empresa/entities/empresa.entity';
+import { EmpresaService } from 'src/empresa/services/empresa.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([UserEntity]),
+    TypeOrmModule.forFeature([UserEntity, EmpresaEntity]),
     JwtModule.registerAsync({
       useFactory: (config: ConfigService) => {
         return {
@@ -80,6 +82,7 @@ import { UserEntity } from 'src/user/entities/user.entity';
     MenuService,
     ResourceService,
     ServicesUsersService,
+    EmpresaService,
   ],
 })
 export class AuthModule {}

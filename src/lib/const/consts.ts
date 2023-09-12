@@ -5,7 +5,11 @@ export const CATEGORIA_1 = 'Usuarios';
 export const CATEGORIA_2 = 'Modulos';
 export const CATEGORIA_3 = 'Roles';
 export const CATEGORIA_4 = 'Desarrollador';
-
+export const CATEGORIA_5 = 'Factura';
+export const CATEGORIA_6 = 'Empresa';
+export const CATEGORIA_7 = 'Establecimiento';
+export const CATEGORIA_8 = 'Tipo de documentos';
+export const CATEGORIA_9 = 'Series';
 // export const resourcesByDefault = [
 //   // MODULES
 //   {
@@ -516,6 +520,136 @@ export const RECURSOS_DEFECTOS = [
     description: 'Te permite restaurar menus.',
     group_resource: CATEGORIA_4,
     status: false,
+  },
+  {
+    name: 'Crear Facturas', //add
+    key: 'canCreate_invoices',
+    description: 'Te permite crear facturas.',
+    group_resource: CATEGORIA_5,
+  },
+  //EMPRESA
+  {
+    name: 'Crear Empresa', //add
+    key: 'canCreate_empresa',
+    description: 'Te permite crear empresas.',
+    group_resource: CATEGORIA_6,
+  },
+  {
+    name: 'Asignar Empresa', //add
+    key: 'canAssign_empresa',
+    description: 'Te permite asginar empresas a usuarios.',
+    group_resource: CATEGORIA_6,
+  },
+  {
+    name: 'Desactivar Empresa', //add
+    key: 'canDelete_empresa',
+    description: 'Te permite desactivar empresa.',
+    group_resource: CATEGORIA_6,
+  },
+  {
+    name: 'Activar Empresa', //add
+    key: 'canRestore_empresa',
+    description: 'Te permite activar empresa.',
+    group_resource: CATEGORIA_6,
+  },
+  {
+    name: 'Leer Empresas', //add
+    key: 'canRead_empresas',
+    description: 'Te permite listar todas las empresas.',
+    group_resource: CATEGORIA_6,
+  },
+  //SUCURSALES
+  {
+    name: 'Crear Establecimientos', //add
+    key: 'canCreate_establecimientos',
+    description: 'Te permite crear establecimientos o anexos.',
+    group_resource: CATEGORIA_7,
+  },
+  {
+    name: 'Desactivar Establecimiento', //add
+    key: 'canDelete_establecimientos',
+    description: 'Te permite desactivar establecimiento o anexo.',
+    group_resource: CATEGORIA_7,
+  },
+  {
+    name: 'Activar Establecimiento', //add
+    key: 'canRestore_establecimientos',
+    description: 'Te permite activar establecimiento o anexo.',
+    group_resource: CATEGORIA_7,
+  },
+  {
+    name: 'Leer Establecimientos', //add
+    key: 'canRead_establecimientos',
+    description: 'Te permite listar los establecimientos.',
+    group_resource: CATEGORIA_7,
+  },
+  {
+    name: 'Asignar Establecimientos', //add
+    key: 'canAssign_establecimientos',
+    description: 'Te permite asignar establecimientos a los usuarios.',
+    group_resource: CATEGORIA_7,
+  },
+  //TIPO DE DOCUMENTOS
+  {
+    name: 'Crear Tipo de documentos', //add
+    key: 'canCreate_tipodocs',
+    description: 'Te permite crear tipo de documentos.',
+    group_resource: CATEGORIA_8,
+  },
+  {
+    name: 'Editar Tipo de documento', //add
+    key: 'canUpdate_tipodocs',
+    description: 'Te permite actualizar tipos de documento.',
+    group_resource: CATEGORIA_8,
+  },
+  {
+    name: 'Desactivar tipo de documentos', //add
+    key: 'canDelete_tipodocs',
+    description: 'Te permite desactivar tipo de documentos.',
+    group_resource: CATEGORIA_8,
+  },
+  {
+    name: 'Activar Tipo de documentos', //add
+    key: 'canRestore_tipodocs',
+    description: 'Te permite activar tipos de documentos.',
+    group_resource: CATEGORIA_8,
+  },
+  {
+    name: 'Leer tipos de documentos', //add
+    key: 'canRead_tipodocs',
+    description: 'Te permite listar los tipos de documentos.',
+    group_resource: CATEGORIA_8,
+  },
+  //SERIES
+  {
+    name: 'Crear Series', //add
+    key: 'canCreate_series',
+    description: 'Te permite crear series.',
+    group_resource: CATEGORIA_9,
+  },
+  {
+    name: 'Editar Series', //add
+    key: 'canUpdate_series',
+    description: 'Te permite actualizar series.',
+    group_resource: CATEGORIA_9,
+  },
+  {
+    name: 'Desactivar series', //add
+    key: 'canDelete_series',
+    description: 'Te permite desactivar series.',
+    group_resource: CATEGORIA_9,
+  },
+  {
+    name: 'Activar series', //add
+    key: 'canRestore_series',
+    description: 'Te permite activar series.',
+    group_resource: CATEGORIA_9,
+  },
+  {
+    name: 'Leer series', //add
+    key: 'canRead_series',
+    description: 'Te permite listar series.',
+    group_resource: CATEGORIA_9,
   },
   // RU
   // {

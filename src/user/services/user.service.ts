@@ -8,7 +8,13 @@ import {
   Resource_Role,
   Resource_RoleDocument,
 } from './../../resources-roles/schemas/resources-role';
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+  forwardRef,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { hashPassword } from 'src/lib/helpers/auth.helper';
@@ -23,12 +29,14 @@ import { UserEntity } from '../entities/user.entity';
 import { DataSource, Repository } from 'typeorm';
 import { CreateUserDTO } from '../dto/create-user.dto';
 import { UpdateUserDTO } from '../dto/update-user.dto';
+import { EmpresaEntity } from '../../empresa/entities/empresa.entity';
+import { EmpresaService } from 'src/empresa/services/empresa.service';
 
 @Injectable()
 export class UserService {
   constructor(
-    @InjectModel(User.name) private userModel: Model<UserDocument>,
-    private readonly roleService: RoleService,
+    @InjectModel(User.name)
+    private userModel: Model<UserDocument>,
     @InjectModel(Resource_User.name)
     private ruModel: Model<Resource_UserDocument>,
     @InjectModel(Services_User.name)
@@ -37,7 +45,10 @@ export class UserService {
     private rrModel: Model<Resource_RoleDocument>,
     @InjectRepository(UserEntity)
     private userRepository: Repository<UserEntity>,
+    private readonly roleService: RoleService,
     private dataSource: DataSource,
+    @Inject(forwardRef(() => EmpresaService))
+    private empresaService: EmpresaService,
   ) {}
 
   //si haz creado una proiedad en el schema y vas actulizarla en la bd con un valor en especifico usamos el siguiente código:
@@ -90,7 +101,19 @@ export class UserService {
       }
     }
 
-    const formatUsers = users.map((user) => {
+    const formatUsers = users.map(async (user) => {
+      const userMYSQL = await this.userRepository.findOne({
+        where: {
+          _id: String(user._id),
+        },
+        relations: {
+          empresas: true,
+        },
+        select: {
+          empresas: true,
+        },
+      });
+
       return {
         _id: user._id,
         name: user.name,
@@ -106,6 +129,7 @@ export class UserService {
           _id: user.role._id,
         },
         username: user.username,
+        empresas: userMYSQL.empresas,
         fecha_creada: user.createdAt,
         fecha_editada: user.updatedAt,
         fecha_restaurada: user.restoredAt,
@@ -113,7 +137,7 @@ export class UserService {
       };
     });
 
-    return formatUsers;
+    return Promise.all(formatUsers);
   }
 
   async changePassword(
@@ -482,9 +506,9 @@ export class UserService {
   }
 
   //find user by id
-  async findUserById(id: string): Promise<UserDocument> {
+  async findUserById(id: string): Promise<any> {
     try {
-      return await this.userModel.findById(id).populate([
+      const user: any = await this.userModel.findById(id).populate([
         {
           path: 'role',
           populate: [
@@ -504,11 +528,40 @@ export class UserService {
           },
         },
       ]);
+
+      const usermysql = await this.userRepository.findOne({
+        where: {
+          _id: String(id),
+        },
+      });
+
+      let empresamysql: EmpresaEntity;
+
+      if (usermysql) {
+        empresamysql = await this.empresaService.findOneEmpresaByUserId(
+          usermysql.id,
+        );
+
+        user._doc.empresa = empresamysql;
+      } else {
+        user._doc.empresa = null;
+      }
+
+      return user;
     } catch (e) {
       throw new HttpException(
         `Error al intentar buscar usuario.`,
         HttpStatus.NOT_FOUND,
       );
     }
+  }
+
+  //buscar usuario en mysql
+  async findOneUserById_MYSQL(idUsuario: number) {
+    return await this.userRepository.findOne({
+      where: {
+        id: idUsuario,
+      },
+    });
   }
 }
