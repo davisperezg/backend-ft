@@ -35,10 +35,12 @@ import { Menu, MenuSchema } from 'src/menu/schemas/menu.schema';
 import { ServicesUsersService } from 'src/services-users/services/services-users.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UserEntity } from 'src/user/entities/user.entity';
+import { EmpresaEntity } from 'src/empresa/entities/empresa.entity';
+import { EmpresaService } from 'src/empresa/services/empresa.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([UserEntity]),
+    TypeOrmModule.forFeature([UserEntity, EmpresaEntity]),
     MongooseModule.forFeature([
       { name: Resource_User.name, schema: Resource_UserSchema },
       { name: CopyResource_User.name, schema: CopyResource_UserSchema },
@@ -60,6 +62,7 @@ import { UserEntity } from 'src/user/entities/user.entity';
     ModuleService,
     MenuService,
     ServicesUsersService,
+    EmpresaService,
   ],
   controllers: [ResourcesUsersController],
 })

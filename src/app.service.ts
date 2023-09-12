@@ -14,6 +14,11 @@ import {
   CATEGORIA_2,
   CATEGORIA_3,
   CATEGORIA_4,
+  CATEGORIA_5,
+  CATEGORIA_6,
+  CATEGORIA_7,
+  CATEGORIA_8,
+  CATEGORIA_9,
   MOD_PRINCIPAL,
   RECURSOS_DEFECTOS,
   ROL_PRINCIPAL,
@@ -32,6 +37,9 @@ import {
   Resource_Role,
   Resource_RoleDocument,
 } from './resources-roles/schemas/resources-role';
+import { TipodocsEntity } from './tipodocs/entities/tipodocs.entity';
+import { Repository } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
 
 @Injectable()
 export class AppService implements OnApplicationBootstrap {
@@ -54,6 +62,8 @@ export class AppService implements OnApplicationBootstrap {
     private moduleModel: Model<ModuleDocument>,
     @InjectModel(Services_User.name)
     private suModel: Model<Services_UserDocument>,
+    @InjectRepository(TipodocsEntity)
+    private tipodocsRepository: Repository<TipodocsEntity>,
   ) {}
 
   async onApplicationBootstrap() {
@@ -78,6 +88,21 @@ export class AppService implements OnApplicationBootstrap {
       }).save(),
       new this.groupModel({
         name: CATEGORIA_4,
+      }).save(),
+      new this.groupModel({
+        name: CATEGORIA_5,
+      }).save(),
+      new this.groupModel({
+        name: CATEGORIA_6,
+      }).save(),
+      new this.groupModel({
+        name: CATEGORIA_7,
+      }).save(),
+      new this.groupModel({
+        name: CATEGORIA_8,
+      }).save(),
+      new this.groupModel({
+        name: CATEGORIA_9,
       }).save(),
     ]);
 
@@ -284,6 +309,26 @@ export class AppService implements OnApplicationBootstrap {
       module: modulesToADM,
       user: await user,
     }).save();
+
+    //Tipo de documentos por defecto
+    const tiposDocumento = [
+      { codigo: '01', tipo_documento: 'Factura', abreviado: 'F' },
+      { codigo: '03', tipo_documento: 'Boleta', abreviado: 'B' },
+    ];
+
+    //Creamos los tipos de documentos
+    const createTipoDocumento = tiposDocumento.map((doc) => {
+      return this.tipodocsRepository.create({
+        codigo: doc.codigo,
+        tipo_documento: doc.tipo_documento,
+        abreviado: doc.abreviado,
+      });
+    });
+
+    //Guardamos los objetos creados
+    createTipoDocumento.map(async (obj) => {
+      await this.tipodocsRepository.save(obj);
+    });
   }
 
   getHello(): string {

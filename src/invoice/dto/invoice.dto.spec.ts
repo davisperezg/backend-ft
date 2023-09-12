@@ -1,7 +1,7 @@
-import { InvoiceDto } from './invoice.dto';
+import { CreateInvoiceDto } from './create-invoice.dto';
 
-describe('InvoiceDto', () => {
+describe('CreateInvoiceDto', () => {
   it('should be defined', () => {
-    expect(new InvoiceDto()).toBeDefined();
+    expect(new CreateInvoiceDto()).toBeDefined();
   });
 });

@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, HttpException, HttpStatus } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { InvoiceEntity } from '../entities/invoice.entity';
@@ -6,11 +6,16 @@ import { XMLBuilder, XMLParser } from 'fast-xml-parser';
 import * as fs from 'fs';
 import { SignedXml, FileKeyInfo } from 'xml-crypto';
 //const pem = require('pem').DER2PEM();
-import * as AdmZip from 'adm-zip';
-import * as base64 from 'base-64';
-import { createClientAsync, Client, WSSecurity, createClient } from 'soap';
+//import * as AdmZip from 'adm-zip';
+import * as pem from 'pem';
 import axios from 'axios';
-import * as FormData from 'form-data';
+import { CreateInvoiceDto } from '../dto/create-invoice.dto';
+import { QueryToken } from 'src/auth/dto/queryToken';
+import PdfPrinter from 'pdfmake';
+import path from 'path';
+import { docDefinitionA4 } from 'src/lib/const/pdf';
+import { TDocumentDefinitions } from 'pdfmake/interfaces';
+import { exec, execSync } from 'child_process';
 
 @Injectable()
 export class InvoiceService {
@@ -19,95 +24,285 @@ export class InvoiceService {
     private userRepository: Repository<InvoiceEntity>,
   ) {}
 
-  //multipart/form-data
-  //C:/Users/keiner/Proyectos/php/api/utils/xml/10481211641-03-B001-8.xml
-  //C:/Users/keiner/Proyectos/php/api/utils/certificado_digital/server_key.pem
-  async getExample() {
-    //Obtener xml firmado de nuestra api en PHP
-    const xmlSigned = await axios.post(
-      'http://localhost:8000/api/sign',
-      {
-        xml: 'C:/Users/keiner/Proyectos/factv2/backend-adm-rpum/xml/20123456789-01-F001-1.xml',
-        certificado:
-          'C:/Users/keiner/Proyectos/factv2/backend-adm-rpum/src/utils/certificado_digital/prueba/server_key.pem',
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      },
+  async getExample(invoice: CreateInvoiceDto, user: QueryToken) {
+    const { tokenEntityFull } = user;
+    const { empresa } = tokenEntityFull;
+    //console.log(tokenEntityFull);
+    const { xml, fileName } = invoice;
+
+    //Guardamos el XML en el directorio del cliente
+    this.guardarArchivo(
+      empresa.ruc,
+      `/facturas/XML`,
+      `${fileName}.xml`,
+      xml,
+      false,
     );
 
-    //Guardamos el xml firmado
-    await this.writeFile('20123456789-01-F001-1.xml', xmlSigned.data);
-
-    //Preparamos xml firmado para enviar a sunat
-    const resSunat = await axios.post(
-      'http://localhost:8000/api/sign/sendSunat',
-      {
-        urlService:
-          'https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService',
-        usuario: '20000000001MODDATOS',
-        contrasenia: 'moddatos',
-        fileName: '20123456789-01-F001-1',
-        contentFile: xmlSigned.data,
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      },
+    //Verificamos si el cliente esta en modo beta o produccion
+    const certFilePath = path.join(
+      process.cwd(),
+      `uploads/certificado_digital/${
+        empresa.modo === 0
+          ? 'prueba/certificado_beta.pfx'
+          : `produccion/${empresa.ruc}/${empresa.cert}`
+      }`,
     );
 
-    const respuesta = resSunat.data;
-    console.log(respuesta);
-    //Decodificamos en base64 al archivo CDR Zipeado
-    const CdrZip = Buffer.from(respuesta.cdrZip, 'base64');
+    //Generamos el certificado.pem para firmar
+    const pemFilePath = path.join(
+      process.cwd(),
+      `uploads/certificado_digital/${
+        empresa.modo === 0
+          ? 'prueba/certificado_beta.pem'
+          : `produccion/${empresa.ruc}/${empresa.fieldname_cert}.pem`
+      }`,
+    );
 
-    //Guardamos el CDR
-    fs.writeFileSync(`R-${'20123456789-01-F001-1'}.zip`, CdrZip);
+    const certificado = this.convertToPem(
+      certFilePath,
+      pemFilePath,
+      empresa.cert_password,
+    );
 
-    return resSunat.data;
+    //Firmar XML de nuestra api en PHP
+    const xmlSigned: Buffer = await this.firmar(xml, certificado);
+
+    //Guardamos el XML Firmado en el directorio del cliente
+    const pathXML = this.guardarArchivo(
+      empresa.ruc,
+      `facturas/FIRMA`,
+      `${fileName}.xml`,
+      xmlSigned,
+      true,
+    );
+
+    //Creamos el pdf A4
+    const pathPDFA4 = this.getPdf(
+      empresa.ruc,
+      'facturas/PDF/A4',
+      fileName,
+      docDefinitionA4,
+    );
+
+    //Enviamos a Sunat
+    const sunat = await this.enviarSunat(
+      empresa.web_service,
+      empresa.ose_enabled
+        ? empresa.usu_secundario_ose_user
+        : empresa.usu_secundario_user,
+      empresa.ose_enabled
+        ? empresa.usu_secundario_ose_password
+        : empresa.usu_secundario_password,
+      fileName,
+      xmlSigned,
+    );
+    const { cdrZip, ...restoSunat } = sunat;
+
+    //Decodificamos el CDR en base64(respuesta de sunat)
+    const CdrZip = Buffer.from(cdrZip, 'base64');
+
+    //Guardamos el CDR en el directorio del cliente
+    const pathCDR = this.guardarArchivo(
+      empresa.ruc,
+      `facturas/RPTA`,
+      `${`R-${fileName}.zip`}`,
+      CdrZip,
+      true,
+    );
+
+    return {
+      ...restoSunat,
+      ruta_xml: pathXML.replace(/\\/g, '/'),
+      ruta_cdr: pathCDR.replace(/\\/g, '/'),
+      ruta_a4pdf: pathPDFA4.replace(/\\/g, '/'),
+      xml_hash: this.obtenerHashXMLFirmado(xmlSigned),
+    };
   }
 
-  readFile(srcPath: string): Promise<any> {
-    return new Promise(function (resolve, reject) {
-      fs.readFile(srcPath, 'utf8', function (err, data) {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(data);
-        }
-      });
-    });
+  getPdf(
+    ruc: string,
+    ruta: string,
+    nombreArchivo: string,
+    docDefinition: TDocumentDefinitions,
+  ) {
+    const pathDir = path.join(process.cwd(), `uploads/files/${ruc}/${ruta}`);
+    const existDir = fs.existsSync(pathDir);
+
+    //Config PDF
+    const fonts = {
+      Roboto: {
+        normal: path.join(process.cwd(), 'public/fonts/Roboto-Regular.ttf'),
+        bold: path.join(process.cwd(), 'public/fonts/Roboto-Medium.ttf'),
+        italics: path.join(process.cwd(), 'public/fonts/Roboto-Italic.ttf'),
+        bolditalics: path.join(
+          process.cwd(),
+          'public/fonts/Roboto-MediumItalic.ttf',
+        ),
+      },
+    };
+
+    const printer = new PdfPrinter(fonts);
+    const pdfDoc = printer.createPdfKitDocument(docDefinition);
+    const stream = fs.createWriteStream(`${pathDir}/${nombreArchivo}.pdf`);
+
+    if (!existDir) {
+      console.log('Directorio pdf creado');
+      fs.mkdirSync(pathDir, { recursive: true });
+    }
+
+    pdfDoc.pipe(stream);
+    pdfDoc.end();
+
+    return `${pathDir}/${nombreArchivo}.pdf`;
   }
 
-  writeFile(savPath: string, data: string): Promise<any> {
-    return new Promise(function (resolve, reject) {
-      fs.writeFile(savPath, data, function (err) {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(data);
-        }
-      });
-    });
+  convertToPem(ubicacion: string, destino: string, password: string) {
+    try {
+      const command = `openssl pkcs12 -in ${ubicacion} -out ${destino} -nodes -passin pass:${password}`;
+      execSync(command);
+
+      return destino;
+    } catch (error) {
+      throw new HttpException(
+        'Error al obtener el certificado del usuario: InvoiceService.convertToPem',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 
-  createZip(xmlSigned: Buffer): Promise<any> {
-    return new Promise((resolve, reject) => {
-      const zip = new AdmZip();
-      zip.addFile('10481211641-03-B001-8.xml', Buffer.from(xmlSigned));
-      const zipFileName = '10481211641-03-B001-8.zip';
-      zip.writeZip(zipFileName, (error) => {
-        if (error) {
-          reject(error);
-        } else {
-          resolve(zipFileName);
-        }
-      });
-    });
+  async firmar(xml: string, certificado: string) {
+    try {
+      const xmlSigned = await axios.post(
+        `${process.env.API_SERVICE_PHP}/sign`,
+        {
+          xml,
+          certificado,
+        },
+      );
+
+      return xmlSigned.data;
+    } catch (e) {
+      throw new HttpException(
+        `Error de comunicación con el servicio: sunat.firmar - ${
+          e.response?.data?.message ?? 'Internal'
+        }`,
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
   }
+
+  async enviarSunat(
+    urlService: string,
+    usuario: string,
+    contrasenia: string,
+    fileName: string,
+    contentFile: Buffer,
+  ) {
+    try {
+      const sunat = await axios.post(
+        `${process.env.API_SERVICE_PHP}/sign/sendSunat`,
+        {
+          urlService,
+          usuario,
+          contrasenia,
+          fileName,
+          contentFile,
+        },
+      );
+
+      return {
+        ...sunat.data,
+        observaciones_sunat: this.quitarComillaDoble(
+          sunat.data.observaciones_sunat,
+        ),
+      };
+    } catch (e) {
+      throw new HttpException(
+        {
+          statusCode: 502,
+          message: 'Error de comunicación con el servicio: sunat.enviarSunat',
+          response: e.response.data,
+        },
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+  }
+
+  guardarArchivo(
+    ruc: string,
+    ruta: string,
+    archivo: string,
+    dataArchivo: string | Buffer,
+    buffer?: boolean,
+  ) {
+    const pathDir = path.join(process.cwd(), `uploads/files/${ruc}/${ruta}`);
+    const existDir = fs.existsSync(pathDir);
+
+    if (!existDir) {
+      //Creamos directorio
+      try {
+        fs.mkdirSync(pathDir, { recursive: true });
+      } catch (e) {
+        throw new HttpException(
+          'Error al crear directorio',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+
+    try {
+      //Agregamos el archivo al directorio
+      fs.writeFileSync(
+        `${pathDir}/${archivo}`,
+        buffer ? dataArchivo : fs.readFileSync(dataArchivo),
+      );
+    } catch (e) {
+      throw new HttpException(
+        `Error al leer el archivo path_${archivo} o no existe`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    return `${pathDir}/${archivo}`;
+  }
+
+  obtenerHashXMLFirmado(xmlSigned: any) {
+    const startTag = '<ds:DigestValue>';
+    const endTag = '</ds:DigestValue>';
+    const startIndex = xmlSigned.indexOf(startTag);
+    const endIndex = xmlSigned.indexOf(endTag);
+    let hash = '';
+    if (startIndex !== -1 && endIndex !== -1) {
+      const nodoContent = xmlSigned.substring(
+        startIndex + startTag.length,
+        endIndex,
+      );
+
+      hash = nodoContent;
+    }
+
+    return hash;
+  }
+
+  quitarComillaDoble(array: string[]) {
+    return array.map((a: string) => a.replace(/"/g, ''));
+  }
+
+  // createZip(xmlSigned: Buffer): Promise<any> {
+  //   return new Promise((resolve, reject) => {
+  //     const zip = new AdmZip();
+  //     zip.addFile('10481211641-03-B001-8.xml', Buffer.from(xmlSigned));
+  //     const zipFileName = '10481211641-03-B001-8.zip';
+  //     zip.writeZip(zipFileName, (error) => {
+  //       if (error) {
+  //         reject(error);
+  //       } else {
+  //         resolve(zipFileName);
+  //       }
+  //     });
+  //   });
+  // }
 
   obtenerClavePublica(certificate: string) {
     const regex = /-----BEGIN CERTIFICATE-----(.*?)-----END CERTIFICATE-----/s;
@@ -119,50 +314,4 @@ export class InvoiceService {
       return null;
     }
   }
-
-  signXml(xml: string, xpath, key, dest) {
-    const sig = new SignedXml();
-    sig.signingKey = key;
-    sig.canonicalizationAlgorithm =
-      'http://www.w3.org/TR/2001/REC-xml-c14n-20010315';
-    //sig.signatureAlgorithm = 'http://www.w3.org/2000/09/xmldsig#sha1';
-
-    sig.addReference(
-      xpath,
-      ['http://www.w3.org/2000/09/xmldsig#enveloped-signature'],
-      'http://www.w3.org/2000/09/xmldsig#X509Data',
-    );
-
-    sig.computeSignature(xml);
-    console.log('La firma es:', sig.getSignatureXml());
-    const signedXml = xml.replace(
-      '<ext:ExtensionContent>',
-      `<ext:ExtensionContent>${sig.getSignatureXml()}</ext:ExtensionContent>`,
-    );
-
-    //sig.getSignedXml()
-    fs.writeFileSync(dest, signedXml);
-  }
-
-  /**
-   *  //Creamos el zip con el xml firmado
-    const zipFile = await this.createZip(xmlSigned.data);
-    console.log('Archivo ZIP creado:', zipFile);
-
-    //Leemos el zip creado
-    const readZip = await this.readFile('10481211641-03-B001-8.zip');
-    console.log(readZip);
-    //Convertimos el zip en base64
-    //const base64Data = zipBuffer.toString('base64');
-
-    //Envie la base64directamente pero no funciono
-    //console.log(base64Data);
-
-    //Leemos el zip y decodificamos en base64
-    const zipBuffer = Buffer.from(resSunat.data, 'base64');
-
-    //Guardamos el archivo ZIP
-    fs.writeFileSync('result.zip', zipBuffer);
-    //console.log(resSunat.data);
-   */
 }

@@ -28,10 +28,12 @@ import {
 } from './schemas/cp-services-user';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UserEntity } from 'src/user/entities/user.entity';
+import { EmpresaEntity } from 'src/empresa/entities/empresa.entity';
+import { EmpresaService } from 'src/empresa/services/empresa.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([UserEntity]),
+    TypeOrmModule.forFeature([UserEntity, EmpresaEntity]),
     MongooseModule.forFeature([
       { name: Services_User.name, schema: ServicesUserSchema },
       { name: User.name, schema: UserSchema },
@@ -49,6 +51,7 @@ import { UserEntity } from 'src/user/entities/user.entity';
     ModuleService,
     RoleService,
     MenuService,
+    EmpresaService,
   ],
   controllers: [ServicesUsersController],
 })

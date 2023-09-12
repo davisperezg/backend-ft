@@ -78,6 +78,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       userDocument._id,
     );
 
+    //console.log(findUser);
+
     const user: QueryToken = {
       token_of_permisos: findResource,
       tokenEntityFull: {
@@ -85,10 +87,30 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         role: {
           ...(userDocument.role as any)._doc,
         } as RoleDocument,
+        empresa: findUser.empresa
+          ? {
+              ruc: findUser.empresa.ruc,
+              razon_social: findUser.empresa.razon_social,
+              nombre_comercial: findUser.empresa.nombre_comercial,
+              logo: findUser.empresa.logo,
+              web_service: findUser.empresa.web_service,
+              fieldname_cert: findUser.empresa.fieldname_cert,
+              cert: findUser.empresa.cert,
+              cert_password: findUser.empresa.cert_password,
+              modo: findUser.empresa.modo,
+              usu_secundario_user: findUser.empresa.usu_secundario_user,
+              usu_secundario_password: findUser.empresa.usu_secundario_password,
+              ose_enabled: findUser.empresa.ose_enabled,
+              usu_secundario_ose_user: findUser.empresa.usu_secundario_ose_user,
+              usu_secundario_ose_password:
+                findUser.empresa.usu_secundario_ose_password,
+            }
+          : null,
       },
       token_of_front: {
         id: String(userDocument._id),
-        usuario: userDocument.name + ' ' + userDocument.lastname,
+        nombre_usuario: userDocument.name + ' ' + userDocument.lastname,
+        usuario: userDocument.username,
         email_usuario: userDocument.email,
         estado_usuario: userDocument.status,
         rol: {
@@ -115,6 +137,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
             ),
         },
         estado_rol: userDocument.role.status,
+        empresa: findUser.empresa
+          ? {
+              ruc: findUser.empresa.ruc,
+              razon_social: findUser.empresa.empresa,
+              nombre_comercial: findUser.empresa.nombre_comercial,
+              logo: findUser.empresa.logo,
+            }
+          : null,
       },
     };
 

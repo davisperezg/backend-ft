@@ -3,7 +3,7 @@ import {
   Services_User,
   ServicesUserSchema,
 } from './../services-users/schemas/services-user';
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { UserController } from './controllers/user.controller';
 import { User, UserSchema } from './schemas/user.schema';
 import { UserService } from './services/user.service';
@@ -31,10 +31,13 @@ import { MenuService } from 'src/menu/services/menu.service';
 import { ServicesUsersService } from 'src/services-users/services/services-users.service';
 import { Menu, MenuSchema } from 'src/menu/schemas/menu.schema';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { EmpresaModule } from 'src/empresa/empresa.module';
+import { EmpresaService } from 'src/empresa/services/empresa.service';
+import { EmpresaEntity } from 'src/empresa/entities/empresa.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([UserEntity]),
+    TypeOrmModule.forFeature([UserEntity, EmpresaEntity]),
     MongooseModule.forFeature([
       { name: User.name, schema: UserSchema },
       { name: Role.name, schema: RoleSchema },
@@ -45,6 +48,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
       { name: Menu.name, schema: MenuSchema },
       { name: ModuleEntity.name, schema: ModuleSchema },
     ]),
+    forwardRef(() => EmpresaModule),
   ],
   controllers: [UserController],
   providers: [
@@ -53,6 +57,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
     ModuleService,
     MenuService,
     ServicesUsersService,
+    EmpresaService,
   ],
+  exports: [UserService],
 })
 export class UserModule {}
