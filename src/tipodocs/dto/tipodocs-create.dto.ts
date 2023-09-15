@@ -8,10 +8,10 @@ export class TipodocsCreateDto {
   codigo: string;
 
   @IsString({
-    message: 'El tipo de documento debe contener una cadena de texto.',
+    message: 'El nombre debe contener una cadena de texto.',
   })
-  @IsNotEmpty({ message: 'El tipo de documento no debe estar vacio.' })
-  tipo_documento: string;
+  @IsNotEmpty({ message: 'El nombre no debe estar vacio.' })
+  nombre: string;
 
   @IsString({
     message: 'El abreviado debe contener una cadena de texto.',

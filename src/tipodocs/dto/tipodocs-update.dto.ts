@@ -8,10 +8,10 @@ export class TipodocsUpdateDto {
   codigo: string;
 
   @IsString({
-    message: 'El tipo de documento debe contener una cadena de texto.',
+    message: 'El nombre debe contener una cadena de texto.',
   })
   @IsOptional()
-  tipo_documento: string;
+  nombre: string;
 
   @IsString({
     message: 'El abreviado debe contener una cadena de texto.',

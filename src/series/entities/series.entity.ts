@@ -1,4 +1,4 @@
-import { TipodocsEntity } from 'src/tipodocs/entities/tipodocs.entity';
+import { TipodocsEmpresaEntity } from 'src/tipodocs_empresa/entities/tipodocs_empresa.entity';
 import {
   Column,
   Entity,
@@ -18,7 +18,8 @@ export class SeriesEntity {
   @Column({ default: true })
   estado?: boolean;
 
-  // @ManyToOne(() => TipodocsEntity, (doc) => doc.series)
-  // @JoinColumn({ name: 'tip_documento_id' })
-  // documento?: TipodocsEntity;
+  //Referencia a tb_tipodoc_empresa
+  @ManyToOne(() => TipodocsEmpresaEntity, (docemp) => docemp.series)
+  @JoinColumn({ name: 'doc_empresa_id' })
+  documento?: TipodocsEmpresaEntity;
 }
