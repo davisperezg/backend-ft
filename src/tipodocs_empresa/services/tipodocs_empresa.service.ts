@@ -4,6 +4,7 @@ import { TipodocsEmpresaEntity } from '../entities/tipodocs_empresa.entity';
 import { DataSource, Repository } from 'typeorm';
 import { TipodocsService } from 'src/tipodocs/services/tipodocs.service';
 import { EmpresaService } from 'src/empresa/services/empresa.service';
+import { QueryToken } from 'src/auth/dto/queryToken';
 
 @Injectable()
 export class TipodocsEmpresaService {
@@ -165,5 +166,52 @@ export class TipodocsEmpresaService {
     } finally {
       await _queryRunner.release(); // Liberar el queryRunner
     }
+  }
+
+  async findOneDocumentByEmpresa(idDocumento: number) {
+    let tipoDocumento: TipodocsEmpresaEntity;
+
+    try {
+      tipoDocumento = await this.documentRepository.findOne({
+        where: {
+          id: idDocumento,
+        },
+      });
+    } catch (e) {
+      throw new HttpException(
+        'Error al obtener el documento de la empresa TipodocsEmpresaService.findOneDocumentByEmpresa.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    if (!tipoDocumento) {
+      throw new HttpException(
+        `El documento de la empresa ID-${idDocumento} no existe.`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    return tipoDocumento;
+  }
+
+  async findDocumentsOfEmpresa(idDocs: number) {
+    return await this.documentRepository.find({
+      relations: {
+        series: true,
+        tipodoc: true,
+        empresa: true,
+      },
+      where: {
+        id: idDocs,
+      },
+    });
+  }
+
+  async findDocumentsByIdEmpresa(idEmpresa: number) {
+    return await this.empresaService.findDocumentsByIdEmpresa(idEmpresa);
+  }
+
+  async allDocuments(userToken: QueryToken) {
+    return await this.empresaService.listEmpresas(userToken);
   }
 }

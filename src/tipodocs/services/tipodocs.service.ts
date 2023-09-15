@@ -14,7 +14,15 @@ export class TipodocsService {
 
   async listTipDoc() {
     try {
-      return await this.tipodocsRepository.find();
+      const listTipodocs = await this.tipodocsRepository.find();
+      return listTipodocs.map((item) => {
+        const { tipo_documento, estado: status, ...data } = item;
+        return {
+          ...data,
+          status,
+          nombre: tipo_documento,
+        };
+      });
     } catch (e) {
       throw new HttpException(
         'Error al intentar listar el tipo de documento TipodocsService.list.',
@@ -24,10 +32,32 @@ export class TipodocsService {
   }
 
   async createTipDoc(data: TipodocsCreateDto) {
-    const createTipoDoc = this.tipodocsRepository.create(data);
+    const createTipoDoc = this.tipodocsRepository.create({
+      tipo_documento: data.nombre,
+      ...data,
+    });
+
+    //Si encuentra un codigo ya registrado mandamos error
+    const codeFound = await this.tipodocsRepository.findOne({
+      where: {
+        codigo: data.codigo,
+      },
+    });
+
+    if (codeFound) {
+      throw new HttpException(
+        'Ya existe un tipo de documento con el mismo codigo ingresado.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
 
     try {
-      return await this.tipodocsRepository.save(createTipoDoc);
+      const obj = await this.tipodocsRepository.save(createTipoDoc);
+      const { tipo_documento: nombre, ...res } = obj;
+      return {
+        ...res,
+        nombre,
+      };
     } catch (e) {
       throw new HttpException(
         'Error al intentar crear el tipo de documento TipodocsService.save.',
@@ -48,10 +78,31 @@ export class TipodocsService {
       );
     }
 
-    this.tipodocsRepository.merge(tipdoc, data);
+    //Si encuentra un codigo ya registrado mandamos error pero sí debe aceptar el mismo cod actual
+    const codeFound = await this.tipodocsRepository.findOne({
+      where: {
+        codigo: data.codigo,
+      },
+    });
+    if (codeFound && codeFound.id != idTipo) {
+      throw new HttpException(
+        'Ya existe un tipo de documento con el mismo codigo ingresado.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    this.tipodocsRepository.merge(tipdoc, {
+      tipo_documento: data.nombre,
+      ...data,
+    });
 
     try {
-      return await this.tipodocsRepository.save(tipdoc);
+      const obj = await this.tipodocsRepository.save(tipdoc);
+      const { tipo_documento: nombre, ...res } = obj;
+      return {
+        ...res,
+        nombre,
+      };
     } catch (e) {
       throw new HttpException(
         'Error al intentar actualizar el tipo de documento TipodocsService.update.',

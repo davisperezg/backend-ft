@@ -15,5 +15,6 @@ import { EmpresaModule } from 'src/empresa/empresa.module';
   ],
   controllers: [TipodocsEmpresaController],
   providers: [TipodocsEmpresaService],
+  exports: [TipodocsEmpresaService],
 })
 export class TipodocsEmpresaModule {}

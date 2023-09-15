@@ -5,8 +5,10 @@ import {
   Entity,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import { SeriesEntity } from 'src/series/entities/series.entity';
 
 @Entity({ name: 'tipodoc_empresa' })
 export class TipodocsEmpresaEntity {
@@ -27,4 +29,8 @@ export class TipodocsEmpresaEntity {
   })
   @JoinColumn({ name: 'empresa_id' })
   empresa: EmpresaEntity;
+
+  //Referencia a tb_series
+  @OneToMany(() => SeriesEntity, (serie) => serie.documento)
+  series?: SeriesEntity[];
 }

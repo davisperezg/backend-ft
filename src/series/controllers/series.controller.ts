@@ -11,10 +11,13 @@ import {
   Post,
   Body,
   Put,
+  ParseArrayPipe,
 } from '@nestjs/common';
 import Permission from 'src/lib/type/permission.type';
 import { SeriesUpdateDto } from '../dto/series-update.dto';
 import { SeriesCreateDto } from '../dto/series-create.dto';
+import { CtxUser } from 'src/lib/decorators/ctx-user.decorators';
+import { QueryToken } from 'src/auth/dto/queryToken';
 
 @Controller('api/v1/series')
 export class SeriesController {
@@ -23,8 +26,15 @@ export class SeriesController {
   //Get Series: http://localhost:3000/api/v1/series
   @Get()
   @UseGuards(PermissionGuard(Permission.ReadSeries))
-  async getSeries() {
-    return await this.seriesService.listSeries();
+  async getSeries(@CtxUser() user: QueryToken) {
+    return await this.seriesService.allSeries(user);
+  }
+
+  //Get Series: http://localhost:3000/api/v1/series/empresa/1
+  @Get('/empresa/:id')
+  @UseGuards(PermissionGuard(Permission.ReadSeries))
+  async getSeriesByEmpresa(@Param('id') id: number) {
+    return await this.seriesService.listSeriesByIdEmpresa(id);
   }
 
   //Add Series(POST): http://localhost:3000/api/v1/series
@@ -32,10 +42,12 @@ export class SeriesController {
   @UseGuards(PermissionGuard(Permission.CreateSeries))
   async createSerie(
     @Res() res,
-    @Body()
-    create: SeriesCreateDto,
+    @Body(new ParseArrayPipe({ items: SeriesCreateDto, whitelist: true }))
+    create: SeriesCreateDto[],
   ) {
-    const response = await this.seriesService.createSeries(create);
+    //console.log(items);
+    await this.seriesService.createSeries(create);
+    const response = await this.seriesService.findSeriesByDoc(create);
     return res.status(HttpStatus.OK).json({
       message: 'La serie ha sido creado éxitosamente.',
       response,

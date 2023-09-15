@@ -229,12 +229,42 @@ export class AppService implements OnApplicationBootstrap {
       }).save(),
     ]);
 
+    //Agregando mnus a altas
+    const altasToEntidades = await Promise.all([
+      new this.menuModel({
+        name: 'Empresas',
+        status: true,
+        link: 'empresas',
+      }).save(),
+      new this.menuModel({
+        name: 'Documentos',
+        status: true,
+        link: 'documentos',
+      }).save(),
+      new this.menuModel({
+        name: 'Tipo de documentos',
+        status: true,
+        link: 'tipo-de-documentos',
+      }).save(),
+      new this.menuModel({
+        name: 'Series',
+        status: true,
+        link: 'series',
+      }).save(),
+    ]);
+
     //Agregamos modulos
     const modulesToADM = await Promise.all([
       new this.moduleModel({
         name: MOD_PRINCIPAL,
         status: true,
         menu: menusToADM,
+        creator: null,
+      }).save(),
+      new this.moduleModel({
+        name: 'Altas',
+        status: true,
+        menu: altasToEntidades,
         creator: null,
       }).save(),
       new this.moduleModel({

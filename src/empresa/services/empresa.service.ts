@@ -133,7 +133,14 @@ export class EmpresaService {
 
     if (tokenEntityFull.role.name === ROL_PRINCIPAL) {
       try {
-        return await this.empresaRepository.find();
+        return await this.empresaRepository.find({
+          relations: {
+            tipodoc_empresa: {
+              series: true,
+              tipodoc: true,
+            },
+          },
+        });
       } catch (e) {
         throw new HttpException(
           'Error al listar empresas.',
@@ -143,6 +150,12 @@ export class EmpresaService {
     } else {
       try {
         return await this.empresaRepository.find({
+          relations: {
+            tipodoc_empresa: {
+              series: true,
+              tipodoc: true,
+            },
+          },
           where: {
             usuario: {
               _id: tokenEntityFull._id,
@@ -231,6 +244,20 @@ export class EmpresaService {
         HttpStatus.BAD_REQUEST,
       );
     }
+  }
+
+  async findDocumentsByIdEmpresa(idEmpresa: number) {
+    return await this.empresaRepository.findOne({
+      relations: {
+        tipodoc_empresa: {
+          series: true,
+          tipodoc: true,
+        },
+      },
+      where: {
+        id: idEmpresa,
+      },
+    });
   }
 
   guardarArchivo(

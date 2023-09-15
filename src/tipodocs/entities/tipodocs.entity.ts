@@ -19,8 +19,8 @@ export class TipodocsEntity {
   @Column({ default: true })
   estado?: boolean;
 
-  @OneToMany(() => SeriesEntity, (serie) => serie.documento)
-  series?: SeriesEntity[];
+  // @OneToMany(() => SeriesEntity, (serie) => serie.documento)
+  // series?: SeriesEntity[];
 
   @OneToMany(() => TipodocsEmpresaEntity, (tipemp) => tipemp.tipodoc)
   tipodoc_empresa?: TipodocsEmpresaEntity[];
