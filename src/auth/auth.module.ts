@@ -42,10 +42,16 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { UserEntity } from 'src/user/entities/user.entity';
 import { EmpresaEntity } from 'src/empresa/entities/empresa.entity';
 import { EmpresaService } from 'src/empresa/services/empresa.service';
+import { TipodocsModule } from 'src/tipodocs/tipodocs.module';
+import { TipodocsEmpresaEntity } from 'src/tipodocs_empresa/entities/tipodocs_empresa.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([UserEntity, EmpresaEntity]),
+    TypeOrmModule.forFeature([
+      UserEntity,
+      EmpresaEntity,
+      TipodocsEmpresaEntity,
+    ]),
     JwtModule.registerAsync({
       useFactory: (config: ConfigService) => {
         return {
@@ -69,6 +75,7 @@ import { EmpresaService } from 'src/empresa/services/empresa.service';
       { name: Services_User.name, schema: ServicesUserSchema },
       { name: CopyServices_User.name, schema: CopyServicesSchema },
     ]),
+    TipodocsModule,
   ],
   controllers: [AuthController],
   providers: [

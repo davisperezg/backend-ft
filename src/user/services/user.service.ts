@@ -231,6 +231,8 @@ export class UserService {
       _id: String(createdUser._id),
       nombres: createdUser.name,
       apellidos: createdUser.lastname,
+      email: createdUser.email,
+      username: createdUser.username,
     });
 
     const _queryRunner = this.dataSource.createQueryRunner();
@@ -563,5 +565,29 @@ export class UserService {
         id: idUsuario,
       },
     });
+  }
+
+  //Metodo para buscar usuarios al agregar empresa
+  async findUsersToEmpresa() {
+    try {
+      const users = await this.userRepository.find();
+
+      const userMap = users.map((usu) => {
+        return {
+          id: usu.id,
+          nombres: usu.nombres,
+          apellidos: usu.apellidos,
+          nombreCompleto: usu.nombres + ' ' + usu.apellidos,
+          correo: usu.email,
+          usuario: usu.username,
+        };
+      });
+      return userMap;
+    } catch (e) {
+      throw new HttpException(
+        'Ocurrio un error al intentar listar los usuarios UserService.findUsersToEmpresa.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
   }
 }

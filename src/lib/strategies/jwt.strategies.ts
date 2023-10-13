@@ -104,6 +104,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
               usu_secundario_ose_user: findUser.empresa.usu_secundario_ose_user,
               usu_secundario_ose_password:
                 findUser.empresa.usu_secundario_ose_password,
+              domicilio_fiscal: findUser.empresa.domicilio_fiscal,
+              ubigeo: findUser.empresa.ubigeo,
+              urbanizacion: findUser.empresa.urbanizacion,
+              correo: findUser.empresa.correo,
+              telefono_movil_1: findUser.empresa.telefono_movil_1,
             }
           : null,
       },

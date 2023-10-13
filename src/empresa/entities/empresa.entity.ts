@@ -26,6 +26,30 @@ export class EmpresaEntity {
   @Column()
   nombre_comercial: string;
 
+  @Column()
+  domicilio_fiscal: string;
+
+  @Column()
+  ubigeo: string;
+
+  @Column()
+  urbanizacion: string;
+
+  @Column()
+  correo: string;
+
+  @Column()
+  telefono_movil_1: string;
+
+  @Column({ nullable: true })
+  telefono_movil_2?: string;
+
+  @Column({ nullable: true })
+  telefono_fijo_1?: string;
+
+  @Column({ nullable: true })
+  telefono_fijo_2?: string;
+
   @Column({ nullable: true })
   web_service: string;
 

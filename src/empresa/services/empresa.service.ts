@@ -6,13 +6,17 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { EmpresaEntity } from '../entities/empresa.entity';
 import * as fs from 'fs';
 import path from 'path';
 import { QueryToken } from 'src/auth/dto/queryToken';
 import { ROL_PRINCIPAL } from 'src/lib/const/consts';
 import { UserService } from 'src/user/services/user.service';
+import { EmpresaSimpleDTO } from '../dto/queryEmpresas.dto';
+import { TipodocsService } from 'src/tipodocs/services/tipodocs.service';
+import { TipodocsEmpresaEntity } from 'src/tipodocs_empresa/entities/tipodocs_empresa.entity';
+import { CreateEmpresaDTO } from '../dto/create-empresa.dto';
 
 @Injectable()
 export class EmpresaService {
@@ -21,9 +25,30 @@ export class EmpresaService {
     private empresaRepository: Repository<EmpresaEntity>,
     @Inject(forwardRef(() => UserService))
     private userService: UserService,
+    private tipodocService: TipodocsService,
+    @InjectRepository(TipodocsEmpresaEntity)
+    private documentRepository: Repository<TipodocsEmpresaEntity>,
+    private dataSource: DataSource,
   ) {}
 
-  async createEmpresa(body: any) {
+  async createEmpresa(body: {
+    data: CreateEmpresaDTO;
+    files: any;
+  }): Promise<EmpresaSimpleDTO> {
+    //Verficamos si la empresa ya existe
+    const findEmpresa = await this.empresaRepository.findOne({
+      where: {
+        ruc: body.data.ruc,
+      },
+    });
+
+    if (findEmpresa) {
+      throw new HttpException(
+        'No puedes crear una empresa que ya existe.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
     const pathDirLog = `public/${body.data.ruc}/IMAGES/LOGO`;
 
     const existDirLogo = fs.existsSync(pathDirLog);
@@ -65,7 +90,7 @@ export class EmpresaService {
 
     //Buscar usuario en mysql
     const userMYSQL = await this.userService.findOneUserById_MYSQL(
-      body.data.user,
+      body.data.usuario,
     );
 
     if (!userMYSQL) {
@@ -76,14 +101,11 @@ export class EmpresaService {
     }
 
     const createEmpresa = this.empresaRepository.create({
+      ...body.data,
       logo: body.files?.logo
         ? body.files.logo.originalname
         : 'logo_default.png', //file logo empresa
-      ruc: body.data.ruc,
-      razon_social: body.data.razon_social,
-      nombre_comercial: body.data.nombre_comercial,
       usuario: userMYSQL,
-      modo: body.data.modo,
       web_service:
         body.data.modo === 0 //0 = beta
           ? 'https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService'
@@ -115,10 +137,57 @@ export class EmpresaService {
         : '',
     });
 
-    //console.log(createEmpresa);
-
     try {
-      return await this.empresaRepository.save(createEmpresa);
+      const result = await this.dataSource.transaction(
+        async (entityManager) => {
+          const empresa = await entityManager.save(
+            EmpresaEntity,
+            createEmpresa,
+          );
+
+          //Si tiene documentos el body ingresamos para agregar
+          for (let index = 0; index < body.data.documentos.length; index++) {
+            const tipo = body.data.documentos[index].id;
+            const getTipoDoc = await this.tipodocService.findOneTipoDocById(
+              tipo,
+            );
+
+            //Si el tipo de documento esta inactivo lo omitimos y solo agregamos los activos
+            if (getTipoDoc && getTipoDoc.estado) {
+              const createObj = entityManager.create(TipodocsEmpresaEntity, {
+                tipodoc: getTipoDoc,
+                empresa: empresa,
+              });
+
+              await entityManager.save(TipodocsEmpresaEntity, createObj);
+            }
+          }
+
+          const objResult: EmpresaSimpleDTO = {
+            id_empresa: empresa.id,
+            usuario: {
+              nombres: empresa.usuario.nombres,
+              apellidos: empresa.usuario.apellidos,
+              nombre_completo:
+                empresa.usuario.nombres + ' ' + empresa.usuario.apellidos,
+            },
+            ruc: empresa.ruc,
+            razon_social: empresa.razon_social,
+            modo: empresa.modo === 0 ? 'DESARROLLO' : 'PRODUCCION',
+            ose: empresa.ose_enabled ? 'SI' : 'NO',
+            web_service: empresa.web_service,
+            sunat_usu: empresa.usu_secundario_user,
+            sunat_pass: empresa.usu_secundario_password,
+            ose_usu: empresa.usu_secundario_ose_user,
+            ose_pass: empresa.usu_secundario_ose_password,
+            status: empresa.estado,
+          };
+
+          return objResult;
+        },
+      );
+
+      return result;
     } catch (e) {
       throw new HttpException(
         'Error al intentar crear empresa EmpresaService.save.',
@@ -127,14 +196,19 @@ export class EmpresaService {
     }
   }
 
-  async listEmpresas(userToken: QueryToken) {
+  async listEmpresas(
+    userToken: QueryToken,
+    front = true,
+  ): Promise<EmpresaSimpleDTO[] | EmpresaEntity[]> {
     const { tokenEntityFull } = userToken;
     console.log('EMPRESA - Id de user', tokenEntityFull._id);
+    let empresas: EmpresaEntity[] = [];
 
     if (tokenEntityFull.role.name === ROL_PRINCIPAL) {
       try {
-        return await this.empresaRepository.find({
+        empresas = await this.empresaRepository.find({
           relations: {
+            usuario: true,
             tipodoc_empresa: {
               series: true,
               tipodoc: true,
@@ -149,8 +223,9 @@ export class EmpresaService {
       }
     } else {
       try {
-        return await this.empresaRepository.find({
+        empresas = await this.empresaRepository.find({
           relations: {
+            usuario: true,
             tipodoc_empresa: {
               series: true,
               tipodoc: true,
@@ -169,6 +244,35 @@ export class EmpresaService {
         );
       }
     }
+
+    if (front) {
+      const queryEmpresa: EmpresaSimpleDTO[] = empresas.map((a) => {
+        return {
+          id_empresa: a.id,
+          usuario: {
+            nombres: a.usuario.nombres,
+            apellidos: a.usuario.apellidos,
+            nombre_completo: a.usuario.nombres + ' ' + a.usuario.apellidos,
+          },
+          ruc: a.ruc,
+          razon_social: a.razon_social,
+          modo: a.modo === 0 ? 'DESARROLLO' : 'PRODUCCION',
+          ose: a.ose_enabled ? 'SI' : 'NO',
+          web_service: a.web_service,
+          sunat_usu: a.usu_secundario_user,
+          sunat_pass: a.usu_secundario_password,
+          ose_usu: a.usu_secundario_ose_user,
+          ose_pass: a.usu_secundario_ose_password,
+          status: a.estado,
+        };
+      });
+
+      //Enviar query para front
+      return queryEmpresa;
+    }
+
+    //Si el result se usa para otra funcion backend usar query completo
+    return empresas;
   }
 
   async desactivateEmpresa(idEmpresa: number) {
@@ -203,11 +307,18 @@ export class EmpresaService {
     return estado;
   }
 
-  async findOneEmpresaById(idEmpresa: number) {
+  async findOneEmpresaByIdx(idEmpresa: number) {
     let empresa: EmpresaEntity;
 
     try {
       empresa = await this.empresaRepository.findOne({
+        relations: {
+          usuario: true,
+          tipodoc_empresa: {
+            tipodoc: true,
+            series: true,
+          },
+        },
         where: {
           id: idEmpresa,
         },
@@ -226,7 +337,36 @@ export class EmpresaService {
       );
     }
 
-    return empresa;
+    const { estado, tipodoc_empresa, usuario, ...rest } = empresa;
+
+    const result = {
+      ...rest,
+      usuario: {
+        id: usuario.id,
+        nombres: usuario.nombres,
+        apellidos: usuario.apellidos,
+        nombres_completo: usuario.nombres + ' ' + usuario.apellidos,
+      },
+      logo: [
+        {
+          name: empresa.logo,
+        },
+      ],
+      cert: [
+        {
+          name: empresa.cert,
+        },
+      ],
+      status: estado,
+      documentos: tipodoc_empresa.map((a) => {
+        return {
+          id: a.id,
+          nombre: a.tipodoc.tipo_documento,
+        };
+      }),
+    };
+
+    return result;
   }
 
   async findOneEmpresaByUserId(idUser: number) {

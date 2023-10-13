@@ -35,6 +35,13 @@ export class UserController {
     return this.userService.findAll(user);
   }
 
+  @Get('/empresa')
+  //Modificar permiso
+  @UseGuards(PermissionGuard(Permission.ReadUsers))
+  getUsersToEmpresa() {
+    return this.userService.findUsersToEmpresa();
+  }
+
   // Get Me: http://localhost:3000/api/v1/users/whois
   @Get('/whois')
   @UseGuards(JwtAuthGuard)
@@ -44,35 +51,35 @@ export class UserController {
   }
 
   // Add User(POST): http://localhost:3000/api/v1/users
-  // @Post()
-  // @UseGuards(PermissionGuard(Permission.CreateUsers))
-  // async createUser(
-  //   @Res() res,
-  //   @Body() createBody: CreateUserDTO,
-  //   @CtxUser() userToken: QueryToken,
-  // ) {
-  //   const response = await this.userService.create(createBody, userToken);
-  //   return res.status(HttpStatus.OK).json({
-  //     message: 'El usuario ha sido creado éxitosamente.',
-  //     response,
-  //   });
-  // }
+  @Post()
+  @UseGuards(PermissionGuard(Permission.CreateUsers))
+  async createUser(
+    @Res() res,
+    @Body() createBody: CreateUserDTO,
+    @CtxUser() userToken: QueryToken,
+  ) {
+    const response = await this.userService.create(createBody, userToken);
+    return res.status(HttpStatus.OK).json({
+      message: 'El usuario ha sido creado éxitosamente.',
+      response,
+    });
+  }
 
-  // // Update User(PUT): http://localhost:3000/api/v1/users/6223169df6066a084cef08c2
-  // @Put(':id')
-  // @UseGuards(PermissionGuard(Permission.UpdateUsers))
-  // async updateUser(
-  //   @Res() res,
-  //   @Param('id') id: string,
-  //   @Body() createBody: UpdateUserDTO,
-  //   @CtxUser() user: QueryToken,
-  // ): Promise<User> {
-  //   const response = await this.userService.update(id, createBody, user);
-  //   return res.status(HttpStatus.OK).json({
-  //     message: 'El usuario ha sido actualizado éxitosamente.',
-  //     response,
-  //   });
-  // }
+  // Update User(PUT): http://localhost:3000/api/v1/users/6223169df6066a084cef08c2
+  @Put(':id')
+  @UseGuards(PermissionGuard(Permission.UpdateUsers))
+  async updateUser(
+    @Res() res,
+    @Param('id') id: string,
+    @Body() createBody: UpdateUserDTO,
+    @CtxUser() user: QueryToken,
+  ): Promise<User> {
+    const response = await this.userService.update(id, createBody, user);
+    return res.status(HttpStatus.OK).json({
+      message: 'El usuario ha sido actualizado éxitosamente.',
+      response,
+    });
+  }
 
   // Delete User(DELETE): http://localhost:3000/api/v1/users/6223169df6066a084cef08c2
   @Delete(':id')
