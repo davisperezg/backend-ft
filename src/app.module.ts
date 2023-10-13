@@ -48,6 +48,7 @@ import { SeriesModule } from './series/series.module';
 import { TipodocsEntity } from './tipodocs/entities/tipodocs.entity';
 import { TipodocsEmpresaModule } from './tipodocs_empresa/tipodocs_empresa.module';
 import { EmpresaModule } from './empresa/empresa.module';
+import { EntidadesModule } from './entidades/entidades.module';
 
 @Module({
   imports: [
@@ -100,6 +101,7 @@ import { EmpresaModule } from './empresa/empresa.module';
     SeriesModule,
     TipodocsEmpresaModule,
     EmpresaModule,
+    EntidadesModule,
   ],
   controllers: [AppController],
   providers: [

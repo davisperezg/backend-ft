@@ -20,7 +20,10 @@ export class SeriesService {
 
   async allSeries(userToken: QueryToken) {
     try {
-      const series = await this.tipodocEmpresaService.allDocuments(userToken);
+      const series = await this.tipodocEmpresaService.allDocuments(
+        userToken,
+        false,
+      );
 
       const mapSeries = series.map((item) => {
         return {

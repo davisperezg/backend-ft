@@ -20,7 +20,7 @@ export class TipodocsEmpresaService {
     let documents: TipodocsEmpresaEntity[];
 
     //Validamos si la empresa existe o no
-    const getEmpresa = await this.empresaService.findOneEmpresaById(idEmpresa);
+    const getEmpresa = await this.empresaService.findOneEmpresaByIdx(idEmpresa);
 
     //Si existe buscamos los documentos que tiene la empresa para emitir
     try {
@@ -64,108 +64,89 @@ export class TipodocsEmpresaService {
   }
 
   async createDocument(data: any) {
-    const { tipo_documentos, empresa } = data;
-
-    //Omitiremos los numeros del array repetidos
-    const setTipoDocs = new Set<number>(tipo_documentos);
-    const valuesTipoDocs: number[] = [...setTipoDocs];
-
-    //Validamos si la empresa existe o no
-    const getEmpresa = await this.empresaService.findOneEmpresaById(empresa);
-
-    //Si la empresa existe buscamos si ya tiene documentos ingresados
-    const getDocumentsByEmpresa = await this.getDocuments(getEmpresa.id);
-
-    //Si ya tiene documentos mandamos error
-    if (getDocumentsByEmpresa.documentos.length > 0) {
-      throw new HttpException(
-        'Ya existe una empresa creada con sus respectivos documentos por favor solo modifique o edite agregando los nuevos documentos.',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    //Si la empresa no tiene documentos las creamos
-    for (let index = 0; index < valuesTipoDocs.length; index++) {
-      const tipo = valuesTipoDocs[index];
-      const getTipoDoc = await this.tipodocService.findOneTipoDocById(tipo);
-
-      //Si el tipo de documento esta inactivo lo omitimos y solo agregamos los activos
-      if (getTipoDoc && getTipoDoc.estado) {
-        const createObj = this.documentRepository.create({
-          tipodoc: getTipoDoc,
-          empresa: getEmpresa,
-        });
-
-        await this.documentRepository.save(createObj);
-      }
-    }
-
-    //Listamos documentos ingresados a la empresa
-    return await this.getDocuments(getEmpresa.id);
+    // const { tipo_documentos, empresa } = data;
+    // //Omitiremos los numeros del array repetidos
+    // const setTipoDocs = new Set<number>(tipo_documentos);
+    // const valuesTipoDocs: number[] = [...setTipoDocs];
+    // //Validamos si la empresa existe o no
+    // const getEmpresa = await this.empresaService.findOneEmpresaByIdx(empresa);
+    // //Si la empresa existe buscamos si ya tiene documentos ingresados
+    // const getDocumentsByEmpresa = await this.getDocuments(getEmpresa.id);
+    // //Si ya tiene documentos mandamos error
+    // if (getDocumentsByEmpresa.documentos.length > 0) {
+    //   throw new HttpException(
+    //     'Ya existe una empresa creada con sus respectivos documentos por favor solo modifique o edite agregando los nuevos documentos.',
+    //     HttpStatus.BAD_REQUEST,
+    //   );
+    // }
+    // //Si la empresa no tiene documentos las creamos
+    // for (let index = 0; index < valuesTipoDocs.length; index++) {
+    //   const tipo = valuesTipoDocs[index];
+    //   const getTipoDoc = await this.tipodocService.findOneTipoDocById(tipo);
+    //   //Si el tipo de documento esta inactivo lo omitimos y solo agregamos los activos
+    //   if (getTipoDoc && getTipoDoc.estado) {
+    //     const createObj = this.documentRepository.create({
+    //       tipodoc: getTipoDoc,
+    //       empresa: getEmpresa,
+    //     });
+    //     await this.documentRepository.save(createObj);
+    //   }
+    // }
+    // //Listamos documentos ingresados a la empresa
+    // return await this.getDocuments(getEmpresa.id);
   }
 
   async updateDocument(idEmpresa: number, data: any) {
-    const { tipo_documentos } = data;
-
-    //Omitiremos los numeros del array repetidos
-    const setTipoDocs = new Set<number>(tipo_documentos);
-    const valuesTipoDocs: number[] = [...setTipoDocs];
-
-    //Validamos si la empresa existe o no
-    const getEmpresa = await this.empresaService.findOneEmpresaById(idEmpresa);
-
-    //Si la empresa existe buscamos si ya tiene documentos ingresados
-    const getDocumentsByEmpresa = await this.getDocuments(getEmpresa.id);
-
-    const _queryRunner = this.dataSource.createQueryRunner();
-    //Inicia transaccion
-    await _queryRunner.connect();
-    await _queryRunner.startTransaction();
-
-    try {
-      //Eliminamos todos los documentos que tiene la empresa
-      for (
-        let index = 0;
-        index < getDocumentsByEmpresa.documentos.length;
-        index++
-      ) {
-        const documento = getDocumentsByEmpresa.documentos[index];
-        await this.documentRepository.delete({
-          id: documento.id_documento,
-        });
-      }
-
-      //Agregamos los nuevos documentos para la empresa
-      for (let index = 0; index < valuesTipoDocs.length; index++) {
-        const tipo = valuesTipoDocs[index];
-        const getTipoDoc = await this.tipodocService.findOneTipoDocById(tipo);
-
-        //Si el tipo de documento esta inactivo lo omitimos y solo agregamos los activos
-        if (getTipoDoc && getTipoDoc.estado) {
-          const createObj = this.documentRepository.create({
-            empresa: getEmpresa,
-            tipodoc: getTipoDoc,
-          });
-
-          await this.documentRepository.save(createObj);
-        }
-      }
-
-      // Confirmar la transacción
-      await _queryRunner.commitTransaction();
-
-      return await this.getDocuments(idEmpresa);
-    } catch (e) {
-      // Revertir la transacción en caso de error
-      await _queryRunner.rollbackTransaction();
-
-      throw new HttpException(
-        'Error al intentar actualizar los tipos de documentos de la empresa TipodocsEmpresaService.update.',
-        HttpStatus.BAD_REQUEST,
-      );
-    } finally {
-      await _queryRunner.release(); // Liberar el queryRunner
-    }
+    // const { tipo_documentos } = data;
+    // //Omitiremos los numeros del array repetidos
+    // const setTipoDocs = new Set<number>(tipo_documentos);
+    // const valuesTipoDocs: number[] = [...setTipoDocs];
+    // //Validamos si la empresa existe o no
+    // const getEmpresa = await this.empresaService.findOneEmpresaByIdx(idEmpresa);
+    // //Si la empresa existe buscamos si ya tiene documentos ingresados
+    // const getDocumentsByEmpresa = await this.getDocuments(getEmpresa.id);
+    // const _queryRunner = this.dataSource.createQueryRunner();
+    // //Inicia transaccion
+    // await _queryRunner.connect();
+    // await _queryRunner.startTransaction();
+    // try {
+    //   //Eliminamos todos los documentos que tiene la empresa
+    //   for (
+    //     let index = 0;
+    //     index < getDocumentsByEmpresa.documentos.length;
+    //     index++
+    //   ) {
+    //     const documento = getDocumentsByEmpresa.documentos[index];
+    //     await this.documentRepository.delete({
+    //       id: documento.id_documento,
+    //     });
+    //   }
+    //   //Agregamos los nuevos documentos para la empresa
+    //   for (let index = 0; index < valuesTipoDocs.length; index++) {
+    //     const tipo = valuesTipoDocs[index];
+    //     const getTipoDoc = await this.tipodocService.findOneTipoDocById(tipo);
+    //     //Si el tipo de documento esta inactivo lo omitimos y solo agregamos los activos
+    //     if (getTipoDoc && getTipoDoc.estado) {
+    //       const createObj = this.documentRepository.create({
+    //         empresa: getEmpresa,
+    //         tipodoc: getTipoDoc,
+    //       });
+    //       await this.documentRepository.save(createObj);
+    //     }
+    //   }
+    //   // Confirmar la transacción
+    //   await _queryRunner.commitTransaction();
+    //   return await this.getDocuments(idEmpresa);
+    // } catch (e) {
+    //   // Revertir la transacción en caso de error
+    //   await _queryRunner.rollbackTransaction();
+    //   throw new HttpException(
+    //     'Error al intentar actualizar los tipos de documentos de la empresa TipodocsEmpresaService.update.',
+    //     HttpStatus.BAD_REQUEST,
+    //   );
+    // } finally {
+    //   await _queryRunner.release(); // Liberar el queryRunner
+    // }
   }
 
   async findOneDocumentByEmpresa(idDocumento: number) {
@@ -211,7 +192,7 @@ export class TipodocsEmpresaService {
     return await this.empresaService.findDocumentsByIdEmpresa(idEmpresa);
   }
 
-  async allDocuments(userToken: QueryToken) {
-    return await this.empresaService.listEmpresas(userToken);
+  async allDocuments(userToken: QueryToken, front: boolean) {
+    return await this.empresaService.listEmpresas(userToken, front);
   }
 }

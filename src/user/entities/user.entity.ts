@@ -15,6 +15,12 @@ export class UserEntity {
   @Column()
   apellidos: string;
 
+  @Column()
+  email: string;
+
+  @Column()
+  username: string;
+
   @OneToMany(() => EmpresaEntity, (empresa) => empresa.usuario)
   empresas?: EmpresaEntity[];
 }

@@ -30,10 +30,16 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { UserEntity } from 'src/user/entities/user.entity';
 import { EmpresaEntity } from 'src/empresa/entities/empresa.entity';
 import { EmpresaService } from 'src/empresa/services/empresa.service';
+import { TipodocsModule } from 'src/tipodocs/tipodocs.module';
+import { TipodocsEmpresaEntity } from 'src/tipodocs_empresa/entities/tipodocs_empresa.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([UserEntity, EmpresaEntity]),
+    TypeOrmModule.forFeature([
+      UserEntity,
+      EmpresaEntity,
+      TipodocsEmpresaEntity,
+    ]),
     MongooseModule.forFeature([
       { name: ModuleEntity.name, schema: ModuleSchema },
       { name: Role.name, schema: RoleSchema },
@@ -44,6 +50,7 @@ import { EmpresaService } from 'src/empresa/services/empresa.service';
       { name: Resource_User.name, schema: Resource_UserSchema },
       { name: Resource_Role.name, schema: Resource_RoleSchema },
     ]),
+    TipodocsModule,
   ],
   controllers: [ModuleController],
   providers: [
