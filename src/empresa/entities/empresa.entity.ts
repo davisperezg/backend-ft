@@ -8,6 +8,7 @@ import {
 } from 'typeorm';
 import { UserEntity } from '../../user/entities/user.entity';
 import { TipodocsEmpresaEntity } from 'src/tipodocs_empresa/entities/tipodocs_empresa.entity';
+import { EstablecimientoEntity } from 'src/establecimiento/entities/establecimiento.entity';
 
 @Entity({ name: 'empresas' })
 export class EmpresaEntity {
@@ -91,4 +92,7 @@ export class EmpresaEntity {
 
   @OneToMany(() => TipodocsEmpresaEntity, (tipemp) => tipemp.empresa)
   tipodoc_empresa?: TipodocsEmpresaEntity[];
+
+  @OneToMany(() => EstablecimientoEntity, (est) => est.empresa)
+  establecimientos?: EstablecimientoEntity[];
 }

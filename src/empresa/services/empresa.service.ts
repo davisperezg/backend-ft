@@ -17,6 +17,7 @@ import { EmpresaSimpleDTO } from '../dto/queryEmpresas.dto';
 import { TipodocsService } from 'src/tipodocs/services/tipodocs.service';
 import { TipodocsEmpresaEntity } from 'src/tipodocs_empresa/entities/tipodocs_empresa.entity';
 import { CreateEmpresaDTO } from '../dto/create-empresa.dto';
+import { EstablecimientoService } from 'src/establecimiento/services/establecimiento.service';
 
 @Injectable()
 export class EmpresaService {
@@ -29,6 +30,7 @@ export class EmpresaService {
     @InjectRepository(TipodocsEmpresaEntity)
     private documentRepository: Repository<TipodocsEmpresaEntity>,
     private dataSource: DataSource,
+    private establecimientoService: EstablecimientoService,
   ) {}
 
   async createEmpresa(body: {
@@ -140,12 +142,13 @@ export class EmpresaService {
     try {
       const result = await this.dataSource.transaction(
         async (entityManager) => {
+          //Creamos empresa
           const empresa = await entityManager.save(
             EmpresaEntity,
             createEmpresa,
           );
 
-          //Si tiene documentos el body ingresamos para agregar
+          //Si tiene documentos el body ingresamos para agregar y crear documentos
           for (let index = 0; index < body.data.documentos.length; index++) {
             const tipo = body.data.documentos[index].id;
             const getTipoDoc = await this.tipodocService.findOneTipoDocById(
@@ -187,8 +190,24 @@ export class EmpresaService {
         },
       );
 
+      //Si todo sale ok creamos establecimiento x defecto
+      await this.establecimientoService.createEstablecimiento({
+        data: {
+          codigo: '0000',
+          denominacion: createEmpresa.nombre_comercial,
+          departamento: '',
+          provincia: '',
+          distrito: '',
+          direccion: createEmpresa.domicilio_fiscal,
+          ubigeo: createEmpresa.ubigeo,
+          empresa: createEmpresa.id,
+        },
+        files: createEmpresa.logo,
+      });
+
       return result;
     } catch (e) {
+      console.log(e);
       throw new HttpException(
         'Error al intentar crear empresa EmpresaService.save.',
         HttpStatus.BAD_REQUEST,
@@ -307,7 +326,7 @@ export class EmpresaService {
     return estado;
   }
 
-  async findOneEmpresaByIdx(idEmpresa: number) {
+  async findOneEmpresaByIdx(idEmpresa: number, internal = false) {
     let empresa: EmpresaEntity;
 
     try {
@@ -339,32 +358,34 @@ export class EmpresaService {
 
     const { estado, tipodoc_empresa, usuario, ...rest } = empresa;
 
-    const result = {
-      ...rest,
-      usuario: {
-        id: usuario.id,
-        nombres: usuario.nombres,
-        apellidos: usuario.apellidos,
-        nombres_completo: usuario.nombres + ' ' + usuario.apellidos,
-      },
-      logo: [
-        {
-          name: empresa.logo,
-        },
-      ],
-      cert: [
-        {
-          name: empresa.cert,
-        },
-      ],
-      status: estado,
-      documentos: tipodoc_empresa.map((a) => {
-        return {
-          id: a.id,
-          nombre: a.tipodoc.tipo_documento,
+    const result = internal
+      ? empresa
+      : {
+          ...rest,
+          usuario: {
+            id: usuario.id,
+            nombres: usuario.nombres,
+            apellidos: usuario.apellidos,
+            nombres_completo: usuario.nombres + ' ' + usuario.apellidos,
+          },
+          logo: [
+            {
+              name: empresa.logo,
+            },
+          ],
+          cert: [
+            {
+              name: empresa.cert,
+            },
+          ],
+          status: estado,
+          documentos: tipodoc_empresa.map((a) => {
+            return {
+              id: a.id,
+              nombre: a.tipodoc.tipo_documento,
+            };
+          }),
         };
-      }),
-    };
 
     return result;
   }
