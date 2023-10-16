@@ -6,12 +6,14 @@ import { EmpresaEntity } from './entities/empresa.entity';
 import { UserModule } from 'src/user/user.module';
 import { TipodocsModule } from 'src/tipodocs/tipodocs.module';
 import { TipodocsEmpresaEntity } from 'src/tipodocs_empresa/entities/tipodocs_empresa.entity';
+import { EstablecimientoModule } from 'src/establecimiento/establecimiento.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([EmpresaEntity, TipodocsEmpresaEntity]),
     forwardRef(() => UserModule),
     TipodocsModule,
+    EstablecimientoModule,
   ],
   providers: [EmpresaService],
   controllers: [EmpresaController],
