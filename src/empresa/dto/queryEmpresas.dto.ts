@@ -1,7 +1,7 @@
 import { UserBasicInfoDTO } from 'src/user/dto/queryUser.dto';
 
 export class EmpresaSimpleDTO {
-  id_empresa: number;
+  id: number;
   usuario: UserBasicInfoDTO;
   ruc: string;
   razon_social: string;
@@ -13,4 +13,7 @@ export class EmpresaSimpleDTO {
   ose_usu: string;
   ose_pass: string;
   status: boolean;
+  logo?: string;
+  direccion?: string;
+  ubigeo?: string;
 }

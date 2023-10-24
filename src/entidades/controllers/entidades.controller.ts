@@ -10,14 +10,24 @@ export class EntidadesController {
     return this.entidadesService.getDepartamentos();
   }
 
+  @Get('/provincias')
+  getProvincias() {
+    return this.entidadesService.getProvincias();
+  }
+
+  @Get('/distritos')
+  getDistritos() {
+    return this.entidadesService.getDistritos();
+  }
+
   @Get('/provincias/departamento/:id')
-  getProvincias(@Param('id') idDepartamento: string) {
+  getProvinciasByDepartamento(@Param('id') idDepartamento: string) {
     console.log(idDepartamento);
     return this.entidadesService.getProvinciasByDepartamento(idDepartamento);
   }
 
   @Get('/distritos/provincia/:id')
-  getDistritos(@Param('id') idProvincia: string) {
+  getDistritosByProvincias(@Param('id') idProvincia: string) {
     return this.entidadesService.getDistritosByProvincia(idProvincia);
   }
 }

@@ -21,6 +21,7 @@ export class EntidadesService implements OnModuleInit {
     @InjectRepository(DistritoEntity)
     private distritoRepository: Repository<DistritoEntity>,
   ) {}
+
   async onModuleInit() {
     const count = await this.departamentoRepository.count();
 
@@ -48,6 +49,41 @@ export class EntidadesService implements OnModuleInit {
     } catch (e) {
       throw new HttpException(
         `Error al listar los departamentos.`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  async getProvincias() {
+    try {
+      const provincias = await this.provinciaRepository.find();
+
+      return provincias.map((a) => {
+        return {
+          ...a,
+          provincia: a.provincia.toUpperCase(),
+        };
+      });
+    } catch (e) {
+      throw new HttpException(
+        `Error al listar las provincias.`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  async getDistritos() {
+    try {
+      const distritos = await this.distritoRepository.find();
+      return distritos.map((a) => {
+        return {
+          ...a,
+          distrito: a.distrito.toUpperCase(),
+        };
+      });
+    } catch (e) {
+      throw new HttpException(
+        `Error al listar las distritos.`,
         HttpStatus.BAD_REQUEST,
       );
     }

@@ -11,7 +11,12 @@ import { EmpresaEntity } from '../entities/empresa.entity';
 import * as fs from 'fs';
 import path from 'path';
 import { QueryToken } from 'src/auth/dto/queryToken';
-import { ROL_PRINCIPAL } from 'src/lib/const/consts';
+import {
+  DEPARTAMENTOS,
+  DISTRITOS,
+  PROVINCIAS,
+  ROL_PRINCIPAL,
+} from 'src/lib/const/consts';
 import { UserService } from 'src/user/services/user.service';
 import { EmpresaSimpleDTO } from '../dto/queryEmpresas.dto';
 import { TipodocsService } from 'src/tipodocs/services/tipodocs.service';
@@ -51,42 +56,11 @@ export class EmpresaService {
       );
     }
 
-    const pathDirLog = `public/${body.data.ruc}/IMAGES/LOGO`;
-
-    const existDirLogo = fs.existsSync(pathDirLog);
-    //Si existe directorio de logo segun el ruc accedemos
-    if (existDirLogo) {
-      //Eliminamos los archivos que existan, solo debe tener un logo cada ruc
-      const findLogos = fs.readdirSync(pathDirLog);
-      if (findLogos.length > 0) {
-        findLogos.map((a) => {
-          fs.unlinkSync(`${pathDirLog}/${a}`);
-        });
-      }
-    }
-
-    //Una vez eliminado un logo existente o si no existe directorio, crearemos un logo siempre y cuando exista un file logo
-    if (body.files?.logo) {
-      this.guardarArchivo(
-        pathDirLog,
-        body.files.logo.originalname,
-        body.files.logo.buffer,
-        true,
-      );
-    }
-
-    let fileName_cert_timestamp = '';
-    //Creamos certificado si existe
-    if (body.files?.certificado) {
-      const currentDate = new Date(); // Obtiene la fecha y hora actual en la zona horaria del servidor
-      const formattedDate = currentDate.getTime();
-      fileName_cert_timestamp = `${formattedDate}_${body.files.certificado.originalname}`;
-
-      this.guardarArchivo(
-        `uploads/certificado_digital/produccion/${body.data.ruc}`,
-        fileName_cert_timestamp,
-        body.files.certificado.buffer,
-        true,
+    //modo 1 = produccion
+    if (body.data.modo === 1 && !body.files?.certificado) {
+      throw new HttpException(
+        'En modo producción la empresa debe contener un certificado digital válido.',
+        HttpStatus.BAD_REQUEST,
       );
     }
 
@@ -102,47 +76,92 @@ export class EmpresaService {
       );
     }
 
-    const createEmpresa = this.empresaRepository.create({
-      ...body.data,
-      logo: body.files?.logo
-        ? body.files.logo.originalname
-        : 'logo_default.png', //file logo empresa
-      usuario: userMYSQL,
-      web_service:
-        body.data.modo === 0 //0 = beta
-          ? 'https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService'
-          : body.data.ose_enabled
-          ? body.data.web_service
-          : 'https://e-factura.sunat.gob.pe/ol-ti-itcpfegem/billService', //1 = url produccion
-      cert: body.files?.certificado
-        ? fileName_cert_timestamp
-        : 'certificado_beta.pfx', //file certificado
-      fieldname_cert: body.files?.certificado
-        ? body.files.certificado.originalname.substring(
-            0,
-            body.files.certificado.originalname.lastIndexOf('.'), //obtenermos el nombre del certificado
-          )
-        : 'certificado_beta',
-      cert_password: body.data.modo === 0 ? '123456' : body.data.cert_password,
-      usu_secundario_user:
-        body.data.modo === 0
-          ? '20000000001MODDATOS'
-          : body.data.usu_secundario_user,
-      usu_secundario_password:
-        body.data.modo === 0 ? 'moddatos' : body.data.usu_secundario_password,
-      ose_enabled: body.data.ose_enabled,
-      usu_secundario_ose_user: body.data.ose_enabled
-        ? body.data.usu_secundario_ose_user
-        : '',
-      usu_secundario_ose_password: body.data.ose_enabled
-        ? body.data.usu_secundario_ose_password
-        : '',
-    });
-
     try {
       const result = await this.dataSource.transaction(
         async (entityManager) => {
+          //Creamos carpeta Logo
+          const pathDirLog = `public/${body.data.ruc}/IMAGES/LOGO`;
+          const existDirLogo = fs.existsSync(pathDirLog);
+
+          if (existDirLogo) {
+            //Eliminamos los archivos que existan, solo debe tener un logo cada ruc
+            const findLogos = fs.readdirSync(pathDirLog);
+            if (findLogos.length > 0) {
+              findLogos.map((a) => {
+                fs.unlinkSync(`${pathDirLog}/${a}`);
+              });
+            }
+          }
+
+          //Una vez eliminado un logo existente o si no existe directorio, crearemos un logo siempre y cuando exista un file logo
+          if (body.files?.logo) {
+            this.guardarArchivo(
+              pathDirLog,
+              body.files.logo.originalname,
+              body.files.logo.buffer,
+              true,
+            );
+          }
+          //Fin crear logo
+
+          //Crear carpeta certificado
+          let fileName_cert_timestamp = '';
+          if (body.data.modo === 1 && body.files?.certificado) {
+            const currentDate = new Date(); // Obtiene la fecha y hora actual en la zona horaria del servidor
+            const formattedDate = currentDate.getTime();
+            fileName_cert_timestamp = `${formattedDate}_${body.files.certificado.originalname}`;
+
+            this.guardarArchivo(
+              `uploads/certificado_digital/produccion/${body.data.ruc}`,
+              fileName_cert_timestamp,
+              body.files.certificado.buffer,
+              true,
+            );
+          }
+          //Fin crear certificado
+
           //Creamos empresa
+          const createEmpresa = this.empresaRepository.create({
+            ...body.data,
+            logo: body.files?.logo
+              ? body.files.logo.originalname
+              : 'logo_default.png', //file logo empresa
+            usuario: userMYSQL,
+            web_service:
+              body.data.modo === 0 //0 = beta
+                ? 'https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService'
+                : body.data.ose_enabled
+                ? body.data.web_service
+                : 'https://e-factura.sunat.gob.pe/ol-ti-itcpfegem/billService', //1 = url produccion
+            cert: body.files?.certificado
+              ? fileName_cert_timestamp
+              : 'certificado_beta.pfx', //file certificado
+            fieldname_cert: body.files?.certificado
+              ? body.files.certificado.originalname.substring(
+                  0,
+                  body.files.certificado.originalname.lastIndexOf('.'), //obtenermos el nombre del certificado
+                )
+              : 'certificado_beta',
+            cert_password:
+              body.data.modo === 0 ? '123456' : body.data.cert_password,
+            usu_secundario_user:
+              body.data.modo === 0
+                ? '20000000001MODDATOS'
+                : body.data.usu_secundario_user,
+            usu_secundario_password:
+              body.data.modo === 0
+                ? 'moddatos'
+                : body.data.usu_secundario_password,
+            ose_enabled: body.data.ose_enabled,
+            usu_secundario_ose_user: body.data.ose_enabled
+              ? body.data.usu_secundario_ose_user
+              : '',
+            usu_secundario_ose_password: body.data.ose_enabled
+              ? body.data.usu_secundario_ose_password
+              : '',
+          });
+
+          //Guardar empresa
           const empresa = await entityManager.save(
             EmpresaEntity,
             createEmpresa,
@@ -167,7 +186,7 @@ export class EmpresaService {
           }
 
           const objResult: EmpresaSimpleDTO = {
-            id_empresa: empresa.id,
+            id: empresa.id,
             usuario: {
               nombres: empresa.usuario.nombres,
               apellidos: empresa.usuario.apellidos,
@@ -183,6 +202,9 @@ export class EmpresaService {
             sunat_pass: empresa.usu_secundario_password,
             ose_usu: empresa.usu_secundario_ose_user,
             ose_pass: empresa.usu_secundario_ose_password,
+            logo: empresa.logo,
+            direccion: empresa.domicilio_fiscal,
+            ubigeo: empresa.ubigeo,
             status: empresa.estado,
           };
 
@@ -194,15 +216,15 @@ export class EmpresaService {
       await this.establecimientoService.createEstablecimiento({
         data: {
           codigo: '0000',
-          denominacion: createEmpresa.nombre_comercial,
-          departamento: '',
-          provincia: '',
-          distrito: '',
-          direccion: createEmpresa.domicilio_fiscal,
-          ubigeo: createEmpresa.ubigeo,
-          empresa: createEmpresa.id,
+          denominacion: result.razon_social,
+          departamento: (body.data as any).departamento.label,
+          provincia: (body.data as any).provincia.label,
+          distrito: (body.data as any).distrito.label,
+          direccion: result.direccion,
+          ubigeo: result.ubigeo,
+          empresa: result.id,
         },
-        files: createEmpresa.logo,
+        files: result.logo,
       });
 
       return result;
@@ -267,7 +289,7 @@ export class EmpresaService {
     if (front) {
       const queryEmpresa: EmpresaSimpleDTO[] = empresas.map((a) => {
         return {
-          id_empresa: a.id,
+          id: a.id,
           usuario: {
             nombres: a.usuario.nombres,
             apellidos: a.usuario.apellidos,
@@ -337,6 +359,7 @@ export class EmpresaService {
             tipodoc: true,
             series: true,
           },
+          establecimientos: true,
         },
         where: {
           id: idEmpresa,
@@ -383,6 +406,41 @@ export class EmpresaService {
             return {
               id: a.id,
               nombre: a.tipodoc.tipo_documento,
+            };
+          }),
+          establecimientos: empresa.establecimientos.map((a) => {
+            const departamento = DEPARTAMENTOS.find(
+              (b) => b.departamento.toUpperCase() === a.departamento,
+            );
+            const provincia = PROVINCIAS.find(
+              (c) => c.provincia.toUpperCase() === a.provincia,
+            );
+            const distrito = DISTRITOS.find(
+              (d) => d.distrito.toUpperCase() === a.distrito,
+            );
+            return {
+              codigo: a.codigo,
+              denominacion: a.denominacion,
+              departamento: {
+                value: departamento.id,
+                label: departamento.departamento.toUpperCase(),
+              },
+              provincia: {
+                value: provincia.id,
+                label: provincia.provincia.toUpperCase(),
+              },
+              distrito: {
+                value: distrito.id,
+                label: distrito.distrito.toUpperCase(),
+              },
+              direccion: a.direccion,
+              logo: [
+                {
+                  name: a.logo,
+                },
+              ],
+              ubigeo: a.ubigeo,
+              status: a.estado,
             };
           }),
         };
