@@ -39,4 +39,7 @@ export class EstablecimientoEntity {
   @ManyToOne(() => EmpresaEntity, (emp) => emp.establecimientos)
   @JoinColumn({ name: 'empresa_id' })
   empresa: EmpresaEntity;
+
+  @Column({ default: true })
+  estado?: boolean;
 }
