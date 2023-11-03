@@ -8,6 +8,7 @@ import {
   Res,
   UseGuards,
   Put,
+  Patch,
 } from '@nestjs/common';
 import { TipodocsEmpresaService } from '../services/tipodocs_empresa.service';
 import PermissionGuard from 'src/lib/guards/resources.guard';
@@ -51,6 +52,26 @@ export class TipodocsEmpresaController {
     const response = await this.tipodocsEmpService.updateDocument(id, update);
     return res.status(HttpStatus.OK).json({
       message: 'El documento ha sido actualizado éxitosamente.',
+      response,
+    });
+  }
+
+  @Patch('/disable/:id')
+  @UseGuards(PermissionGuard(Permission.CreateEmpresas))
+  async desactDocument(@Res() res, @Param('id') id: number) {
+    const response = await this.tipodocsEmpService.desactivateDocument(id);
+    return res.status(HttpStatus.OK).json({
+      message: 'El documento ha sido desactivado correctamente.',
+      response,
+    });
+  }
+
+  @Patch('/enable/:id')
+  @UseGuards(PermissionGuard(Permission.CreateEmpresas))
+  async activDocument(@Res() res, @Param('id') id: number) {
+    const response = await this.tipodocsEmpService.activateDocument(id);
+    return res.status(HttpStatus.OK).json({
+      message: 'El documento ha sido activado correctamente.',
       response,
     });
   }

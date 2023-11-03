@@ -461,7 +461,7 @@ export const RECURSOS_DEFECTOS = [
     name: 'Vizualizar data de permisos', //add
     key: 'canGet_permisos',
     description:
-      'Te permite ver el description o data de un permiso en especifico.',
+      'Te permite ver la description o data de un permiso en especifico.',
     group_resource: CATEGORIA_4,
     status: false,
   }, //FIN PERMISOS
@@ -535,6 +535,12 @@ export const RECURSOS_DEFECTOS = [
     group_resource: CATEGORIA_6,
   },
   {
+    name: 'Editar Empresa', //add
+    key: 'canUpdate_empresas',
+    description: 'Te permite editar empresas.',
+    group_resource: CATEGORIA_6,
+  },
+  {
     name: 'Asignar Empresa', //add
     key: 'canAssign_empresa',
     description: 'Te permite asginar empresas a usuarios.',
@@ -556,6 +562,12 @@ export const RECURSOS_DEFECTOS = [
     name: 'Leer Empresas', //add
     key: 'canRead_empresas',
     description: 'Te permite listar todas las empresas.',
+    group_resource: CATEGORIA_6,
+  },
+  {
+    name: 'Vizualizar data de empresa', //add
+    key: 'canGet_empresas',
+    description: 'Te permite ver la data de una empresa en especifico.',
     group_resource: CATEGORIA_6,
   },
   //SUCURSALES

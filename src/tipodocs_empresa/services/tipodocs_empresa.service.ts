@@ -149,6 +149,46 @@ export class TipodocsEmpresaService {
     // }
   }
 
+  async activateDocument(idDocument: number) {
+    try {
+      const res = await this.documentRepository
+        .createQueryBuilder()
+        .update(TipodocsEmpresaEntity)
+        .set({
+          estado: true,
+        })
+        .where('id =:id', { id: idDocument })
+        .execute();
+
+      return res;
+    } catch (e) {
+      throw new HttpException(
+        'Error al activar el documento de la empresa TipodocsEmpresaService.desactivateDocument.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  async desactivateDocument(idDocument: number) {
+    try {
+      const res = await this.documentRepository
+        .createQueryBuilder()
+        .update(TipodocsEmpresaEntity)
+        .set({
+          estado: false,
+        })
+        .where('id =:id', { id: idDocument })
+        .execute();
+
+      return res;
+    } catch (e) {
+      throw new HttpException(
+        'Error al desactivar el documento de la empresa TipodocsEmpresaService.desactivateDocument.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
   async findOneDocumentByEmpresa(idDocumento: number) {
     let tipoDocumento: TipodocsEmpresaEntity;
 

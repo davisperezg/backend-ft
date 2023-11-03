@@ -28,8 +28,19 @@ lerna-debug.log*
 
 # IDE - VSCode
 .vscode
-.vscode/* 
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
+.vscode/*
+.vscode/settings.json
+
+# Ignorar todas las carpetas dentro de "public"
+/public/*/
+
+# Excepto la carpeta
+!/public/default/
+!/public/fonts/
+
+# Ignorar carpetas
+/uploads/certificado_digital/produccion/
+/xml/
+
+# Excepto la carpeta prueba
+!/uploads/certificado_digital/prueba/

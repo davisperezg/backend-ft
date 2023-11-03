@@ -16,4 +16,6 @@ export class EmpresaSimpleDTO {
   logo?: string;
   direccion?: string;
   ubigeo?: string;
+  documentos?: any[];
+  establecimientos?: any[];
 }

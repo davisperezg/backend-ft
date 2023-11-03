@@ -32,15 +32,68 @@ export class EstablecimientoService {
 
     const createObj = this.establecimientoRepository.create({
       ...body.data,
+      estado: body.data.status,
       logo: body.files,
       empresa,
     });
 
     try {
-      await this.establecimientoRepository.save(createObj);
+      return await this.establecimientoRepository.save(createObj);
     } catch (e) {
       throw new HttpException(
         'Error al intentar crear establecimiento EstablecimientoService.save.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+  }
+
+  async editEstablecimiento(
+    id: number,
+    body: {
+      data: EstablecimientoCreateDto;
+      files: any;
+    },
+  ) {
+    const empresa = (await this.empresaService.findOneEmpresaByIdx(
+      body.data.empresa,
+      true,
+    )) as EmpresaEntity;
+
+    try {
+      const establecimiento = await this.establecimientoRepository.findOne({
+        where: {
+          id,
+        },
+      });
+
+      const createObj = this.establecimientoRepository.merge(establecimiento, {
+        ...body.data,
+        estado: body.data.status,
+        logo: body.files,
+        empresa,
+      });
+
+      return await this.establecimientoRepository.save(createObj);
+    } catch (e) {
+      throw new HttpException(
+        'Error al intentar crear establecimiento EstablecimientoService.editEstablecimiento.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+  }
+
+  async findEstablecimientoById(id: number) {
+    try {
+      const establecimiento = await this.establecimientoRepository.findOne({
+        where: {
+          id,
+        },
+      });
+
+      return establecimiento;
+    } catch (e) {
+      throw new HttpException(
+        'Error al intentar obtener establecimiento EstablecimientoService.findEstablecimientoById.',
         HttpStatus.NOT_FOUND,
       );
     }

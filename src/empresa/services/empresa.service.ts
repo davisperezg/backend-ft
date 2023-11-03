@@ -23,6 +23,9 @@ import { TipodocsService } from 'src/tipodocs/services/tipodocs.service';
 import { TipodocsEmpresaEntity } from 'src/tipodocs_empresa/entities/tipodocs_empresa.entity';
 import { CreateEmpresaDTO } from '../dto/create-empresa.dto';
 import { EstablecimientoService } from 'src/establecimiento/services/establecimiento.service';
+import { Request } from 'express';
+import { UpdateEmpresaDTO } from '../dto/update-empresa.dto';
+import { EstablecimientoEntity } from 'src/establecimiento/entities/establecimiento.entity';
 
 @Injectable()
 export class EmpresaService {
@@ -34,6 +37,8 @@ export class EmpresaService {
     private tipodocService: TipodocsService,
     @InjectRepository(TipodocsEmpresaEntity)
     private documentRepository: Repository<TipodocsEmpresaEntity>,
+    @InjectRepository(EstablecimientoEntity)
+    private establecimientoRepository: Repository<EstablecimientoEntity>,
     private dataSource: DataSource,
     private establecimientoService: EstablecimientoService,
   ) {}
@@ -56,7 +61,7 @@ export class EmpresaService {
       );
     }
 
-    //modo 1 = produccion
+    //modo 1 = producción
     if (body.data.modo === 1 && !body.files?.certificado) {
       throw new HttpException(
         'En modo producción la empresa debe contener un certificado digital válido.',
@@ -79,46 +84,11 @@ export class EmpresaService {
     try {
       const result = await this.dataSource.transaction(
         async (entityManager) => {
-          //Creamos carpeta Logo
-          const pathDirLog = `public/${body.data.ruc}/IMAGES/LOGO`;
-          const existDirLogo = fs.existsSync(pathDirLog);
-
-          if (existDirLogo) {
-            //Eliminamos los archivos que existan, solo debe tener un logo cada ruc
-            const findLogos = fs.readdirSync(pathDirLog);
-            if (findLogos.length > 0) {
-              findLogos.map((a) => {
-                fs.unlinkSync(`${pathDirLog}/${a}`);
-              });
-            }
-          }
-
-          //Una vez eliminado un logo existente o si no existe directorio, crearemos un logo siempre y cuando exista un file logo
-          if (body.files?.logo) {
-            this.guardarArchivo(
-              pathDirLog,
-              body.files.logo.originalname,
-              body.files.logo.buffer,
-              true,
-            );
-          }
-          //Fin crear logo
-
-          //Crear carpeta certificado
-          let fileName_cert_timestamp = '';
-          if (body.data.modo === 1 && body.files?.certificado) {
-            const currentDate = new Date(); // Obtiene la fecha y hora actual en la zona horaria del servidor
-            const formattedDate = currentDate.getTime();
-            fileName_cert_timestamp = `${formattedDate}_${body.files.certificado.originalname}`;
-
-            this.guardarArchivo(
-              `uploads/certificado_digital/produccion/${body.data.ruc}`,
-              fileName_cert_timestamp,
-              body.files.certificado.buffer,
-              true,
-            );
-          }
-          //Fin crear certificado
+          const fileName_cert_timestamp = this.crearCert(
+            body.data.ruc,
+            body.data.modo,
+            body.files.certificado,
+          );
 
           //Creamos empresa
           const createEmpresa = this.empresaRepository.create({
@@ -152,7 +122,6 @@ export class EmpresaService {
               body.data.modo === 0
                 ? 'moddatos'
                 : body.data.usu_secundario_password,
-            ose_enabled: body.data.ose_enabled,
             usu_secundario_ose_user: body.data.ose_enabled
               ? body.data.usu_secundario_ose_user
               : '',
@@ -166,6 +135,15 @@ export class EmpresaService {
             EmpresaEntity,
             createEmpresa,
           );
+
+          /**
+           * Se guardara el logo con su directorio principal de la empresa y tambien
+           * se creara el mismo logo para el establecimiento por defecto(0000)
+           */
+          if (body.files.logo) {
+            this.crearLogo(body.data.ruc, body.files.logo);
+            this.crearLogo(empresa.ruc, body.files.logo, `0000/IMAGES/LOGO`);
+          }
 
           //Si tiene documentos el body ingresamos para agregar y crear documentos
           for (let index = 0; index < body.data.documentos.length; index++) {
@@ -195,7 +173,7 @@ export class EmpresaService {
             },
             ruc: empresa.ruc,
             razon_social: empresa.razon_social,
-            modo: empresa.modo === 0 ? 'DESARROLLO' : 'PRODUCCION',
+            modo: empresa.modo === 0 ? 'BETA' : 'PRODUCCION',
             ose: empresa.ose_enabled ? 'SI' : 'NO',
             web_service: empresa.web_service,
             sunat_usu: empresa.usu_secundario_user,
@@ -237,12 +215,288 @@ export class EmpresaService {
     }
   }
 
+  //: Promise<EmpresaSimpleDTO>
+  async updateEmpresa(
+    id: number,
+    body: {
+      data: UpdateEmpresaDTO;
+      files: any;
+    },
+  ) {
+    const empresa = await this.empresaRepository.findOne({
+      relations: {
+        establecimientos: {
+          empresa: true,
+        },
+        usuario: true,
+        tipodoc_empresa: {
+          tipodoc: true,
+        },
+      },
+      where: {
+        id,
+      },
+    });
+
+    if (!empresa)
+      throw new HttpException('La empresa no existe.', HttpStatus.BAD_REQUEST);
+
+    //modo 1 = producción
+    if (empresa.modo === 1 && body.data.modo === 0)
+      throw new HttpException(
+        'La empresa no puede pasar a BETA una vez estado en PRODUCCIÓN.',
+        HttpStatus.BAD_REQUEST,
+      );
+
+    if (
+      body.data.modo === 1 &&
+      !body.files?.certificado &&
+      empresa.fieldname_cert === 'certificado_beta' &&
+      empresa.cert === 'certificado_beta.pfx'
+    )
+      throw new HttpException(
+        'En modo PRODUCCIÓN la empresa debe contener un certificado digital válido.',
+        HttpStatus.BAD_REQUEST,
+      );
+
+    if (!this.validarRutaCert(empresa.ruc, empresa.cert) && empresa.modo === 1)
+      throw new HttpException(
+        'No se encuentra el certificado de la empresa en su directorio actual. Por favor consulte con el soporte técnico.',
+        HttpStatus.BAD_REQUEST,
+      );
+
+    try {
+      const result = await this.dataSource.transaction(
+        async (entityManager) => {
+          const fileName_cert_timestamp = this.crearCert(
+            empresa.ruc,
+            body.data.modo,
+            body.files.certificado,
+          );
+
+          this.empresaRepository.merge(empresa, {
+            ...body.data,
+            logo: body.files?.logo
+              ? body.files.logo.originalname
+              : empresa.logo,
+            web_service:
+              body.data.modo === 0 //0 = beta
+                ? 'https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService'
+                : body.data.ose_enabled
+                ? body.data.web_service
+                : 'https://e-factura.sunat.gob.pe/ol-ti-itcpfegem/billService',
+            cert: body.files?.certificado
+              ? fileName_cert_timestamp
+              : empresa.cert,
+            fieldname_cert: body.files?.certificado
+              ? body.files.certificado.originalname.substring(
+                  0,
+                  body.files.certificado.originalname.lastIndexOf('.'), //obtenermos el nombre del certificado
+                )
+              : empresa.fieldname_cert,
+            establecimientos:
+              body.data.establecimientos.length > 0
+                ? body.data.establecimientos
+                : empresa.establecimientos,
+          });
+
+          const newEmpresa = await entityManager.save(EmpresaEntity, empresa);
+
+          /**
+           * Al modificar el logo principal se actualizara el directorio principal,
+           * el filename registro del establecimiento 0000 y el directorio de
+           * la sucursal 0000.
+           */
+          if (body.files.logo) {
+            await this.establecimientoRepository.update(
+              {
+                codigo: '0000',
+              },
+              { logo: newEmpresa.logo },
+            );
+            this.crearLogo(empresa.ruc, body.files.logo);
+            this.crearLogo(empresa.ruc, body.files.logo, `0000/IMAGES/LOGO`);
+          }
+
+          //Si tiene documentos nuevos el body ingresamos para agregar y crear documentos
+          for (let index = 0; index < body.data.documentos.length; index++) {
+            const inputDocumento = body.data.documentos[index];
+
+            if (inputDocumento.new) {
+              const tipoDocumento =
+                await this.tipodocService.findOneTipoDocById(inputDocumento.id);
+
+              const createDocumento = entityManager.create(
+                TipodocsEmpresaEntity,
+                {
+                  tipodoc: tipoDocumento,
+                  empresa: newEmpresa,
+                },
+              );
+
+              const documentoExiste = await this.documentRepository.findOne({
+                where: {
+                  tipodoc: {
+                    id: inputDocumento.id,
+                  },
+                },
+              });
+
+              if (documentoExiste) {
+                throw new HttpException(
+                  `El documento "${inputDocumento.nombre}" ya existe para la empresa.`,
+                  HttpStatus.NOT_ACCEPTABLE,
+                );
+              }
+
+              if (tipoDocumento && tipoDocumento.estado) {
+                await entityManager.save(
+                  TipodocsEmpresaEntity,
+                  createDocumento,
+                );
+              } else {
+                throw new HttpException(
+                  `El documento "${inputDocumento.nombre}" no existe o está inactivo.`,
+                  HttpStatus.NOT_ACCEPTABLE,
+                );
+              }
+            }
+          }
+
+          /**
+           *Recorre todos los archivos binarios con el name "establecimientos" donde
+            creara los directorios con sus respectivos logos y guardara los ids de los
+            establecimientos ya existentes.
+           */
+          const idsField: number[] = [];
+          const fileEstablecimiento = body.files.establecimientos;
+          for (
+            let index = 0;
+            fileEstablecimiento && index < body.files.establecimientos.length;
+            index++
+          ) {
+            const fileEstablecimiento = body.files.establecimientos[index];
+            const originalname = fileEstablecimiento.originalname;
+            const partes = originalname.split(/[:,]/);
+            const attribID = String(partes[4]);
+            const codigoFile = String(partes[1]);
+            const nameFile = partes[3];
+            const objBuffer = {
+              ...fileEstablecimiento,
+              originalname: nameFile,
+            };
+
+            this.crearLogo(empresa.ruc, objBuffer, `${codigoFile}/IMAGES/LOGO`);
+
+            if (attribID === 'id') {
+              idsField.push(Number(partes[5]));
+            }
+          }
+
+          //Si tiene establecimientos el body ingresamos para agregar y crear
+          for (
+            let index = 0;
+            index < body.data.establecimientos.length;
+            index++
+          ) {
+            const establecimiento = body.data.establecimientos[index];
+
+            //Modificamos la data del establecimiento
+            if (establecimiento.id) {
+              const findEstablecimiento =
+                await this.establecimientoService.findEstablecimientoById(
+                  establecimiento.id,
+                );
+
+              await this.establecimientoService.editEstablecimiento(
+                findEstablecimiento.id,
+                {
+                  data: {
+                    codigo: establecimiento.codigo,
+                    denominacion: establecimiento.denominacion,
+                    departamento: establecimiento.departamento.label,
+                    provincia: establecimiento.provincia.label,
+                    distrito: establecimiento.distrito.label,
+                    direccion: establecimiento.direccion,
+                    ubigeo: establecimiento.ubigeo,
+                    empresa: newEmpresa.id,
+                    status: establecimiento.status,
+                  },
+                  files:
+                    idsField.includes(establecimiento.id) && fileEstablecimiento
+                      ? establecimiento.logo
+                      : findEstablecimiento.logo,
+                },
+              );
+            } else {
+              const createObjEst = this.establecimientoRepository.create({
+                codigo: establecimiento.codigo,
+                denominacion: establecimiento.denominacion,
+                departamento: establecimiento.departamento.label,
+                provincia: establecimiento.provincia.label,
+                distrito: establecimiento.distrito.label,
+                direccion: establecimiento.direccion,
+                ubigeo: establecimiento.ubigeo,
+                empresa: newEmpresa,
+                estado: establecimiento.status,
+                logo:
+                  fileEstablecimiento && establecimiento.logo
+                    ? establecimiento.logo
+                    : 'logo_default.png',
+              });
+
+              await entityManager.save(EstablecimientoEntity, createObjEst);
+            }
+          }
+
+          const objResult: EmpresaSimpleDTO = {
+            id: newEmpresa.id,
+            usuario: {
+              nombres: empresa.usuario.nombres,
+              apellidos: empresa.usuario.apellidos,
+              nombre_completo:
+                empresa.usuario.nombres + ' ' + empresa.usuario.apellidos,
+            },
+            ruc: newEmpresa.ruc,
+            razon_social: newEmpresa.razon_social,
+            modo: newEmpresa.modo === 0 ? 'BETA' : 'PRODUCCION',
+            ose: newEmpresa.ose_enabled ? 'SI' : 'NO',
+            web_service: newEmpresa.web_service,
+            sunat_usu: newEmpresa.usu_secundario_user,
+            sunat_pass: newEmpresa.usu_secundario_password,
+            ose_usu: newEmpresa.usu_secundario_ose_user,
+            ose_pass: newEmpresa.usu_secundario_ose_password,
+            logo: newEmpresa.logo,
+            direccion: newEmpresa.domicilio_fiscal,
+            ubigeo: newEmpresa.ubigeo,
+            status: newEmpresa.estado,
+            documentos: empresa.tipodoc_empresa.map((a) => {
+              return {
+                id: a.id,
+                nombre: a.tipodoc.tipo_documento,
+              };
+            }),
+          };
+
+          return objResult;
+        },
+      );
+
+      return result;
+    } catch (e) {
+      throw new HttpException(
+        `Error al intentar actualizar empresa EmpresaService.update. ${e.response}`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
   async listEmpresas(
     userToken: QueryToken,
     front = true,
   ): Promise<EmpresaSimpleDTO[] | EmpresaEntity[]> {
     const { tokenEntityFull } = userToken;
-    console.log('EMPRESA - Id de user', tokenEntityFull._id);
+
     let empresas: EmpresaEntity[] = [];
 
     if (tokenEntityFull.role.name === ROL_PRINCIPAL) {
@@ -297,7 +551,7 @@ export class EmpresaService {
           },
           ruc: a.ruc,
           razon_social: a.razon_social,
-          modo: a.modo === 0 ? 'DESARROLLO' : 'PRODUCCION',
+          modo: a.modo === 0 ? 'BETA' : 'PRODUCCION',
           ose: a.ose_enabled ? 'SI' : 'NO',
           web_service: a.web_service,
           sunat_usu: a.usu_secundario_user,
@@ -348,7 +602,11 @@ export class EmpresaService {
     return estado;
   }
 
-  async findOneEmpresaByIdx(idEmpresa: number, internal = false) {
+  async findOneEmpresaByIdx(
+    idEmpresa: number,
+    internal = false,
+    req?: Request,
+  ) {
     let empresa: EmpresaEntity;
 
     try {
@@ -394,6 +652,14 @@ export class EmpresaService {
           logo: [
             {
               name: empresa.logo,
+              src:
+                empresa.logo === 'logo_default.png'
+                  ? `${req.protocol}://${req.get('Host')}/default/${
+                      empresa.logo
+                    }`
+                  : `${req.protocol}://${req.get('Host')}/${
+                      empresa.ruc
+                    }/IMAGES/LOGO/${empresa.logo}`,
             },
           ],
           cert: [
@@ -406,43 +672,48 @@ export class EmpresaService {
             return {
               id: a.id,
               nombre: a.tipodoc.tipo_documento,
+              estado: a.estado,
             };
           }),
-          establecimientos: empresa.establecimientos.map((a) => {
-            const departamento = DEPARTAMENTOS.find(
-              (b) => b.departamento.toUpperCase() === a.departamento,
-            );
-            const provincia = PROVINCIAS.find(
-              (c) => c.provincia.toUpperCase() === a.provincia,
-            );
-            const distrito = DISTRITOS.find(
-              (d) => d.distrito.toUpperCase() === a.distrito,
-            );
-            return {
-              codigo: a.codigo,
-              denominacion: a.denominacion,
-              departamento: {
-                value: departamento.id,
-                label: departamento.departamento.toUpperCase(),
-              },
-              provincia: {
-                value: provincia.id,
-                label: provincia.provincia.toUpperCase(),
-              },
-              distrito: {
-                value: distrito.id,
-                label: distrito.distrito.toUpperCase(),
-              },
-              direccion: a.direccion,
-              logo: [
-                {
-                  name: a.logo,
+          establecimientos: empresa.establecimientos
+            .map((a) => {
+              const departamento = DEPARTAMENTOS.find(
+                (b) => b.departamento.toUpperCase() === a.departamento,
+              );
+              const provincia = PROVINCIAS.find(
+                (c) => c.provincia.toUpperCase() === a.provincia,
+              );
+              const distrito = DISTRITOS.find(
+                (d) => d.distrito.toUpperCase() === a.distrito,
+              );
+
+              return {
+                id: a.id,
+                codigo: a.codigo,
+                denominacion: a.denominacion,
+                departamento: {
+                  value: departamento?.id || '',
+                  label: departamento?.departamento.toUpperCase() || '',
                 },
-              ],
-              ubigeo: a.ubigeo,
-              status: a.estado,
-            };
-          }),
+                provincia: {
+                  value: provincia?.id || '',
+                  label: provincia?.provincia.toUpperCase() || '',
+                },
+                distrito: {
+                  value: distrito?.id || '',
+                  label: distrito?.distrito.toUpperCase() || '',
+                },
+                direccion: a.direccion,
+                logo: [
+                  {
+                    name: a.logo,
+                  },
+                ],
+                ubigeo: a.ubigeo,
+                status: a.estado,
+              };
+            })
+            .filter((b) => b.codigo !== '0000'),
         };
 
     return result;
@@ -477,6 +748,76 @@ export class EmpresaService {
         id: idEmpresa,
       },
     });
+  }
+
+  crearLogo(ruc: string, logo: any, establecimiento?: string) {
+    //Creamos carpeta Logo
+    let pathDirLog = '';
+
+    if (establecimiento) {
+      pathDirLog = `public/${ruc}/IMAGES/LOGO/establecimientos/${establecimiento}`;
+    } else {
+      pathDirLog = `public/${ruc}/IMAGES/LOGO`;
+    }
+
+    const existDirLogo = fs.existsSync(pathDirLog);
+
+    if (existDirLogo && logo) {
+      //Eliminamos los archivos que existan, solo debe tener un logo cada ruc
+      const files = fs.readdirSync(pathDirLog);
+      const archivos = files
+        .map((file) => path.join(pathDirLog, file))
+        .filter((file) => fs.statSync(file).isFile());
+
+      if (archivos.length > 0) {
+        archivos.map((file) => {
+          fs.unlinkSync(file);
+        });
+      }
+      this.guardarArchivo(pathDirLog, logo.originalname, logo.buffer, true);
+    } else {
+      if (logo) {
+        this.guardarArchivo(pathDirLog, logo.originalname, logo.buffer, true);
+      }
+    }
+    //Fin crear logo
+  }
+
+  crearCert(ruc: string, modo: number, certificado: any) {
+    //Crear carpeta certificado
+    let fileName_cert_timestamp = '';
+    if (modo === 1 && certificado) {
+      const currentDate = new Date(); // Obtiene la fecha y hora actual en la zona horaria del servidor
+      const formattedDate = currentDate.getTime();
+      fileName_cert_timestamp = `${formattedDate}_${certificado.originalname}`;
+
+      this.guardarArchivo(
+        `uploads/certificado_digital/produccion/${ruc}`,
+        fileName_cert_timestamp,
+        certificado.buffer,
+        true,
+      );
+    }
+    //Fin crear certificado
+    return fileName_cert_timestamp;
+  }
+
+  validarRutaCert(ruc: string, certActual: string) {
+    const pathDirLog = `uploads/certificado_digital/produccion/${ruc}`;
+    const existDirLogo = fs.existsSync(pathDirLog);
+
+    if (existDirLogo) {
+      let existe = false;
+      const files = fs.readdirSync(pathDirLog);
+      console.log(files);
+      files.map((file) => {
+        if (file === certActual) {
+          existe = true;
+        }
+      });
+
+      return existe;
+    }
   }
 
   guardarArchivo(
