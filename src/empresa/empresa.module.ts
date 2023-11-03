@@ -7,10 +7,15 @@ import { UserModule } from 'src/user/user.module';
 import { TipodocsModule } from 'src/tipodocs/tipodocs.module';
 import { TipodocsEmpresaEntity } from 'src/tipodocs_empresa/entities/tipodocs_empresa.entity';
 import { EstablecimientoModule } from 'src/establecimiento/establecimiento.module';
+import { EstablecimientoEntity } from 'src/establecimiento/entities/establecimiento.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([EmpresaEntity, TipodocsEmpresaEntity]),
+    TypeOrmModule.forFeature([
+      EmpresaEntity,
+      TipodocsEmpresaEntity,
+      EstablecimientoEntity,
+    ]),
     forwardRef(() => UserModule),
     TipodocsModule,
     EstablecimientoModule,

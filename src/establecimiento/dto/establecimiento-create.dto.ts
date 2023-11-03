@@ -1,4 +1,10 @@
-import { IsInt, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import {
+  IsBoolean,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class EstablecimientoCreateDto {
   @IsString({
@@ -51,4 +57,7 @@ export class EstablecimientoCreateDto {
     message: 'La empresa no debe estar vacio.',
   })
   empresa: number;
+
+  @IsBoolean()
+  status?: boolean;
 }

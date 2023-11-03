@@ -237,11 +237,6 @@ export class AppService implements OnApplicationBootstrap {
         link: 'empresas',
       }).save(),
       new this.menuModel({
-        name: 'Documentos',
-        status: true,
-        link: 'documentos',
-      }).save(),
-      new this.menuModel({
         name: 'Tipo de documentos',
         status: true,
         link: 'tipo-de-documentos',
