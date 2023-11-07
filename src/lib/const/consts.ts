@@ -530,7 +530,7 @@ export const RECURSOS_DEFECTOS = [
   //EMPRESA
   {
     name: 'Crear Empresa', //add
-    key: 'canCreate_empresa',
+    key: 'canCreate_empresas',
     description: 'Te permite crear empresas.',
     group_resource: CATEGORIA_6,
   },
@@ -542,19 +542,19 @@ export const RECURSOS_DEFECTOS = [
   },
   {
     name: 'Asignar Empresa', //add
-    key: 'canAssign_empresa',
+    key: 'canAssign_empresas',
     description: 'Te permite asginar empresas a usuarios.',
     group_resource: CATEGORIA_6,
   },
   {
     name: 'Desactivar Empresa', //add
-    key: 'canDelete_empresa',
+    key: 'canDelete_empresas',
     description: 'Te permite desactivar empresa.',
     group_resource: CATEGORIA_6,
   },
   {
     name: 'Activar Empresa', //add
-    key: 'canRestore_empresa',
+    key: 'canRestore_empresas',
     description: 'Te permite activar empresa.',
     group_resource: CATEGORIA_6,
   },
