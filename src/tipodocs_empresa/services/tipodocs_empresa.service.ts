@@ -189,13 +189,23 @@ export class TipodocsEmpresaService {
     }
   }
 
-  async findOneDocumentByEmpresa(idDocumento: number) {
+  async findOneDocumentByIdAndIdEmpresa(
+    idDocumento: number,
+    idEmpresa: number,
+  ) {
     let tipoDocumento: TipodocsEmpresaEntity;
 
     try {
       tipoDocumento = await this.documentRepository.findOne({
+        relations: {
+          tipodoc: true,
+          empresa: true,
+        },
         where: {
           id: idDocumento,
+          empresa: {
+            id: idEmpresa,
+          },
         },
       });
     } catch (e) {
@@ -207,7 +217,7 @@ export class TipodocsEmpresaService {
 
     if (!tipoDocumento) {
       throw new HttpException(
-        `El documento de la empresa ID-${idDocumento} no existe.`,
+        `El documento #${idDocumento} de la empresa no existe.`,
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -215,10 +225,9 @@ export class TipodocsEmpresaService {
     return tipoDocumento;
   }
 
-  async findDocumentsOfEmpresa(idDocs: number) {
+  async findAllDocumentsById(idDocs: number) {
     return await this.documentRepository.find({
       relations: {
-        series: true,
         tipodoc: true,
         empresa: true,
       },

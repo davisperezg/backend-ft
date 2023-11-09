@@ -38,16 +38,15 @@ export class SeriesController {
   }
 
   //Add Series(POST): http://localhost:3000/api/v1/series
+  //Observar:new ParseArrayPipe({ items: SeriesCreateDto, whitelist: true })
   @Post()
   @UseGuards(PermissionGuard(Permission.CreateSeries))
   async createSerie(
     @Res() res,
-    @Body(new ParseArrayPipe({ items: SeriesCreateDto, whitelist: true }))
-    create: SeriesCreateDto[],
+    @Body()
+    create: SeriesCreateDto,
   ) {
-    //console.log(items);
-    await this.seriesService.createSeries(create);
-    const response = await this.seriesService.findSeriesByDoc(create);
+    const response = await this.seriesService.createSeries(create);
     return res.status(HttpStatus.OK).json({
       message: 'La serie ha sido creado éxitosamente.',
       response,
