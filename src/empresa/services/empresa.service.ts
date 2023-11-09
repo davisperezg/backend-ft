@@ -339,6 +339,9 @@ export class EmpresaService {
                   tipodoc: {
                     id: inputDocumento.id,
                   },
+                  empresa: {
+                    id: empresa.id,
+                  },
                 },
               });
 
