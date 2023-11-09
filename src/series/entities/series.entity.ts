@@ -1,3 +1,4 @@
+import { EstablecimientoEntity } from 'src/establecimiento/entities/establecimiento.entity';
 import { TipodocsEmpresaEntity } from 'src/tipodocs_empresa/entities/tipodocs_empresa.entity';
 import {
   Column,
@@ -22,4 +23,9 @@ export class SeriesEntity {
   @ManyToOne(() => TipodocsEmpresaEntity, (docemp) => docemp.series)
   @JoinColumn({ name: 'doc_empresa_id' })
   documento?: TipodocsEmpresaEntity;
+
+  //Referencia a tb_establecimientos
+  @ManyToOne(() => EstablecimientoEntity, (est) => est.series)
+  @JoinColumn({ name: 'establecimiento_id' })
+  establecimiento?: EstablecimientoEntity;
 }

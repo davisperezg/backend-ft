@@ -1,9 +1,11 @@
 import { EmpresaEntity } from 'src/empresa/entities/empresa.entity';
+import { SeriesEntity } from 'src/series/entities/series.entity';
 import {
   Column,
   Entity,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 
@@ -42,4 +44,8 @@ export class EstablecimientoEntity {
 
   @Column({ default: true })
   estado?: boolean;
+
+  //Referencia a tb_series
+  @OneToMany(() => SeriesEntity, (serie) => serie.establecimiento)
+  series?: SeriesEntity[];
 }

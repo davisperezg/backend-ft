@@ -1,36 +1,22 @@
-import {
-  ArrayMinSize,
-  IsArray,
-  IsInt,
-  IsNotEmpty,
-  IsString,
-  MaxLength,
-  MinLength,
-} from 'class-validator';
-
+import { IsInt, IsNotEmpty, IsObject } from 'class-validator';
+import { IsRecord } from 'src/lib/decorators/records';
 export class SeriesCreateDto {
-  @IsArray()
-  @MaxLength(4, {
-    each: true,
-    message: 'La serie debe completarse con 4 caracteres.',
+  @IsInt({
+    message: 'La empresa debe contener un valor entero y válido.',
   })
-  @MinLength(4, {
-    each: true,
-    message: 'La serie debe completarse con 4 caracteres.',
-  })
-  @IsString({
-    each: true,
-    message: 'Las series deben contener una cadena de texto.',
-  })
-  @ArrayMinSize(1, {
-    message: 'La serie debe contener minimo un valor.',
-  })
-  @IsNotEmpty({ message: 'La serie no debe estar vacio.' })
-  series: string[];
+  @IsNotEmpty({ message: 'La empresa no debe estar vacia.' })
+  empresa: number;
 
   @IsInt({
-    message: 'El documento debe contener un valor.',
+    message:
+      'El establecimiento de la empresa debe contener un valor entero y válido.',
   })
+  @IsNotEmpty({ message: 'El establecimiento no debe estar vacio.' })
+  establecimiento: number;
+
+  //@Validate(RecordValidator, [SerieDTO])
+  @IsRecord()
+  @IsObject({ message: 'El documento debe ser un objeto.' })
   @IsNotEmpty({ message: 'El documento no debe estar vacio.' })
-  documento: number;
+  documentos: Record<string, string[]>;
 }

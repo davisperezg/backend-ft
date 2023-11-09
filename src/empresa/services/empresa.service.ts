@@ -504,8 +504,14 @@ export class EmpresaService {
         empresas = await this.empresaRepository.find({
           relations: {
             usuario: true,
+            establecimientos: {
+              series: {
+                documento: {
+                  tipodoc: true,
+                },
+              },
+            },
             tipodoc_empresa: {
-              series: true,
               tipodoc: true,
             },
           },
@@ -521,8 +527,14 @@ export class EmpresaService {
         empresas = await this.empresaRepository.find({
           relations: {
             usuario: true,
+            establecimientos: {
+              series: {
+                documento: {
+                  tipodoc: true,
+                },
+              },
+            },
             tipodoc_empresa: {
-              series: true,
               tipodoc: true,
             },
           },
@@ -615,7 +627,6 @@ export class EmpresaService {
           usuario: true,
           tipodoc_empresa: {
             tipodoc: true,
-            series: true,
           },
           establecimientos: true,
         },
@@ -739,8 +750,14 @@ export class EmpresaService {
   async findDocumentsByIdEmpresa(idEmpresa: number) {
     return await this.empresaRepository.findOne({
       relations: {
+        establecimientos: {
+          series: {
+            documento: {
+              tipodoc: true,
+            },
+          },
+        },
         tipodoc_empresa: {
-          series: true,
           tipodoc: true,
         },
       },

@@ -83,19 +83,28 @@ export class EstablecimientoService {
   }
 
   async findEstablecimientoById(id: number) {
+    let establecimiento: EstablecimientoEntity;
+
     try {
-      const establecimiento = await this.establecimientoRepository.findOne({
+      establecimiento = await this.establecimientoRepository.findOne({
         where: {
           id,
         },
       });
-
-      return establecimiento;
     } catch (e) {
       throw new HttpException(
         'Error al intentar obtener establecimiento EstablecimientoService.findEstablecimientoById.',
         HttpStatus.NOT_FOUND,
       );
     }
+
+    if (!establecimiento) {
+      throw new HttpException(
+        'El establecimiento no se encuentra o no existe.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    return establecimiento;
   }
 }
