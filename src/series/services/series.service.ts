@@ -381,6 +381,142 @@ export class SeriesService {
     }
   }
 
+  async migrarSeries(body: SeriesCreateDto) {
+    const { documentos, empresa, establecimiento } = body;
+
+    //valida existencia empresa
+    const findEmpresa = await this.empresaService.findOneEmpresaByIdx(
+      empresa,
+      true,
+    );
+
+    const idsEstablecimientosEmpresa = findEmpresa.establecimientos.map(
+      (est) => est.id,
+    );
+
+    //valida existencia establecimiento
+    const findEstablecimiento =
+      await this.establecimientoService.findEstablecimientoById(
+        establecimiento,
+      );
+
+    if (!idsEstablecimientosEmpresa.includes(findEstablecimiento.id)) {
+      throw new HttpException(
+        'El establecimiento no pertece a la empresa.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const keys = Object.keys(documentos);
+
+    try {
+      await this.dataSource.transaction(async (entityManager) => {
+        for (let index = 0; index < keys.length; index++) {
+          const key = Number(keys[index]) && Number(keys[index]) !== 0;
+          //Validar las keys
+          if (key) {
+            const id = Number(keys[index]);
+            const validDoc =
+              await this.tipodocEmpresaService.findOneDocumentByIdAndIdEmpresa(
+                id,
+                findEmpresa.id,
+              );
+            if (validDoc) {
+              //Validar los values
+              const values = documentos[id];
+
+              const todosLosValoresSonUnicos = values.every(
+                (item, index, array) => array.indexOf(item) === index,
+              );
+              if (!todosLosValoresSonUnicos) {
+                throw new HttpException(
+                  `values. Existe valores repetidos.`,
+                  HttpStatus.BAD_REQUEST,
+                );
+              }
+
+              for (let index = 0; index < values.length; index++) {
+                const value = values[index].toUpperCase();
+                const abreviado = validDoc.tipodoc.abreviado;
+                const documento = validDoc.tipodoc.tipo_documento;
+                const estado = validDoc.estado;
+                /**
+                 * Si el documento de la empresa esta activo y existe
+                 * se procede a validar los abreviados con los regex para
+                 * que posteriormente sean aceptados y creados
+                 */
+                if (estado) {
+                  const regexFactura = /F[A-Z0-9]{3}/;
+                  const regexBoleta = /B[A-Z0-9]{3}/;
+                  if (abreviado === 'F' && !regexFactura.test(value)) {
+                    throw new HttpException(
+                      'regex. Serie inválida ([F]{1,1}[A-Z0-9]{3,3}).',
+                      HttpStatus.BAD_REQUEST,
+                    );
+                  }
+                  if (abreviado === 'B' && !regexBoleta.test(value)) {
+                    throw new HttpException(
+                      'regex. Serie inválida ([B]{1,1}[A-Z0-9]{3,3}).',
+                      HttpStatus.BAD_REQUEST,
+                    );
+                  }
+                  //Agregar mas patters...
+
+                  //No se puede crear series existentes
+                  const existSerie = await this.serieRepository.findOne({
+                    where: {
+                      serie: value,
+                      documento: {
+                        id: validDoc.id,
+                      },
+                    },
+                  });
+
+                  if (existSerie) {
+                    await entityManager.update(
+                      SeriesEntity,
+                      {
+                        id: existSerie.id,
+                      },
+                      {
+                        establecimiento: findEstablecimiento,
+                        serie: value,
+                        documento: validDoc,
+                      },
+                    );
+                  } else {
+                    throw new HttpException(
+                      `serie. La serie ${value} no existe, para migrar la serie debe existir.`,
+                      HttpStatus.BAD_REQUEST,
+                    );
+                  }
+
+                  // return result;
+                } else {
+                  throw new HttpException(
+                    `values. El documento ${documento} esta desactivado para la empresa o no existe.`,
+                    HttpStatus.BAD_REQUEST,
+                  );
+                }
+              }
+            }
+          } else {
+            throw new HttpException(
+              'key.id no es un numero o es 0.',
+              HttpStatus.BAD_REQUEST,
+            );
+          }
+        }
+      });
+
+      return await this.listSeriesByIdEmpresa(findEmpresa.id);
+    } catch (e) {
+      throw new HttpException(
+        `Error al intentar migrar la serie SeriesService.migrarSeries.update.${e.message}`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
   // async createSeries(data: SeriesCreateDto[]) {
   //   for (let index = 0; index < data.length; index++) {
   //     const obj = data[index];
