@@ -37,6 +37,20 @@ export class SeriesController {
     return await this.seriesService.listSeriesByIdEmpresa(id);
   }
 
+  @Post('/migrate')
+  @UseGuards(PermissionGuard(Permission.CreateSeries))
+  async migrateSerie(
+    @Res() res,
+    @Body()
+    create: SeriesCreateDto,
+  ) {
+    const response = await this.seriesService.migrarSeries(create);
+    return res.status(HttpStatus.OK).json({
+      message: 'La serie ha sido migrada éxitosamente.',
+      response,
+    });
+  }
+
   //Add Series(POST): http://localhost:3000/api/v1/series
   //Observar:new ParseArrayPipe({ items: SeriesCreateDto, whitelist: true })
   @Post()
