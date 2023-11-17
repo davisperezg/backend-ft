@@ -38,7 +38,7 @@ export class SeriesController {
   }
 
   @Post('/migrate')
-  @UseGuards(PermissionGuard(Permission.CreateSeries))
+  @UseGuards(PermissionGuard(Permission.MigrateSeries))
   async migrateSerie(
     @Res() res,
     @Body()

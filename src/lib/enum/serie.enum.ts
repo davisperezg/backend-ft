@@ -4,4 +4,5 @@ export enum SeriesPermission {
   DesactivateSeries = 'canDelete_series',
   RestoreSeries = 'canRestore_series',
   ReadSeries = 'canRead_series',
+  MigrateSeries = 'canMigrate_series',
 }

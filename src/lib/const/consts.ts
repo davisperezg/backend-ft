@@ -640,6 +640,12 @@ export const RECURSOS_DEFECTOS = [
     group_resource: CATEGORIA_9,
   },
   {
+    name: 'Migrar Series', //add
+    key: 'canMigrate_series',
+    description: 'Te permite migrar series.',
+    group_resource: CATEGORIA_9,
+  },
+  {
     name: 'Editar Series', //add
     key: 'canUpdate_series',
     description: 'Te permite actualizar series.',
