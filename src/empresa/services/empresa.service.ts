@@ -617,6 +617,27 @@ export class EmpresaService {
     return estado;
   }
 
+  async findEstablecimientosByEmpresa(idEmpresa: number) {
+    let establecimientos: EstablecimientoEntity[];
+
+    try {
+      establecimientos = await this.establecimientoRepository.find({
+        where: {
+          empresa: {
+            id: idEmpresa,
+          },
+        },
+      });
+    } catch (e) {
+      throw new HttpException(
+        'Error al obtener establecimientos EmpresaService.findEstablecimientosByEmpresa.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    return establecimientos;
+  }
+
   async findOneEmpresaByIdx(
     idEmpresa: number,
     internal = false,
