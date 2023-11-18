@@ -121,6 +121,7 @@ export class SeriesService {
 
             return acc;
           }, []),
+          status: empresa.estado,
         };
       });
 
