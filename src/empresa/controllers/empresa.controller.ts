@@ -40,6 +40,21 @@ export class EmpresaController {
     return await this.empresaService.listEmpresas(user);
   }
 
+  @Get(':id/documentos')
+  @UseGuards(PermissionGuard(Permission.CreateSeries))
+  async getDocumentosByEmpresa(@Param('id') id: number) {
+    const documentos = await this.empresaService.findDocumentsByIdEmpresa(id);
+    const response = documentos.tipodoc_empresa.map((a) => {
+      return {
+        id: a.id,
+        estado: a.estado,
+        nombre: a.tipodoc.tipo_documento,
+      };
+    });
+
+    return response;
+  }
+
   @Get(':id')
   @UseGuards(
     PermissionGuard([Permission.GetOneEmpresas, Permission.UpdateEmpresas]),
