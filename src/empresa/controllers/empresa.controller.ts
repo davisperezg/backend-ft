@@ -33,7 +33,9 @@ export class EmpresaController {
 
   //Get Empresas: http://localhost:3000/api/v1/empresas
   @Get()
-  @UseGuards(PermissionGuard(Permission.ReadEmpresas))
+  @UseGuards(
+    PermissionGuard([Permission.ReadEmpresas, Permission.CreateSeries]),
+  )
   async getEmpresas(@CtxUser() user: QueryToken) {
     return await this.empresaService.listEmpresas(user);
   }
@@ -52,6 +54,12 @@ export class EmpresaController {
       message: 'La empresa ha sido obtenida correctamente.',
       response,
     });
+  }
+
+  @Get(':id/establecimientos')
+  @UseGuards(PermissionGuard(Permission.CreateSeries))
+  async getEstablecimientos(@Param('id') id: number) {
+    return await this.empresaService.findEstablecimientosByEmpresa(id);
   }
 
   @Put(':id')
