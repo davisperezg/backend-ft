@@ -772,23 +772,34 @@ export class EmpresaService {
   }
 
   async findDocumentsByIdEmpresa(idEmpresa: number) {
-    return await this.empresaRepository.findOne({
-      relations: {
-        establecimientos: {
-          series: {
-            documento: {
-              tipodoc: true,
+    let documentos: EmpresaEntity;
+
+    try {
+      documentos = await this.empresaRepository.findOne({
+        relations: {
+          establecimientos: {
+            series: {
+              documento: {
+                tipodoc: true,
+              },
             },
           },
+          tipodoc_empresa: {
+            tipodoc: true,
+          },
         },
-        tipodoc_empresa: {
-          tipodoc: true,
+        where: {
+          id: idEmpresa,
         },
-      },
-      where: {
-        id: idEmpresa,
-      },
-    });
+      });
+    } catch (e) {
+      throw new HttpException(
+        'Error al obtener documentos EmpresaService.findDocumentsByIdEmpresa.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    return documentos;
   }
 
   crearLogo(ruc: string, logo: any, establecimiento?: string) {
