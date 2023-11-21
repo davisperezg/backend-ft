@@ -32,7 +32,7 @@ export class SeriesController {
 
   //Get Series: http://localhost:3000/api/v1/series/empresa/1
   @Get('/empresa/:id')
-  @UseGuards(PermissionGuard(Permission.ReadSeries))
+  @UseGuards(PermissionGuard([Permission.ReadSeries, Permission.CreateSeries]))
   async getSeriesByEmpresa(@Param('id') id: number) {
     return await this.seriesService.listSeriesByIdEmpresa(id);
   }
