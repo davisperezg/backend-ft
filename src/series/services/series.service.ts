@@ -125,7 +125,12 @@ export class SeriesService {
         };
       });
 
-      return items;
+      // Filtrar items para incluir solo aquellos con establecimientos con series asignadas
+      const filteredItems = items.filter(
+        (item) => item.establecimientos.length > 0,
+      );
+
+      return filteredItems;
     } catch (e) {
       throw new HttpException(
         'Error al intentar listar las series SeriesService.list.',
