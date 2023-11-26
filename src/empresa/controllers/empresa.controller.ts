@@ -256,8 +256,12 @@ export class EmpresaController {
 
   @Patch('/disable/:id')
   @UseGuards(PermissionGuard(Permission.DesactivateEmpresas))
-  async desactEmpresa(@Res() res, @Param('id') id: number) {
-    const response = await this.empresaService.desactivateEmpresa(id);
+  async desactEmpresa(
+    @Res() res,
+    @Param('id') id: number,
+    @CtxUser() user: QueryToken,
+  ) {
+    const response = await this.empresaService.desactivateEmpresa(id, user);
     return res.status(HttpStatus.OK).json({
       message: 'La empresa ha sido desactivada correctamente.',
       response,
@@ -266,8 +270,12 @@ export class EmpresaController {
 
   @Patch('/enable/:id')
   @UseGuards(PermissionGuard(Permission.RestoreEmpresas))
-  async activEmpresa(@Res() res, @Param('id') id: number) {
-    const response = await this.empresaService.activateEmpresa(id);
+  async activEmpresa(
+    @Res() res,
+    @Param('id') id: number,
+    @CtxUser() user: QueryToken,
+  ) {
+    const response = await this.empresaService.activateEmpresa(id, user);
     return res.status(HttpStatus.OK).json({
       message: 'La empresa ha sido activada correctamente.',
       response,
