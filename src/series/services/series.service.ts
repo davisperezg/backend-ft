@@ -532,6 +532,9 @@ export class SeriesService {
     let estado = false;
 
     const findSerie = await this.findOneSerieById(idSerie);
+    if (!findSerie) {
+      throw new HttpException('No se encontro la serie.', HttpStatus.NOT_FOUND);
+    }
 
     if (!findSerie.estado) {
       throw new HttpException(
@@ -593,6 +596,9 @@ export class SeriesService {
     let estado = false;
 
     const findSerie = await this.findOneSerieById(idSerie);
+    if (!findSerie) {
+      throw new HttpException('No se encontro la serie.', HttpStatus.NOT_FOUND);
+    }
 
     if (findSerie.estado) {
       throw new HttpException(
