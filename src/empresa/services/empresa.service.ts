@@ -543,7 +543,7 @@ export class EmpresaService {
           },
           where: {
             usuario: {
-              _id: tokenEntityFull._id,
+              _id: String(tokenEntityFull._id),
             },
           },
         });
