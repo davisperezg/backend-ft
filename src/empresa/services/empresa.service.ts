@@ -585,33 +585,71 @@ export class EmpresaService {
     return empresas;
   }
 
-  async desactivateEmpresa(idEmpresa: number) {
+  async desactivateEmpresa(idEmpresa: number, userToken: QueryToken) {
+    const { tokenEntityFull } = userToken;
+
     let estado = false;
 
-    try {
-      await this.empresaRepository.update(idEmpresa, { estado: false });
-      estado = true;
-    } catch (e) {
+    //Validamos existencia de la empresa y el estado actual
+    const findEmpresa = (await this.findOneEmpresaByIdx(
+      idEmpresa,
+      true,
+    )) as EmpresaEntity;
+    if (!findEmpresa.estado) {
       throw new HttpException(
-        'Error al desactivar empresa EmpresaService.desactivateEmpresa.',
+        'La empresa ya se encuentra desactivada.',
         HttpStatus.BAD_REQUEST,
       );
+    }
+
+    if (tokenEntityFull.role.name === ROL_PRINCIPAL) {
+      try {
+        await this.empresaRepository.update(idEmpresa, { estado: false });
+        estado = true;
+      } catch (e) {
+        throw new HttpException(
+          'Error al desactivar empresa EmpresaService.desactivateEmpresa.',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    } else {
+      console.log('tokenEntityFull', tokenEntityFull);
+      console.log('desactiva', findEmpresa);
     }
 
     return estado;
   }
 
-  async activateEmpresa(idEmpresa: number) {
+  async activateEmpresa(idEmpresa: number, userToken: QueryToken) {
+    const { tokenEntityFull } = userToken;
+
     let estado = false;
 
-    try {
-      await this.empresaRepository.update(idEmpresa, { estado: true });
-      estado = true;
-    } catch (e) {
+    //Validamos existencia de la empresa y el estado actual
+    const findEmpresa = (await this.findOneEmpresaByIdx(
+      idEmpresa,
+      true,
+    )) as EmpresaEntity;
+    if (!findEmpresa.estado) {
       throw new HttpException(
-        'Error al desactivar empresa EmpresaService.activateEmpresa.',
+        'La empresa ya se encuentra desactivada.',
         HttpStatus.BAD_REQUEST,
       );
+    }
+
+    if (tokenEntityFull.role.name === ROL_PRINCIPAL) {
+      try {
+        await this.empresaRepository.update(idEmpresa, { estado: true });
+        estado = true;
+      } catch (e) {
+        throw new HttpException(
+          'Error al desactivar empresa EmpresaService.activateEmpresa.',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    } else {
+      console.log('tokenEntityFull', tokenEntityFull);
+      console.log('activate', findEmpresa);
     }
 
     return estado;
