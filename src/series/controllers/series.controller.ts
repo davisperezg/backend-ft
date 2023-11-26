@@ -67,27 +67,15 @@ export class SeriesController {
     });
   }
 
-  //Update Series(PUT): http://localhost:3000/api/v1/series/1
-  @Put(':id')
-  @UseGuards(PermissionGuard(Permission.UpdateSeries))
-  async updateSerie(
-    @Res() res,
-    @Param('id') id: number,
-    @Body()
-    update: SeriesUpdateDto,
-  ) {
-    const response = await this.seriesService.updateSeries(id, update);
-    return res.status(HttpStatus.OK).json({
-      message: 'La serie ha sido actualizado éxitosamente.',
-      response,
-    });
-  }
-
   //Patch Series: http://localhost:3000/api/v1/series/disable/1
   @Patch('/disable/:id')
   @UseGuards(PermissionGuard(Permission.DesactivateSeries))
-  async desactSerie(@Res() res, @Param('id') id: number) {
-    const response = await this.seriesService.disableSeries(id);
+  async desactSerie(
+    @Res() res,
+    @Param('id') id: number,
+    @CtxUser() user: QueryToken,
+  ) {
+    const response = await this.seriesService.disableSeries(id, user);
     return res.status(HttpStatus.OK).json({
       message: 'La serie ha sido desactivado correctamente.',
       response,
@@ -97,8 +85,12 @@ export class SeriesController {
   //Patch Series: http://localhost:3000/api/v1/series/enable/1
   @Patch('/enable/:id')
   @UseGuards(PermissionGuard(Permission.RestoreSeries))
-  async activSerie(@Res() res, @Param('id') id: number) {
-    const response = await this.seriesService.enableSeries(id);
+  async activSerie(
+    @Res() res,
+    @Param('id') id: number,
+    @CtxUser() user: QueryToken,
+  ) {
+    const response = await this.seriesService.enableSeries(id, user);
     return res.status(HttpStatus.OK).json({
       message: 'La serie ha sido activada correctamente.',
       response,

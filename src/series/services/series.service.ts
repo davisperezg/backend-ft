@@ -10,6 +10,7 @@ import { QueryToken } from 'src/auth/dto/queryToken';
 import { EmpresaEntity } from 'src/empresa/entities/empresa.entity';
 import { EmpresaService } from 'src/empresa/services/empresa.service';
 import { EstablecimientoService } from 'src/establecimiento/services/establecimiento.service';
+import { ROL_PRINCIPAL } from 'src/lib/const/consts';
 
 @Injectable()
 export class SeriesService {
@@ -58,6 +59,7 @@ export class SeriesService {
 
       const items = empresas.map((empresa) => {
         return {
+          id: empresa.id,
           empresa: empresa.razon_social,
           documentosAsignados: empresa.tipodoc_empresa.length,
           documentos: empresa.tipodoc_empresa.map(
@@ -523,139 +525,123 @@ export class SeriesService {
       );
     }
   }
-  // async createSeries(data: SeriesCreateDto[]) {
-  //   for (let index = 0; index < data.length; index++) {
-  //     const obj = data[index];
-  //     const { documento, series } = obj;
-  //     //Valida id del documento de la empresa
-  //     const doc = await this.tipodocEmpresaService.findOneDocumentByEmpresa(
-  //       documento,
-  //     );
 
-  //     //Buscamos los documentos de la empresa y seteamos solo series
-  //     const seriesByDocEmpresaExists = (
-  //       await this.serieRepository.find({
-  //         where: {
-  //           documento: {
-  //             id: doc.id,
-  //           },
-  //         },
-  //       })
-  //     ).map((item) => item.serie);
+  async disableSeries(idSerie: number, userToken: QueryToken) {
+    const { tokenEntityFull } = userToken;
 
-  //     //Calculamos las series diferentes para eliminar
-  //     const calcDiffSeriesRemove = seriesByDocEmpresaExists.filter(
-  //       (item) => !series.includes(item),
-  //     );
-
-  //     //Calculamos las series diferentes para agregar
-  //     const calcDiffSeriesAppend = series.filter(
-  //       (item) => !seriesByDocEmpresaExists.includes(item),
-  //     );
-
-  //     //eliminamos
-  //     if (calcDiffSeriesRemove.length > 0) {
-  //       calcDiffSeriesRemove.map(async (serie) => {
-  //         try {
-  //           await this.serieRepository.delete({
-  //             documento: {
-  //               id: doc.id,
-  //             },
-  //             serie,
-  //           });
-  //         } catch (e) {
-  //           throw new HttpException(
-  //             'Error al intentar crear la serie SeriesService.kik.',
-  //             HttpStatus.BAD_REQUEST,
-  //           );
-  //         }
-  //       });
-  //     }
-
-  //     //Agregamos
-  //     if (calcDiffSeriesAppend.length > 0) {
-  //       calcDiffSeriesAppend.map(async (serie) => {
-  //         const objCreate = this.serieRepository.create({
-  //           documento: doc,
-  //           serie,
-  //         });
-
-  //         try {
-  //           await this.serieRepository.save(objCreate);
-  //         } catch (e) {
-  //           throw new HttpException(
-  //             'Error al intentar crear la serie SeriesService.save.',
-  //             HttpStatus.BAD_REQUEST,
-  //           );
-  //         }
-  //       });
-  //     }
-  //   }
-
-  //   await new Promise((resolve) => setTimeout(resolve, 1000));
-  // }
-
-  async updateSeries(idSerie: number, data: SeriesUpdateDto) {}
-  // async updateSeries(idSerie: number, data: SeriesUpdateDto) {
-  //   const { documento: idDocumento } = data;
-
-  //   const tipdoc = await this.serieRepository.findOne({
-  //     where: { id: idSerie },
-  //   });
-
-  //   const getDocument = await this.tipodocService.findOneTipoDocById(
-  //     idDocumento,
-  //   );
-
-  //   if (!tipdoc) {
-  //     throw new HttpException(
-  //       'La serie no se encuentra o no existe.',
-  //       HttpStatus.BAD_REQUEST,
-  //     );
-  //   }
-
-  //   this.serieRepository.merge(tipdoc, {
-  //     ...data,
-  //     documento: getDocument,
-  //   });
-
-  //   try {
-  //     return await this.serieRepository.save(tipdoc);
-  //   } catch (e) {
-  //     throw new HttpException(
-  //       'Error al intentar actualizar la serie SeriesService.update.',
-  //       HttpStatus.BAD_REQUEST,
-  //     );
-  //   }
-  // }
-
-  async disableSeries(idTipo: number) {
     let estado = false;
 
-    try {
-      await this.serieRepository.update(idTipo, { estado: false });
-      estado = true;
-    } catch (e) {
+    const findSerie = await this.findOneSerieById(idSerie);
+
+    if (!findSerie.estado) {
       throw new HttpException(
-        'Error al deshabilitar serie SeriesService.disableSerie.',
-        HttpStatus.BAD_REQUEST,
+        'No puedes deshabilitar una serie que ya esta deshabilitada.',
+        HttpStatus.NOT_FOUND,
       );
+    }
+
+    if (tokenEntityFull.role.name === ROL_PRINCIPAL) {
+      try {
+        await this.serieRepository.update(idSerie, {
+          estado: false,
+        });
+
+        estado = true;
+      } catch (e) {
+        throw new HttpException(
+          'Error al deshabilitar serie SeriesService.disableSerie.',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    } else {
+      const { empresa } = tokenEntityFull;
+      const findEmpresa = await this.empresaService.findOneEmpresaByIdx(
+        empresa.id,
+        true,
+      );
+
+      const idsEstablecimientosEmpresa = findEmpresa.establecimientos.map(
+        (est) => est.id,
+      );
+
+      if (!idsEstablecimientosEmpresa.includes(findSerie.establecimiento.id)) {
+        throw new HttpException(
+          'No puedes deshabilitar una serie que no pertece a la empresa.',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      try {
+        await this.serieRepository.update(idSerie, {
+          estado: false,
+        });
+        estado = true;
+      } catch (e) {
+        throw new HttpException(
+          'Error al deshabilitar serie SeriesService.disableSerie.',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
     }
 
     return estado;
   }
 
-  async enableSeries(idTipo: number) {
+  async enableSeries(idSerie: number, userToken: QueryToken) {
+    const { tokenEntityFull } = userToken;
+
     let estado = false;
 
-    try {
-      await this.serieRepository.update(idTipo, { estado: true });
-      estado = true;
-    } catch (e) {
+    const findSerie = await this.findOneSerieById(idSerie);
+
+    if (findSerie.estado) {
       throw new HttpException(
-        'Error al habilitar serie SeriesService.enableSerie.',
-        HttpStatus.BAD_REQUEST,
+        'No puedes habilitar una serie que ya esta habilitada.',
+        HttpStatus.NOT_FOUND,
       );
+    }
+
+    if (tokenEntityFull.role.name === ROL_PRINCIPAL) {
+      try {
+        await this.serieRepository.update(idSerie, {
+          estado: true,
+        });
+        estado = true;
+      } catch (e) {
+        throw new HttpException(
+          'Error al habilitar serie SeriesService.enableSerie.',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    } else {
+      const { empresa } = tokenEntityFull;
+      const findEmpresa = await this.empresaService.findOneEmpresaByIdx(
+        empresa.id,
+        true,
+      );
+
+      const idsEstablecimientosEmpresa = findEmpresa.establecimientos.map(
+        (est) => est.id,
+      );
+
+      if (!idsEstablecimientosEmpresa.includes(findSerie.establecimiento.id)) {
+        throw new HttpException(
+          'No puedes habilitar una serie que no pertece a la empresa.',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      try {
+        await this.serieRepository.update(idSerie, {
+          estado: true,
+        });
+        estado = true;
+      } catch (e) {
+        throw new HttpException(
+          'Error al habilitar serie SeriesService.enableSerie.',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
     }
 
     return estado;
@@ -664,6 +650,9 @@ export class SeriesService {
   async findOneSerieById(idSerie: number) {
     try {
       return await this.serieRepository.findOne({
+        relations: {
+          establecimiento: true,
+        },
         where: {
           id: idSerie,
         },
@@ -674,39 +663,5 @@ export class SeriesService {
         HttpStatus.BAD_REQUEST,
       );
     }
-  }
-
-  async findSeriesByDoc(data: SeriesCreateDto[]) {
-    // const result = [];
-    // for (let index = 0; index < data.length; index++) {
-    //   const obj = data[index];
-    //   const seriesEmpresa =
-    //     await this.tipodocEmpresaService.findDocumentsOfEmpresa(obj.documento);
-    //   const map = seriesEmpresa.map((item) => {
-    //     return {
-    //       idDocumento: item.id,
-    //       estadoDocumento: item.estado,
-    //       // tipoDocumento: {
-    //       //   id: item.tipodoc.id,
-    //       //   codigo: item.tipodoc.codigo,
-    //       //   nombre: item.tipodoc.tipo_documento,
-    //       //   estado: item.tipodoc.estado,
-    //       //   series: item.series,
-    //       // },
-    //     };
-    //   });
-    //   result.push(map);
-    // }
-    // return result;
-  }
-
-  diffArray(arr1: any[], arr2: any[]) {
-    return arr1
-      .concat(arr2)
-      .filter((item) => !arr1.includes(item) || !arr2.includes(item));
-  }
-
-  diffArrayInexist(arrDb: string[], serie: string) {
-    return arrDb.filter((item) => item != serie);
   }
 }
