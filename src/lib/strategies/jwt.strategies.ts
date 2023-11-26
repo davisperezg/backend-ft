@@ -78,8 +78,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       userDocument._id,
     );
 
-    //console.log(findUser);
-
     const user: QueryToken = {
       token_of_permisos: findResource,
       tokenEntityFull: {
@@ -89,6 +87,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         } as RoleDocument,
         empresa: findUser.empresa
           ? {
+              id: findUser.empresa.id,
               ruc: findUser.empresa.ruc,
               razon_social: findUser.empresa.razon_social,
               nombre_comercial: findUser.empresa.nombre_comercial,
