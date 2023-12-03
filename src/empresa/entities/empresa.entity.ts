@@ -9,6 +9,7 @@ import {
 import { UserEntity } from '../../user/entities/user.entity';
 import { TipodocsEmpresaEntity } from 'src/tipodocs_empresa/entities/tipodocs_empresa.entity';
 import { EstablecimientoEntity } from 'src/establecimiento/entities/establecimiento.entity';
+import { UsersEmpresaEntity } from 'src/users_empresa/entities/users_empresa.entity';
 
 @Entity({ name: 'empresas' })
 export class EmpresaEntity {
@@ -95,4 +96,8 @@ export class EmpresaEntity {
 
   @OneToMany(() => EstablecimientoEntity, (est) => est.empresa)
   establecimientos?: EstablecimientoEntity[];
+
+  //Referencia a users_empresa.entity
+  @OneToMany(() => UsersEmpresaEntity, (usuemp) => usuemp.empresa)
+  users_empresa?: UsersEmpresaEntity[];
 }

@@ -46,6 +46,7 @@ import { TipodocsModule } from 'src/tipodocs/tipodocs.module';
 import { TipodocsEmpresaEntity } from 'src/tipodocs_empresa/entities/tipodocs_empresa.entity';
 import { EstablecimientoService } from 'src/establecimiento/services/establecimiento.service';
 import { EstablecimientoEntity } from 'src/establecimiento/entities/establecimiento.entity';
+import { UsersEmpresaEntity } from 'src/users_empresa/entities/users_empresa.entity';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { EstablecimientoEntity } from 'src/establecimiento/entities/establecimie
       EmpresaEntity,
       TipodocsEmpresaEntity,
       EstablecimientoEntity,
+      UsersEmpresaEntity,
     ]),
     JwtModule.registerAsync({
       useFactory: (config: ConfigService) => {

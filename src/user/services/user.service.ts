@@ -15,7 +15,7 @@ import {
   Injectable,
   forwardRef,
 } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
+import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { hashPassword } from 'src/lib/helpers/auth.helper';
 import { RoleService } from 'src/role/services/role.service';
@@ -31,6 +31,8 @@ import { CreateUserDTO } from '../dto/create-user.dto';
 import { UpdateUserDTO } from '../dto/update-user.dto';
 import { EmpresaEntity } from '../../empresa/entities/empresa.entity';
 import { EmpresaService } from 'src/empresa/services/empresa.service';
+import { UsersEmpresaEntity } from 'src/users_empresa/entities/users_empresa.entity';
+import { Types, Connection } from 'mongoose';
 
 @Injectable()
 export class UserService {
@@ -49,6 +51,9 @@ export class UserService {
     private dataSource: DataSource,
     @Inject(forwardRef(() => EmpresaService))
     private empresaService: EmpresaService,
+    @InjectRepository(UsersEmpresaEntity)
+    private usersEmprersaRepository: Repository<UsersEmpresaEntity>,
+    @InjectConnection() private readonly connection: Connection,
   ) {}
 
   //si haz creado una proiedad en el schema y vas actulizarla en la bd con un valor en especifico usamos el siguiente código:
@@ -102,17 +107,17 @@ export class UserService {
     }
 
     const formatUsers = users.map(async (user) => {
-      const userMYSQL = await this.userRepository.findOne({
-        where: {
-          _id: String(user._id),
-        },
-        relations: {
-          empresas: true,
-        },
-        select: {
-          empresas: true,
-        },
-      });
+      // const userMYSQL = await this.userRepository.findOne({
+      //   where: {
+      //     _id: String(user._id),
+      //   },
+      //   relations: {
+      //     empresas: true,
+      //   },
+      //   select: {
+      //     empresas: true,
+      //   },
+      // });
 
       return {
         _id: user._id,
@@ -129,7 +134,7 @@ export class UserService {
           _id: user.role._id,
         },
         username: user.username,
-        empresas: userMYSQL.empresas,
+        //empresas: userMYSQL.empresas,
         fecha_creada: user.createdAt,
         fecha_editada: user.updatedAt,
         fecha_restaurada: user.restoredAt,
@@ -235,17 +240,30 @@ export class UserService {
       username: createdUser.username,
     });
 
-    const _queryRunner = this.dataSource.createQueryRunner();
-    //Inicia transaccion
-    await _queryRunner.connect();
-    await _queryRunner.startTransaction();
-
+    const session = await this.connection.startSession();
     try {
-      //registra usuario mongo
-      const userRegistered = await createdUser.save();
+      session.startTransaction();
 
-      //registra usuario mysql
-      await this.userRepository.save(creatUserMysql);
+      //registra usuario mongo
+      const userRegistered = await createdUser.save({ session });
+
+      await this.dataSource.transaction(async (entityManager) => {
+        //registra usuario mysql
+        const userRegisteredMYSQL = await entityManager.save(
+          UserEntity,
+          creatUserMysql,
+        );
+
+        //Si el usuario que esta registrando pertenece a una empresa se registra en la tabla users_empresa
+        if (tokenEntityFull.empresa) {
+          const userEmpresa = this.usersEmprersaRepository.create({
+            empresa: tokenEntityFull.empresa,
+            usuario: userRegisteredMYSQL,
+          });
+
+          await entityManager.save(UsersEmpresaEntity, userEmpresa);
+        }
+      });
 
       //data a enviar para el recurso del usuario
       const sendDataResource: Resource_User = {
@@ -261,25 +279,22 @@ export class UserService {
       };
 
       //crea recursos al usuario
-      await new this.ruModel(sendDataResource).save();
+      await new this.ruModel(sendDataResource).save({ session });
 
       //crea modulos al usuario
-      await new this.suModel(sendDataSu).save();
+      await new this.suModel(sendDataSu).save({ session });
 
-      // Confirmar la transacción
-      await _queryRunner.commitTransaction();
-
+      await session.commitTransaction();
       return userRegistered;
     } catch (error) {
-      // Revertir la transacción en caso de error
-      await _queryRunner.rollbackTransaction();
+      await session.abortTransaction();
       // Relanzar el error para que sea manejado en otro lugar
       throw new HttpException(
         `Error al intentar crear usuario.`,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     } finally {
-      await _queryRunner.release(); // Liberar el queryRunner
+      await session.endSession();
     }
   }
 
@@ -328,61 +343,62 @@ export class UserService {
       updatedBy: tokenEntityFull._id,
     };
 
-    const _queryRunner = this.dataSource.createQueryRunner();
-
-    //Inicia transaccion
-    await _queryRunner.connect();
-    await _queryRunner.startTransaction();
+    const session = await this.connection.startSession();
 
     try {
+      session.startTransaction();
+
       //Guardamos en Mongo
       const user_updated = await this.userModel.findByIdAndUpdate(
         id,
         modifyData,
         {
           new: true,
+          session,
         },
       );
 
-      //Buscamos id para actualizar en MYSQL
-      const userMYSQL = await this.userRepository.findOne({
-        where: {
-          _id: id,
-        },
-      });
+      await this.dataSource.transaction(async (entityManager) => {
+        //Buscamos id para actualizar en MYSQL
+        const userMYSQL = await this.userRepository.findOne({
+          where: {
+            _id: id,
+          },
+        });
 
-      //Creados objeto para MYSQL
-      this.userRepository.merge(userMYSQL, {
-        nombres: modifyData.name,
-        apellidos: modifyData.lastname,
-      });
+        //Creados objeto para MYSQL
+        this.userRepository.merge(userMYSQL, {
+          nombres: modifyData.name,
+          apellidos: modifyData.lastname,
+        });
 
-      //Guardamos en MYSQL
-      await this.userRepository.save(userMYSQL);
+        //Guardamos en MYSQL
+        await entityManager.save(UserEntity, userMYSQL);
+      });
 
       // Confirmar la transacción
-      await _queryRunner.commitTransaction();
+      await session.commitTransaction();
 
       return user_updated;
     } catch (error) {
       // Revertir la transacción en caso de error
-      await _queryRunner.rollbackTransaction();
+      await session.abortTransaction();
       // Relanzar el error para que sea manejado en otro lugar
       throw new HttpException(
         `Error al intentar editar usuario.`,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     } finally {
-      await _queryRunner.release(); // Liberar el queryRunner
+      await session.endSession(); // Liberar el queryRunner
     }
   }
 
   //Delete a single user
-  async delete(id: string, user: QueryToken): Promise<boolean> {
+  async delete(idPadre: string, user: QueryToken): Promise<boolean> {
     let result = false;
     const { tokenEntityFull } = user;
     const rolToken = tokenEntityFull.role.name;
-    const findForbidden = await this.findUserById(id);
+    const findForbidden = await this.findUserById(idPadre);
 
     //Ni el owner ni cualquier otro usuario puede eliminar al owner
     if (
@@ -396,52 +412,44 @@ export class UserService {
       throw new HttpException('Permisos denegado.', HttpStatus.CONFLICT);
     }
 
-    const _queryRunner = this.dataSource.createQueryRunner();
-    //Inicia transaccion
-    await _queryRunner.connect();
-    await _queryRunner.startTransaction();
-
+    const session = await this.connection.startSession();
     try {
-      const user = await this.userModel.findByIdAndUpdate(
-        id,
-        {
-          status: false,
-          deletedAt: new Date(),
-          deletedBy: tokenEntityFull._id,
-        },
-        { new: true },
-      );
+      await session.withTransaction(async () => {
+        const users = await this.userModel.find();
+        const descendientes = this.obtenerDescendientes(users, idPadre);
+        const padreWithDescendientes = descendientes.concat({
+          _id: new Types.ObjectId(idPadre),
+        });
+        for (let index = 0; index < padreWithDescendientes.length; index++) {
+          const user = padreWithDescendientes[index];
 
-      await this.userModel.updateMany(
-        { creator: user._id },
-        { $set: { status: false } },
-        { multi: true },
-      );
-
-      // Confirmar la transacción
-      await _queryRunner.commitTransaction();
-
-      result = true;
+          await this.userModel.findOneAndUpdate(
+            user,
+            {
+              status: false,
+              deletedAt: new Date(),
+              deletedBy: tokenEntityFull._id,
+            },
+            { new: true, session },
+          );
+          result = true;
+        }
+      });
     } catch (e) {
-      // Revertir la transacción en caso de error
-      await _queryRunner.rollbackTransaction();
-
       throw new HttpException(
         `Error al intentar eliminar usuario.`,
         HttpStatus.BAD_REQUEST,
       );
-    } finally {
-      await _queryRunner.release(); // Liberar el queryRunner
     }
-
+    await session.endSession();
     return result;
   }
 
   //Restore a single user
-  async restore(id: string, userToken: QueryToken): Promise<boolean> {
+  async restore(idPadre: string, userToken: QueryToken): Promise<boolean> {
     const { tokenEntityFull } = userToken;
     const rolToken = tokenEntityFull.role.name;
-    const findForbidden = await this.findUserById(id);
+    const findForbidden = await this.findUserById(idPadre);
 
     //Ni el owner ni cualquier otro usuario permite retaurar al owner
     if (
@@ -457,41 +465,37 @@ export class UserService {
 
     let result = false;
 
-    const _queryRunner = this.dataSource.createQueryRunner();
-
-    //Inicia transaccion
-    await _queryRunner.connect();
-    await _queryRunner.startTransaction();
-
+    const session = await this.connection.startSession();
     try {
-      const user = await this.userModel.findByIdAndUpdate(id, {
-        status: true,
-        restoredAt: new Date(),
-        restoredBy: tokenEntityFull._id,
+      await session.withTransaction(async () => {
+        const users = await this.userModel.find();
+        const descendientes = this.obtenerDescendientes(users, idPadre);
+        const padreWithDescendientes = descendientes.concat({
+          _id: new Types.ObjectId(idPadre),
+        });
+
+        for (let index = 0; index < padreWithDescendientes.length; index++) {
+          const user = padreWithDescendientes[index];
+          await this.userModel.findByIdAndUpdate(
+            user,
+            {
+              status: true,
+              restoredAt: new Date(),
+              restoredBy: tokenEntityFull._id,
+            },
+            { new: true },
+          );
+        }
+
+        result = true;
       });
-
-      await this.userModel.updateMany(
-        { creator: user._id },
-        { $set: { status: true } },
-        { multi: true },
-      );
-
-      // Confirmar la transacción
-      await _queryRunner.commitTransaction();
-
-      result = true;
     } catch (e) {
-      // Revertir la transacción en caso de error
-      await _queryRunner.rollbackTransaction();
-
       throw new HttpException(
         `Error al intentar restaurar usuario.`,
         HttpStatus.BAD_REQUEST,
       );
-    } finally {
-      await _queryRunner.release(); // Liberar el queryRunner
     }
-
+    await session.endSession();
     return result;
   }
 
@@ -540,11 +544,22 @@ export class UserService {
       let empresamysql: EmpresaEntity;
 
       if (usermysql) {
+        const usermysql2 = await this.usersEmprersaRepository.findOne({
+          relations: {
+            empresa: true,
+          },
+          where: {
+            usuario: {
+              id: usermysql.id,
+            },
+          },
+        });
+
         empresamysql = await this.empresaService.findOneEmpresaByUserId(
           usermysql.id,
         );
 
-        user._doc.empresa = empresamysql;
+        user._doc.empresa = empresamysql ?? usermysql2?.empresa;
       } else {
         user._doc.empresa = null;
       }
@@ -590,4 +605,17 @@ export class UserService {
       );
     }
   }
+
+  obtenerDescendientes = (usuarios: UserDocument[], idPadre: string) => {
+    const descendientes = usuarios
+      .filter((usuario) => String(usuario.creator) === String(idPadre))
+      .flatMap((descendiente) => [
+        {
+          _id: descendiente._id,
+        },
+        ...this.obtenerDescendientes(usuarios, descendiente._id),
+      ]);
+
+    return descendientes;
+  };
 }

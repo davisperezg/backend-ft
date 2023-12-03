@@ -207,7 +207,6 @@ export class EmpresaService {
 
       return result;
     } catch (e) {
-      console.log(e);
       throw new HttpException(
         'Error al intentar crear empresa EmpresaService.save.',
         HttpStatus.BAD_REQUEST,
