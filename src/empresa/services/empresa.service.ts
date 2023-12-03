@@ -612,8 +612,33 @@ export class EmpresaService {
         );
       }
     } else {
-      console.log('tokenEntityFull', tokenEntityFull);
-      console.log('desactiva', findEmpresa);
+      //Solo es permitido eliminar por el usuario padre y sus hijos teniendo el permiso correspondiente
+      if (tokenEntityFull.empresa) {
+        if (
+          tokenEntityFull.empresa.id === findEmpresa.id ||
+          String(findEmpresa.usuario._id) === String(tokenEntityFull._id)
+        ) {
+          try {
+            await this.empresaRepository.update(idEmpresa, { estado: false });
+            estado = true;
+          } catch (e) {
+            throw new HttpException(
+              'Error al desactivar empresa EmpresaService.desactivateEmpresa.',
+              HttpStatus.BAD_REQUEST,
+            );
+          }
+        } else {
+          throw new HttpException(
+            'Solo puedes desactivar la empresa a la que perteneces.',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+      } else {
+        throw new HttpException(
+          'No puedes desactivar una empresa ya que no estas asignado a una.',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
     }
 
     return estado;
@@ -629,9 +654,9 @@ export class EmpresaService {
       idEmpresa,
       true,
     )) as EmpresaEntity;
-    if (!findEmpresa.estado) {
+    if (findEmpresa.estado) {
       throw new HttpException(
-        'La empresa ya se encuentra desactivada.',
+        'La empresa ya se encuentra activada.',
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -647,8 +672,33 @@ export class EmpresaService {
         );
       }
     } else {
-      console.log('tokenEntityFull', tokenEntityFull);
-      console.log('activate', findEmpresa);
+      //Solo es permitido eliminar por el usuario padre y sus hijos teniendo el permiso correspondiente
+      if (tokenEntityFull.empresa) {
+        if (
+          tokenEntityFull.empresa.id === findEmpresa.id ||
+          String(findEmpresa.usuario._id) === String(tokenEntityFull._id)
+        ) {
+          try {
+            await this.empresaRepository.update(idEmpresa, { estado: true });
+            estado = true;
+          } catch (e) {
+            throw new HttpException(
+              'Error al desactivar empresa EmpresaService.activateEmpresa.',
+              HttpStatus.BAD_REQUEST,
+            );
+          }
+        } else {
+          throw new HttpException(
+            'Solo puedes activar la empresa a la que perteneces.',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+      } else {
+        throw new HttpException(
+          'No puedes activar una empresa ya que no estas asignado a una.',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
     }
 
     return estado;
