@@ -10,11 +10,8 @@ import {
   HttpStatus,
   Post,
   Body,
-  Put,
-  ParseArrayPipe,
 } from '@nestjs/common';
 import Permission from 'src/lib/type/permission.type';
-import { SeriesUpdateDto } from '../dto/series-update.dto';
 import { SeriesCreateDto } from '../dto/series-create.dto';
 import { CtxUser } from 'src/lib/decorators/ctx-user.decorators';
 import { QueryToken } from 'src/auth/dto/queryToken';
