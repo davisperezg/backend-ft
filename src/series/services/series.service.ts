@@ -257,14 +257,28 @@ export class SeriesService {
     }
   }
 
-  async createSeries(body: SeriesCreateDto) {
+  async createSeries(body: SeriesCreateDto, userToken: QueryToken) {
     const { documentos, empresa, establecimiento } = body;
+    const { tokenEntityFull } = userToken;
 
     //valida existencia empresa
     const findEmpresa = await this.empresaService.findOneEmpresaByIdx(
       empresa,
       true,
     );
+
+    /**
+     * Solo el rol principal puede crear series de cualquier empresa
+     * los demas roles solo pueden crear series de la empresa a la que pertenecen.
+     */
+    if (tokenEntityFull.role.name !== ROL_PRINCIPAL) {
+      if (tokenEntityFull.empresa.id !== findEmpresa.id) {
+        throw new HttpException(
+          'Solo puedes crear series de la empresa a la que perteneces.',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+    }
 
     const idsEstablecimientosEmpresa = findEmpresa.establecimientos.map(
       (est) => est.id,
@@ -389,14 +403,28 @@ export class SeriesService {
     }
   }
 
-  async migrarSeries(body: SeriesCreateDto) {
+  async migrarSeries(body: SeriesCreateDto, userToken: QueryToken) {
     const { documentos, empresa, establecimiento } = body;
+    const { tokenEntityFull } = userToken;
 
     //valida existencia empresa
     const findEmpresa = await this.empresaService.findOneEmpresaByIdx(
       empresa,
       true,
     );
+
+    /**
+     * Solo el rol principal puede migrar series de cualquier empresa
+     * los demas roles solo pueden migrar series de la empresa a la que pertenecen.
+     */
+    if (tokenEntityFull.role.name !== ROL_PRINCIPAL) {
+      if (tokenEntityFull.empresa.id !== findEmpresa.id) {
+        throw new HttpException(
+          'Solo puedes migrar series de la empresa a la que perteneces.',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+    }
 
     const idsEstablecimientosEmpresa = findEmpresa.establecimientos.map(
       (est) => est.id,
@@ -472,6 +500,9 @@ export class SeriesService {
 
                   //No se puede crear series existentes
                   const existSerie = await this.serieRepository.findOne({
+                    relations: {
+                      establecimiento: true,
+                    },
                     where: {
                       serie: value,
                       documento: {
@@ -481,17 +512,29 @@ export class SeriesService {
                   });
 
                   if (existSerie) {
-                    await entityManager.update(
-                      SeriesEntity,
-                      {
-                        id: existSerie.id,
-                      },
-                      {
-                        establecimiento: findEstablecimiento,
-                        serie: value,
-                        documento: validDoc,
-                      },
-                    );
+                    //Solo actualizara las series que no pertenezcan al establecimiento
+                    if (
+                      existSerie &&
+                      existSerie.establecimiento.id !== findEstablecimiento.id
+                    ) {
+                      await entityManager.update(
+                        SeriesEntity,
+                        {
+                          id: existSerie.id,
+                        },
+                        {
+                          establecimiento: findEstablecimiento,
+                          serie: value,
+                          documento: validDoc,
+                        },
+                      );
+                    } else {
+                      //Si la serie ya pertenece al establecimiento no se actualizara
+                      throw new HttpException(
+                        `serie. La serie ${value} ya pertenece al establecimiento.`,
+                        HttpStatus.BAD_REQUEST,
+                      );
+                    }
                   } else {
                     throw new HttpException(
                       `serie. La serie ${value} no existe, para migrar la serie debe existir.`,
