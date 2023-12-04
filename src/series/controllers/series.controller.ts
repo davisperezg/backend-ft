@@ -40,8 +40,9 @@ export class SeriesController {
     @Res() res,
     @Body()
     create: SeriesCreateDto,
+    @CtxUser() user: QueryToken,
   ) {
-    const response = await this.seriesService.migrarSeries(create);
+    const response = await this.seriesService.migrarSeries(create, user);
     return res.status(HttpStatus.OK).json({
       message: 'La serie ha sido migrada éxitosamente.',
       response,
@@ -56,8 +57,9 @@ export class SeriesController {
     @Res() res,
     @Body()
     create: SeriesCreateDto,
+    @CtxUser() user: QueryToken,
   ) {
-    const response = await this.seriesService.createSeries(create);
+    const response = await this.seriesService.createSeries(create, user);
     return res.status(HttpStatus.OK).json({
       message: 'La serie ha sido creado éxitosamente.',
       response,
