@@ -246,6 +246,7 @@ export class SeriesService {
 
           return acc;
         }, []),
+        status: empresa.estado,
       };
 
       return mapSeries;
@@ -531,7 +532,7 @@ export class SeriesService {
                     } else {
                       //Si la serie ya pertenece al establecimiento no se actualizara
                       throw new HttpException(
-                        `serie. La serie ${value} ya pertenece al establecimiento.`,
+                        `serie. La serie ${value} ya pertenece al establecimiento destino.`,
                         HttpStatus.BAD_REQUEST,
                       );
                     }
