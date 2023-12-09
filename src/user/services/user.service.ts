@@ -583,16 +583,20 @@ export class UserService {
   }
 
   //Metodo para buscar usuarios al agregar empresa
-  async findUsersToEmpresa() {
-    try {
-      const users = await this.userRepository.find();
+  async findUsersToEmpresa(userToken: QueryToken) {
+    const { tokenEntityFull } = userToken;
 
-      const userMap = users.map((usu) => {
+    try {
+      const users = await this.userModel.find({
+        creator: tokenEntityFull._id,
+      });
+
+      const userMap = users.map((usu, i: number) => {
         return {
-          id: usu.id,
-          nombres: usu.nombres,
-          apellidos: usu.apellidos,
-          nombreCompleto: usu.nombres + ' ' + usu.apellidos,
+          id: i + 1,
+          nombres: usu.name,
+          apellidos: usu.lastname,
+          nombreCompleto: usu.name + ' ' + usu.lastname,
           correo: usu.email,
           usuario: usu.username,
         };
