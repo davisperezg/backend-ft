@@ -36,10 +36,9 @@ export class UserController {
   }
 
   @Get('/empresa')
-  //Modificar permiso
-  @UseGuards(PermissionGuard(Permission.ReadUsers))
-  getUsersToEmpresa() {
-    return this.userService.findUsersToEmpresa();
+  @UseGuards(PermissionGuard(Permission.CreateEmpresas))
+  getUsersToEmpresa(@CtxUser() user: QueryToken) {
+    return this.userService.findUsersToEmpresa(user);
   }
 
   // Get Me: http://localhost:3000/api/v1/users/whois
