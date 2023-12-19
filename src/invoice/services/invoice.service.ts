@@ -26,76 +26,76 @@ export class InvoiceService {
 
   async getExample(invoice: CreateInvoiceDto, user: QueryToken) {
     const { tokenEntityFull } = user;
-    const { empresa } = tokenEntityFull;
+    const { empresas } = tokenEntityFull;
     //console.log(tokenEntityFull);
     const { xml, fileName } = invoice;
 
     //Guardamos el XML en el directorio del cliente
-    this.guardarArchivo(
-      empresa.ruc,
-      `/facturas/XML`,
-      `${fileName}.xml`,
-      xml,
-      false,
-    );
+    // this.guardarArchivo(
+    //   empresa.ruc,
+    //   `/facturas/XML`,
+    //   `${fileName}.xml`,
+    //   xml,
+    //   false,
+    // );
 
     //Verificamos si el cliente esta en modo beta o produccion
-    const certFilePath = path.join(
-      process.cwd(),
-      `uploads/certificado_digital/${
-        empresa.modo === 0
-          ? 'prueba/certificado_beta.pfx'
-          : `produccion/${empresa.ruc}/${empresa.cert}`
-      }`,
-    );
+    // const certFilePath = path.join(
+    //   process.cwd(),
+    //   `uploads/certificado_digital/${
+    //     empresa.modo === 0
+    //       ? 'prueba/certificado_beta.pfx'
+    //       : `produccion/${empresa.ruc}/${empresa.cert}`
+    //   }`,
+    // );
 
     //Generamos el certificado.pem para firmar
-    const pemFilePath = path.join(
-      process.cwd(),
-      `uploads/certificado_digital/${
-        empresa.modo === 0
-          ? 'prueba/certificado_beta.pem'
-          : `produccion/${empresa.ruc}/${empresa.fieldname_cert}.pem`
-      }`,
-    );
+    // const pemFilePath = path.join(
+    //   process.cwd(),
+    //   `uploads/certificado_digital/${
+    //     empresa.modo === 0
+    //       ? 'prueba/certificado_beta.pem'
+    //       : `produccion/${empresa.ruc}/${empresa.fieldname_cert}.pem`
+    //   }`,
+    // );
 
-    const certificado = this.convertToPem(
-      certFilePath,
-      pemFilePath,
-      empresa.cert_password,
-    );
+    // const certificado = this.convertToPem(
+    //   certFilePath,
+    //   pemFilePath,
+    //   empresa.cert_password,
+    // );
 
     //Firmar XML de nuestra api en PHP
-    const xmlSigned: Buffer = await this.firmar(xml, certificado);
+    //const xmlSigned: Buffer = await this.firmar(xml, certificado);
 
     //Guardamos el XML Firmado en el directorio del cliente
-    const pathXML = this.guardarArchivo(
-      empresa.ruc,
-      `facturas/FIRMA`,
-      `${fileName}.xml`,
-      xmlSigned,
-      true,
-    );
+    // const pathXML = this.guardarArchivo(
+    //   empresa.ruc,
+    //   `facturas/FIRMA`,
+    //   `${fileName}.xml`,
+    //   xmlSigned,
+    //   true,
+    // );
 
     //Creamos el pdf A4
-    const pathPDFA4 = this.getPdf(
-      empresa.ruc,
-      'facturas/PDF/A4',
-      fileName,
-      docDefinitionA4,
-    );
+    // const pathPDFA4 = this.getPdf(
+    //   empresa.ruc,
+    //   'facturas/PDF/A4',
+    //   fileName,
+    //   docDefinitionA4,
+    // );
 
     //Enviamos a Sunat
     const sunat = await this.enviarSunat(
-      empresa.web_service,
-      empresa.ose_enabled
-        ? empresa.usu_secundario_ose_user
-        : empresa.usu_secundario_user,
-      empresa.ose_enabled
-        ? empresa.usu_secundario_ose_password
-        : empresa.usu_secundario_password,
+      'empresa.web_service',
+      'empresa.ose_enabled'
+        ? 'empresa.usu_secundario_ose_user'
+        : 'empresa.usu_secundario_user',
+      'empresa.ose_enabled'
+        ? 'empresa.usu_secundario_ose_password'
+        : 'empresa.usu_secundario_password',
       fileName,
-      xmlSigned,
+      'xmlSigned' as any,
     );
     const { cdrZip, ...restoSunat } = sunat;
 
@@ -104,7 +104,7 @@ export class InvoiceService {
 
     //Guardamos el CDR en el directorio del cliente
     const pathCDR = this.guardarArchivo(
-      empresa.ruc,
+      'empresa.ruc',
       `facturas/RPTA`,
       `${`R-${fileName}.zip`}`,
       CdrZip,
@@ -113,10 +113,10 @@ export class InvoiceService {
 
     return {
       ...restoSunat,
-      ruta_xml: pathXML.replace(/\\/g, '/'),
+      //ruta_xml: pathXML.replace(/\\/g, '/'),
       ruta_cdr: pathCDR.replace(/\\/g, '/'),
-      ruta_a4pdf: pathPDFA4.replace(/\\/g, '/'),
-      xml_hash: this.obtenerHashXMLFirmado(xmlSigned),
+      //ruta_a4pdf: pathPDFA4.replace(/\\/g, '/'),
+      //xml_hash: this.obtenerHashXMLFirmado(xmlSigned),
     };
   }
 

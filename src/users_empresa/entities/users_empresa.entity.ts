@@ -1,4 +1,5 @@
 import { EmpresaEntity } from 'src/empresa/entities/empresa.entity';
+import { EstablecimientoEntity } from 'src/establecimiento/entities/establecimiento.entity';
 import { UserEntity } from 'src/user/entities/user.entity';
 import { Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 
@@ -20,4 +21,10 @@ export class UsersEmpresaEntity {
   })
   @JoinColumn({ name: 'empresa_id' })
   empresa: EmpresaEntity;
+
+  @ManyToOne(() => EstablecimientoEntity, (est) => est.users_empresa, {
+    nullable: false,
+  })
+  @JoinColumn({ name: 'establecimiento_id' })
+  establecimiento: EstablecimientoEntity;
 }

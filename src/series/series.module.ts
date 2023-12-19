@@ -18,6 +18,6 @@ import { EmpresaModule } from 'src/empresa/empresa.module';
   ],
   providers: [SeriesService],
   controllers: [SeriesController],
-  //exports: [SeriesService],
+  exports: [SeriesService],
 })
 export class SeriesModule {}

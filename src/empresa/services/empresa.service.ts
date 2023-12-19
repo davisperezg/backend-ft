@@ -613,9 +613,12 @@ export class EmpresaService {
       }
     } else {
       //Solo es permitido eliminar por el usuario padre y sus hijos teniendo el permiso correspondiente
-      if (tokenEntityFull.empresa) {
+      if (tokenEntityFull.empresas) {
+        const findEmpresaToken = tokenEntityFull.empresas.find(
+          (empresa) => empresa.id === findEmpresa.id,
+        );
         if (
-          tokenEntityFull.empresa.id === findEmpresa.id ||
+          findEmpresaToken ||
           String(findEmpresa.usuario._id) === String(tokenEntityFull._id)
         ) {
           try {
@@ -673,9 +676,12 @@ export class EmpresaService {
       }
     } else {
       //Solo es permitido eliminar por el usuario padre y sus hijos teniendo el permiso correspondiente
-      if (tokenEntityFull.empresa) {
+      if (tokenEntityFull.empresas) {
+        const findEmpresaToken = tokenEntityFull.empresas.find(
+          (empresa) => empresa.id === findEmpresa.id,
+        );
         if (
-          tokenEntityFull.empresa.id === findEmpresa.id ||
+          findEmpresaToken ||
           String(findEmpresa.usuario._id) === String(tokenEntityFull._id)
         ) {
           try {
@@ -844,6 +850,75 @@ export class EmpresaService {
   async findOneEmpresaByUserId(idUser: number) {
     try {
       return await this.empresaRepository.findOne({
+        relations: {
+          establecimientos: true,
+          tipodoc_empresa: {
+            tipodoc: true,
+          },
+        },
+        where: {
+          usuario: {
+            id: idUser,
+          },
+        },
+      });
+    } catch (e) {
+      throw new HttpException(
+        'Error al obtener la empresa por usuario EmpresaService.findOneEmpresaById.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  async findAllEmpresasByUserIdObject(idUser: string) {
+    try {
+      const empresas = await this.empresaRepository.find({
+        relations: {
+          establecimientos: true,
+        },
+        select: {
+          id: true,
+          razon_social: true,
+          ruc: true,
+          estado: true,
+          establecimientos: {
+            id: true,
+            codigo: true,
+            denominacion: true,
+            estado: true,
+          },
+        },
+        where: {
+          usuario: {
+            _id: String(idUser),
+          },
+        },
+      });
+      return empresas.map((emp) => {
+        return {
+          ...emp,
+          establecimientos: emp.establecimientos.map((est) => {
+            return {
+              ...est,
+              codigo: est.codigo === '0000' ? 'PRINCIPAL' : est.codigo,
+            };
+          }),
+        };
+      });
+    } catch (e) {
+      throw new HttpException(
+        'Error al obtener la empresa por usuario EmpresaService.findOneEmpresaById.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  async findAllEmpresasByUserId(idUser: number) {
+    try {
+      return await this.empresaRepository.find({
+        relations: {
+          establecimientos: true,
+        },
         where: {
           usuario: {
             id: idUser,

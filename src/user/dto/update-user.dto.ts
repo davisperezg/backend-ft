@@ -5,6 +5,7 @@ import {
   MaxLength,
   IsEmail,
   Matches,
+  IsOptional,
 } from 'class-validator';
 
 export class UpdateUserDTO {
@@ -91,4 +92,7 @@ export class UpdateUserDTO {
   })
   @IsNotEmpty({ message: 'Por favor, ingrese el rol del usuario' })
   role: string;
+
+  @IsOptional()
+  empresasAsign?: any[];
 }

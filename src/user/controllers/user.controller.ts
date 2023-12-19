@@ -41,6 +41,12 @@ export class UserController {
     return this.userService.findUsersToEmpresa(user);
   }
 
+  @Get('/list-empresas/:id')
+  @UseGuards(PermissionGuard(Permission.ListEmpresasToAsign))
+  getListEmpresasToAsign(@Param('id') id: string) {
+    return this.userService.listToAsignEmpresasByIdPartner(id);
+  }
+
   // Get Me: http://localhost:3000/api/v1/users/whois
   @Get('/whois')
   @UseGuards(JwtAuthGuard)
