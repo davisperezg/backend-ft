@@ -541,12 +541,6 @@ export const RECURSOS_DEFECTOS = [
     group_resource: CATEGORIA_6,
   },
   {
-    name: 'Asignar Empresa', //add
-    key: 'canAssign_empresas',
-    description: 'Te permite asginar empresas a usuarios.',
-    group_resource: CATEGORIA_6,
-  },
-  {
     name: 'Desactivar Empresa', //add
     key: 'canDelete_empresas',
     description: 'Te permite desactivar empresa.',
@@ -568,6 +562,13 @@ export const RECURSOS_DEFECTOS = [
     name: 'Vizualizar data de empresa', //add
     key: 'canGet_empresas',
     description: 'Te permite ver la data de una empresa en especifico.',
+    group_resource: CATEGORIA_6,
+  },
+  {
+    name: 'Listar empresas y establecimientos para asignar a un usuario', //add
+    key: 'canList_empresasToAsign',
+    description:
+      'Te permite visualizar las empresas con sus establecimientos para ser asignadas a los usuarios.',
     group_resource: CATEGORIA_6,
   },
   //SUCURSALES
@@ -593,12 +594,6 @@ export const RECURSOS_DEFECTOS = [
     name: 'Leer Establecimientos', //add
     key: 'canRead_establecimientos',
     description: 'Te permite listar los establecimientos.',
-    group_resource: CATEGORIA_7,
-  },
-  {
-    name: 'Asignar Establecimientos', //add
-    key: 'canAssign_establecimientos',
-    description: 'Te permite asignar establecimientos a los usuarios.',
     group_resource: CATEGORIA_7,
   },
   //TIPO DE DOCUMENTOS

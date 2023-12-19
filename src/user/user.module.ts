@@ -39,6 +39,7 @@ import { TipodocsEmpresaEntity } from 'src/tipodocs_empresa/entities/tipodocs_em
 import { EstablecimientoService } from 'src/establecimiento/services/establecimiento.service';
 import { EstablecimientoEntity } from 'src/establecimiento/entities/establecimiento.entity';
 import { UsersEmpresaEntity } from 'src/users_empresa/entities/users_empresa.entity';
+import { SeriesModule } from 'src/series/series.module';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { UsersEmpresaEntity } from 'src/users_empresa/entities/users_empresa.ent
       { name: Menu.name, schema: MenuSchema },
       { name: ModuleEntity.name, schema: ModuleSchema },
     ]),
+    forwardRef(() => SeriesModule),
     forwardRef(() => EmpresaModule),
     TipodocsModule,
   ],

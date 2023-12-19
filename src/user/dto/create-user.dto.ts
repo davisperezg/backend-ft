@@ -6,6 +6,7 @@ import {
   IsEmail,
   Matches,
   IsInt,
+  IsOptional,
 } from 'class-validator';
 import { IsMatchPassword } from 'src/lib/decorators/match-password.decorator';
 
@@ -147,4 +148,7 @@ export class CreateUserDTO {
   })
   @IsNotEmpty({ message: 'Por favor, ingrese el rol del usuario' })
   role: string;
+
+  @IsOptional()
+  empresasAsign?: any[];
 }

@@ -78,6 +78,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       userDocument._id,
     );
 
+    //console.log(findUser.empresa);
+
     const user: QueryToken = {
       token_of_permisos: findResource,
       tokenEntityFull: {
@@ -85,30 +87,31 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         role: {
           ...(userDocument.role as any)._doc,
         } as RoleDocument,
-        empresa: findUser.empresa
-          ? {
-              id: findUser.empresa.id,
-              ruc: findUser.empresa.ruc,
-              razon_social: findUser.empresa.razon_social,
-              nombre_comercial: findUser.empresa.nombre_comercial,
-              logo: findUser.empresa.logo,
-              web_service: findUser.empresa.web_service,
-              fieldname_cert: findUser.empresa.fieldname_cert,
-              cert: findUser.empresa.cert,
-              cert_password: findUser.empresa.cert_password,
-              modo: findUser.empresa.modo,
-              usu_secundario_user: findUser.empresa.usu_secundario_user,
-              usu_secundario_password: findUser.empresa.usu_secundario_password,
-              ose_enabled: findUser.empresa.ose_enabled,
-              usu_secundario_ose_user: findUser.empresa.usu_secundario_ose_user,
-              usu_secundario_ose_password:
-                findUser.empresa.usu_secundario_ose_password,
-              domicilio_fiscal: findUser.empresa.domicilio_fiscal,
-              ubigeo: findUser.empresa.ubigeo,
-              urbanizacion: findUser.empresa.urbanizacion,
-              correo: findUser.empresa.correo,
-              telefono_movil_1: findUser.empresa.telefono_movil_1,
-            }
+        empresas: findUser.empresa
+          ? findUser.empresa.map((item) => {
+              return {
+                id: item.id,
+                ruc: item.ruc,
+                razon_social: item.razon_social,
+                nombre_comercial: item.nombre_comercial,
+                logo: item.logo,
+                web_service: item.web_service,
+                fieldname_cert: item.fieldname_cert,
+                cert: item.cert,
+                cert_password: item.cert_password,
+                modo: item.modo,
+                usu_secundario_user: item.usu_secundario_user,
+                usu_secundario_password: item.usu_secundario_password,
+                ose_enabled: item.ose_enabled,
+                usu_secundario_ose_user: item.usu_secundario_ose_user,
+                usu_secundario_ose_password: item.usu_secundario_ose_password,
+                domicilio_fiscal: item.domicilio_fiscal,
+                ubigeo: item.ubigeo,
+                urbanizacion: item.urbanizacion,
+                correo: item.correo,
+                telefono_movil_1: item.telefono_movil_1,
+              };
+            })
           : null,
       },
       token_of_front: {
@@ -141,13 +144,22 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
             ),
         },
         estado_rol: userDocument.role.status,
-        empresa: findUser.empresa
-          ? {
-              ruc: findUser.empresa.ruc,
-              razon_social: findUser.empresa.empresa,
-              nombre_comercial: findUser.empresa.nombre_comercial,
-              logo: findUser.empresa.logo,
-            }
+        empresas: findUser.empresa
+          ? findUser.empresa.map((item) => {
+              return {
+                id: item.id,
+                ruc: item.ruc,
+                razon_social: item.empresa,
+                nombre_comercial: item.nombre_comercial,
+                logo: item.logo,
+                establecimientos: item.establecimientos.map((est) => {
+                  return {
+                    ...est,
+                    codigo: est.codigo === '0000' ? 'PRINCIPAL' : est.codigo,
+                  };
+                }),
+              };
+            })
           : null,
       },
     };

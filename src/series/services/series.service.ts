@@ -3,7 +3,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { SeriesEntity } from '../entities/series.entity';
 import { SeriesCreateDto } from '../dto/series-create.dto';
-import { SeriesUpdateDto } from '../dto/series-update.dto';
 import { TipodocsService } from 'src/tipodocs/services/tipodocs.service';
 import { TipodocsEmpresaService } from 'src/tipodocs_empresa/services/tipodocs_empresa.service';
 import { QueryToken } from 'src/auth/dto/queryToken';
@@ -244,11 +243,19 @@ export class SeriesService {
             ];
           }
 
-          return acc;
+          return [
+            ...acc,
+            {
+              id: curr.id,
+              codigo: curr.codigo,
+              denominacion: curr.denominacion,
+              estado: curr.estado,
+              documentos: [],
+            },
+          ];
         }, []),
         status: empresa.estado,
       };
-
       return mapSeries;
     } catch (e) {
       throw new HttpException(
@@ -273,7 +280,11 @@ export class SeriesService {
      * los demas roles solo pueden crear series de la empresa a la que pertenecen.
      */
     if (tokenEntityFull.role.name !== ROL_PRINCIPAL) {
-      if (tokenEntityFull.empresa.id !== findEmpresa.id) {
+      const findEmpresaToken = tokenEntityFull.empresas.find(
+        (empresa) => empresa.id === findEmpresa.id,
+      );
+
+      if (!findEmpresaToken) {
         throw new HttpException(
           'Solo puedes crear series de la empresa a la que perteneces.',
           HttpStatus.NOT_FOUND,
@@ -419,7 +430,10 @@ export class SeriesService {
      * los demas roles solo pueden migrar series de la empresa a la que pertenecen.
      */
     if (tokenEntityFull.role.name !== ROL_PRINCIPAL) {
-      if (tokenEntityFull.empresa.id !== findEmpresa.id) {
+      const findEmpresaToken = tokenEntityFull.empresas.find(
+        (empresa) => empresa.id === findEmpresa.id,
+      );
+      if (!findEmpresaToken) {
         throw new HttpException(
           'Solo puedes migrar series de la empresa a la que perteneces.',
           HttpStatus.NOT_FOUND,
@@ -601,21 +615,27 @@ export class SeriesService {
         );
       }
     } else {
-      const { empresa } = tokenEntityFull;
-      const findEmpresa = await this.empresaService.findOneEmpresaByIdx(
-        empresa.id,
-        true,
-      );
-
-      const idsEstablecimientosEmpresa = findEmpresa.establecimientos.map(
-        (est) => est.id,
-      );
-
-      if (!idsEstablecimientosEmpresa.includes(findSerie.establecimiento.id)) {
-        throw new HttpException(
-          'No puedes deshabilitar una serie que no pertece a la empresa.',
-          HttpStatus.NOT_FOUND,
+      //REVISAR
+      const { empresas } = tokenEntityFull;
+      for (let index = 0; index < empresas.length; index++) {
+        const empresaToken = empresas[index];
+        const findEmpresa = await this.empresaService.findOneEmpresaByIdx(
+          empresaToken.id,
+          true,
         );
+
+        const idsEstablecimientosEmpresa = findEmpresa.establecimientos.map(
+          (est) => est.id,
+        );
+
+        if (
+          !idsEstablecimientosEmpresa.includes(findSerie.establecimiento.id)
+        ) {
+          throw new HttpException(
+            'No puedes deshabilitar una serie que no pertece a la empresa.',
+            HttpStatus.NOT_FOUND,
+          );
+        }
       }
 
       try {
@@ -664,21 +684,27 @@ export class SeriesService {
         );
       }
     } else {
-      const { empresa } = tokenEntityFull;
-      const findEmpresa = await this.empresaService.findOneEmpresaByIdx(
-        empresa.id,
-        true,
-      );
-
-      const idsEstablecimientosEmpresa = findEmpresa.establecimientos.map(
-        (est) => est.id,
-      );
-
-      if (!idsEstablecimientosEmpresa.includes(findSerie.establecimiento.id)) {
-        throw new HttpException(
-          'No puedes habilitar una serie que no pertece a la empresa.',
-          HttpStatus.NOT_FOUND,
+      //REVISAR
+      const { empresas } = tokenEntityFull;
+      for (let index = 0; index < empresas.length; index++) {
+        const empresaToken = empresas[index];
+        const findEmpresa = await this.empresaService.findOneEmpresaByIdx(
+          empresaToken.id,
+          true,
         );
+
+        const idsEstablecimientosEmpresa = findEmpresa.establecimientos.map(
+          (est) => est.id,
+        );
+
+        if (
+          !idsEstablecimientosEmpresa.includes(findSerie.establecimiento.id)
+        ) {
+          throw new HttpException(
+            'No puedes habilitar una serie que no pertece a la empresa.',
+            HttpStatus.NOT_FOUND,
+          );
+        }
       }
 
       try {

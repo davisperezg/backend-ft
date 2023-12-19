@@ -33,6 +33,7 @@ import { EmpresaEntity } from '../../empresa/entities/empresa.entity';
 import { EmpresaService } from 'src/empresa/services/empresa.service';
 import { UsersEmpresaEntity } from 'src/users_empresa/entities/users_empresa.entity';
 import { Types, Connection } from 'mongoose';
+import { SeriesService } from 'src/series/services/series.service';
 
 @Injectable()
 export class UserService {
@@ -48,6 +49,7 @@ export class UserService {
     @InjectRepository(UserEntity)
     private userRepository: Repository<UserEntity>,
     private readonly roleService: RoleService,
+    private readonly seriesService: SeriesService,
     private dataSource: DataSource,
     @Inject(forwardRef(() => EmpresaService))
     private empresaService: EmpresaService,
@@ -107,6 +109,56 @@ export class UserService {
     }
 
     const formatUsers = users.map(async (user) => {
+      const findEmpresasAsign = await this.usersEmprersaRepository.find({
+        relations: {
+          establecimiento: true,
+          empresa: true,
+        },
+        select: {
+          empresa: {
+            id: true,
+            razon_social: true,
+            ruc: true,
+            estado: true,
+          },
+          establecimiento: {
+            id: true,
+            codigo: true,
+            denominacion: true,
+            estado: true,
+          },
+        },
+        where: {
+          usuario: {
+            _id: String(user._id),
+          },
+        },
+      });
+
+      const reduceFindEmpresasAsign = findEmpresasAsign.reduce((acc, curr) => {
+        const existingEmpresa = acc.find((acc) => acc.id === curr.empresa.id);
+        if (existingEmpresa) {
+          existingEmpresa.establecimientos.push({
+            ...curr.establecimiento,
+            idEntidad: curr.id,
+            checked: true,
+          });
+        } else {
+          const newEmpresa = {
+            id: curr.empresa.id,
+            ruc: curr.empresa.ruc,
+            razon_social: curr.empresa.razon_social,
+            estado: curr.empresa.estado,
+            checked: true,
+            establecimientos: [
+              { ...curr.establecimiento, idEntidad: curr.id, checked: true },
+            ],
+          };
+          acc.push(newEmpresa);
+        }
+
+        return acc;
+      }, []);
       // const userMYSQL = await this.userRepository.findOne({
       //   where: {
       //     _id: String(user._id),
@@ -139,6 +191,7 @@ export class UserService {
         fecha_editada: user.updatedAt,
         fecha_restaurada: user.restoredAt,
         fecha_eliminada: user.deletedAt,
+        empresasAsign: reduceFindEmpresasAsign,
       };
     });
 
@@ -188,7 +241,7 @@ export class UserService {
 
   //Add a single user
   async create(createUser: CreateUserDTO, userToken: QueryToken) {
-    const { role, password, username } = createUser;
+    const { role, password, username, empresasAsign } = createUser;
     const { tokenEntityFull } = userToken;
 
     const passwordHashed = await hashPassword(password);
@@ -254,14 +307,118 @@ export class UserService {
           creatUserMysql,
         );
 
-        //Si el usuario que esta registrando pertenece a una empresa se registra en la tabla users_empresa
-        if (tokenEntityFull.empresa) {
-          const userEmpresa = this.usersEmprersaRepository.create({
-            empresa: tokenEntityFull.empresa,
-            usuario: userRegisteredMYSQL,
-          });
+        //El owner no puede crear usuarios con empresas
+        if (
+          tokenEntityFull.role.name === ROL_PRINCIPAL &&
+          empresasAsign &&
+          empresasAsign.length > 0
+        ) {
+          throw new HttpException(
+            'Para asignar empresas a un usuario necesitas pertecener a una.',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
 
-          await entityManager.save(UsersEmpresaEntity, userEmpresa);
+        //Si el usuario que esta registrando pertenece a una empresa se registra en la tabla users_empresa
+        if (
+          tokenEntityFull.role.name !== ROL_PRINCIPAL &&
+          empresasAsign &&
+          empresasAsign.length > 0
+        ) {
+          if (tokenEntityFull.empresas.length > 0) {
+            const searchEmpresas =
+              await this.empresaService.findAllEmpresasByUserIdObject(
+                tokenEntityFull._id,
+              );
+
+            for (let index = 0; index < empresasAsign.length; index++) {
+              const inputEmpresa = empresasAsign[index];
+              const idEmpresa = inputEmpresa.id;
+              const validEmpresa = searchEmpresas.find(
+                (empresa) => empresa.id === idEmpresa,
+              );
+
+              //Solo pasara empresas que le pertenece al creador del usuario
+              if (!validEmpresa) {
+                throw new HttpException(
+                  `No es posible asignar la empresa ${inputEmpresa.razon_social}.`,
+                  HttpStatus.BAD_REQUEST,
+                );
+              }
+              //Solo se aceptara empresas con el estado "activo" = true
+              if (validEmpresa.estado) {
+                const establecimientos = inputEmpresa.establecimientos;
+                //Si la empresa esta checked se procede a validar establecimientos
+                if (inputEmpresa.checked) {
+                  for (
+                    let index = 0;
+                    index < establecimientos.length;
+                    index++
+                  ) {
+                    const inputEstablecimiento = establecimientos[index];
+                    const idEstablecimiento = inputEstablecimiento.id;
+                    const listEstablecimientos =
+                      await this.empresaService.findEstablecimientosByEmpresa(
+                        idEmpresa,
+                      );
+                    const validEstablecimiento = listEstablecimientos.find(
+                      (a) => a.id === idEstablecimiento,
+                    );
+
+                    //Solo pasara establecimientos que le pertenece a la empresa del creador
+                    if (!validEstablecimiento) {
+                      throw new HttpException(
+                        `No es posible asignar el establecimiento ${inputEstablecimiento.denominacion}. Ya que no le pertecene a la empresa ${inputEmpresa.razon_social}.`,
+                        HttpStatus.BAD_REQUEST,
+                      );
+                    }
+
+                    //Solo se aceptara establecimientos con el estado "activo" = true
+                    if (validEstablecimiento.estado) {
+                      //Una vez validado el establecimiento se procede a registrar
+                      if (inputEstablecimiento.checked) {
+                        const userEmpresa = this.usersEmprersaRepository.create(
+                          {
+                            empresa: idEmpresa,
+                            usuario: userRegisteredMYSQL,
+                            establecimiento: idEstablecimiento,
+                          },
+                        );
+
+                        await entityManager.save(
+                          UsersEmpresaEntity,
+                          userEmpresa,
+                        );
+                      }
+                      //Revisar: los establecimientos y la empresa deben
+                      //tener la propiedad checked en true para que se registre
+                    } else {
+                      throw new HttpException(
+                        `El establecimiento ${
+                          inputEstablecimiento.codigo === '0000'
+                            ? 'PRINCIPAL'
+                            : inputEstablecimiento.codigo
+                        } - ${
+                          inputEstablecimiento.denominacion
+                        } debe estar activo.`,
+                        HttpStatus.BAD_REQUEST,
+                      );
+                    }
+                  }
+                }
+              } else {
+                throw new HttpException(
+                  `La empresa ${inputEmpresa.razon_social} debe estar activa.`,
+                  HttpStatus.BAD_REQUEST,
+                );
+              }
+            }
+          } else {
+            throw new HttpException(
+              'Para asignar empresas a un usuario necesitas pertecener a una.',
+              HttpStatus.BAD_REQUEST,
+            );
+          }
         }
       });
 
@@ -290,7 +447,7 @@ export class UserService {
       await session.abortTransaction();
       // Relanzar el error para que sea manejado en otro lugar
       throw new HttpException(
-        `Error al intentar crear usuario.`,
+        `Error al intentar crear usuario. ${error.message}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     } finally {
@@ -304,7 +461,7 @@ export class UserService {
     bodyUser: UpdateUserDTO,
     userToken: QueryToken,
   ): Promise<User> {
-    const { role, username } = bodyUser;
+    const { role, username, empresasAsign } = bodyUser;
     const { tokenEntityFull } = userToken;
     const rolToken = tokenEntityFull.role.name;
     const findForbidden = await this.findUserById(id);
@@ -366,6 +523,165 @@ export class UserService {
           },
         });
 
+        //El owner no puede asignar usuarios con empresas
+        if (
+          tokenEntityFull.role.name === ROL_PRINCIPAL &&
+          empresasAsign &&
+          empresasAsign.length > 0
+        ) {
+          throw new HttpException(
+            'Para asginar empresas a un usuario necesitas pertecener a una.',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+
+        if (
+          tokenEntityFull.role.name !== ROL_PRINCIPAL &&
+          empresasAsign &&
+          empresasAsign.length > 0
+        ) {
+          if (tokenEntityFull.empresas.length > 0) {
+            const findMyEmpresasAsign = await this.usersEmprersaRepository.find(
+              {
+                relations: {
+                  empresa: true,
+                  establecimiento: true,
+                },
+                where: {
+                  usuario: {
+                    _id: String(userMYSQL._id),
+                  },
+                },
+              },
+            );
+
+            const searchEmpresas =
+              await this.empresaService.findAllEmpresasByUserIdObject(
+                tokenEntityFull._id,
+              );
+
+            for (let index = 0; index < empresasAsign.length; index++) {
+              const inputEmpresa = empresasAsign[index];
+              const idEmpresa = inputEmpresa.id;
+
+              const validEmpresa = searchEmpresas.find(
+                (empresa) => empresa.id === idEmpresa,
+              );
+
+              //Solo pasara empresas que le pertenece al creador del usuario
+              if (!validEmpresa) {
+                throw new HttpException(
+                  `No es posible asignar la empresa ${inputEmpresa.razon_social}.`,
+                  HttpStatus.BAD_REQUEST,
+                );
+              }
+
+              //Solo se aceptara empresas con el estado "activo" = true
+              if (validEmpresa.estado) {
+                const establecimientos = inputEmpresa.establecimientos;
+                //Si la empresa esta checked se procede a validar establecimientos
+                if (inputEmpresa.checked) {
+                  for (
+                    let index = 0;
+                    index < establecimientos.length;
+                    index++
+                  ) {
+                    const inputEstablecimiento = establecimientos[index];
+                    const idEstablecimiento = inputEstablecimiento.id;
+                    const listEstablecimientos =
+                      await this.empresaService.findEstablecimientosByEmpresa(
+                        idEmpresa,
+                      );
+                    const validEstablecimiento = listEstablecimientos.find(
+                      (a) => a.id === idEstablecimiento,
+                    );
+
+                    //Solo pasara establecimientos que le pertenece a la empresa del creador
+                    if (!validEstablecimiento) {
+                      throw new HttpException(
+                        `No es posible asignar el establecimiento ${inputEstablecimiento.denominacion}. Ya que no le pertecene a la empresa ${inputEmpresa.razon_social}.`,
+                        HttpStatus.BAD_REQUEST,
+                      );
+                    }
+
+                    //Solo se aceptara establecimientos con el estado "activo" = true
+                    if (validEstablecimiento.estado) {
+                      const findEntidadExisting = findMyEmpresasAsign.find(
+                        (a) =>
+                          a.empresa.id === idEmpresa &&
+                          a.establecimiento.id === inputEstablecimiento.id,
+                      );
+
+                      //Si ya existe un establecimiento agregado y esta checked no se agrega
+                      if (!findEntidadExisting) {
+                        //Si no existe un establecimiento agregado y esta checked se agrega
+                        if (inputEstablecimiento.checked) {
+                          const userEmpresa =
+                            this.usersEmprersaRepository.create({
+                              empresa: idEmpresa,
+                              usuario: userMYSQL,
+                              establecimiento: idEstablecimiento,
+                            });
+                          await entityManager.save(
+                            UsersEmpresaEntity,
+                            userEmpresa,
+                          );
+                        }
+                        //Revisar: los establecimientos y la empresa deben
+                        //tener la propiedad checked en true para que se registre
+                      } else {
+                        //Si ya existe un establecimiento agregado y esta unchecked se elimina
+                        if (!inputEstablecimiento.checked) {
+                          await entityManager.delete(
+                            UsersEmpresaEntity,
+                            inputEstablecimiento.idEntidad,
+                          );
+                        }
+                      }
+                    } else {
+                      throw new HttpException(
+                        `El establecimiento ${
+                          inputEstablecimiento.codigo === '0000'
+                            ? 'PRINCIPAL'
+                            : inputEstablecimiento.codigo
+                        } - ${
+                          inputEstablecimiento.denominacion
+                        } debe estar activo.`,
+                        HttpStatus.BAD_REQUEST,
+                      );
+                    }
+                  }
+                } else {
+                  //Si desactiva la empresa se eliminan todos los establecimientos
+                  for (
+                    let index = 0;
+                    index < establecimientos.length;
+                    index++
+                  ) {
+                    const inputEstablecimiento = establecimientos[index];
+                    if (inputEstablecimiento.idEntidad) {
+                      await entityManager.delete(
+                        UsersEmpresaEntity,
+                        inputEstablecimiento.idEntidad,
+                      );
+                    }
+                  }
+                }
+              } else {
+                throw new HttpException(
+                  `La empresa ${inputEmpresa.razon_social} debe estar activa.`,
+                  HttpStatus.BAD_REQUEST,
+                );
+              }
+            }
+          } else {
+            throw new HttpException(
+              'Para asignar empresas a un usuario necesitas pertecener a una.',
+              HttpStatus.BAD_REQUEST,
+            );
+          }
+        }
+
         //Creados objeto para MYSQL
         this.userRepository.merge(userMYSQL, {
           nombres: modifyData.name,
@@ -385,7 +701,7 @@ export class UserService {
       await session.abortTransaction();
       // Relanzar el error para que sea manejado en otro lugar
       throw new HttpException(
-        `Error al intentar editar usuario.`,
+        `Error al intentar editar usuario. ${error.message}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     } finally {
@@ -541,12 +857,16 @@ export class UserService {
         },
       });
 
-      let empresamysql: EmpresaEntity;
+      let empresamysql: EmpresaEntity[];
 
       if (usermysql) {
-        const usermysql2 = await this.usersEmprersaRepository.findOne({
+        //user
+        const usermysql2 = await this.usersEmprersaRepository.find({
           relations: {
-            empresa: true,
+            empresa: {
+              establecimientos: true,
+              tipodoc_empresa: true,
+            },
           },
           where: {
             usuario: {
@@ -554,12 +874,27 @@ export class UserService {
             },
           },
         });
-
-        empresamysql = await this.empresaService.findOneEmpresaByUserId(
+        //console.log('usermysql2', usermysql2);
+        //user part
+        empresamysql = await this.empresaService.findAllEmpresasByUserId(
           usermysql.id,
         );
+        //console.log('empresamysql', empresamysql);
+        const myEmpresas = empresamysql ?? usermysql2;
 
-        user._doc.empresa = empresamysql ?? usermysql2?.empresa;
+        //console.log(user._doc.empresa);
+        const empresas = myEmpresas.map(async (emp) => {
+          const testseries = await this.seriesService.listSeriesByIdEmpresa(
+            emp.id,
+          );
+          return {
+            ...emp,
+            establecimientos: testseries.establecimientos,
+          };
+        });
+
+        user._doc.empresa = await Promise.all(empresas);
+        //user._doc.empresa.establecimientos = testseries.establecimientos;
       } else {
         user._doc.empresa = null;
       }
@@ -580,6 +915,14 @@ export class UserService {
         id: idUsuario,
       },
     });
+  }
+
+  //Metodo para asginar empresas a un usuario
+  async listToAsignEmpresasByIdPartner(id: string) {
+    const empresas = await this.empresaService.findAllEmpresasByUserIdObject(
+      id,
+    );
+    return empresas;
   }
 
   //Metodo para buscar usuarios al agregar empresa

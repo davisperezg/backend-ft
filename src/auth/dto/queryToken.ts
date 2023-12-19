@@ -21,12 +21,13 @@ class QueryTokenUser {
     }[];
   };
   estado_rol: boolean;
-  empresa?: {
+  empresas?: {
     ruc: string;
     razon_social: string;
     nombre_comercial: string;
     logo: string;
-  };
+    establecimientos: any[];
+  }[];
 }
 
 export class QueryToken {
@@ -34,5 +35,5 @@ export class QueryToken {
   token_of_permisos: Permission[];
   tokenEntityFull: Partial<Omit<UserDocument, 'role'>> & {
     role: RoleDocument;
-  } & { empresa?: EmpresaEntity };
+  } & { empresas?: EmpresaEntity[] };
 }
