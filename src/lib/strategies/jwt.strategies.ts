@@ -152,6 +152,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
                 razon_social: item.empresa,
                 nombre_comercial: item.nombre_comercial,
                 logo: item.logo,
+                estado: item.estado,
                 establecimientos: item.establecimientos.map((est) => {
                   return {
                     ...est,

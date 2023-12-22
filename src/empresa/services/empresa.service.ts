@@ -765,6 +765,13 @@ export class EmpresaService {
       );
     }
 
+    if (!empresa.estado) {
+      throw new HttpException(
+        'La empresa está desactivada.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
     const { estado, tipodoc_empresa, usuario, ...rest } = empresa;
 
     const result = internal
