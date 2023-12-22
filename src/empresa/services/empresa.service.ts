@@ -573,6 +573,7 @@ export class EmpresaService {
           ose_usu: a.usu_secundario_ose_user,
           ose_pass: a.usu_secundario_ose_password,
           status: a.estado,
+          estado: a.estado,
         };
       });
 
