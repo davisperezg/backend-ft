@@ -269,7 +269,7 @@ export class SeriesService {
     const { documentos, empresa, establecimiento } = body;
     const { tokenEntityFull } = userToken;
 
-    //valida existencia empresa
+    //valida existencia y estado de la empresa
     const findEmpresa = await this.empresaService.findOneEmpresaByIdx(
       empresa,
       true,
@@ -296,7 +296,7 @@ export class SeriesService {
       (est) => est.id,
     );
 
-    //valida existencia establecimiento
+    //valida existencia y estado del establecimiento
     const findEstablecimiento =
       await this.establecimientoService.findEstablecimientoById(
         establecimiento,
@@ -318,6 +318,7 @@ export class SeriesService {
           //Validar las keys
           if (key) {
             const id = Number(keys[index]);
+            //Valida estado y existencia del documento de la empresa
             const validDoc =
               await this.tipodocEmpresaService.findOneDocumentByIdAndIdEmpresa(
                 id,
@@ -340,61 +341,61 @@ export class SeriesService {
               for (let index = 0; index < values.length; index++) {
                 const value = values[index].toUpperCase();
                 const abreviado = validDoc.tipodoc.abreviado;
-                const documento = validDoc.tipodoc.tipo_documento;
-                const estado = validDoc.estado;
+                //const documento = validDoc.tipodoc.tipo_documento;
+                //const estado = validDoc.estado;
                 /**
-                 * Si el documento de la empresa esta activo y existe
-                 * se procede a validar los abreviados con los regex para
+                 * Se procede a validar los abreviados con los regex para
                  * que posteriormente sean aceptados y creados
                  */
-                if (estado) {
-                  const regexFactura = /F[A-Z0-9]{3}/;
-                  const regexBoleta = /B[A-Z0-9]{3}/;
-                  if (abreviado === 'F' && !regexFactura.test(value)) {
-                    throw new HttpException(
-                      'regex. Serie inválida ([F]{1,1}[A-Z0-9]{3,3}).',
-                      HttpStatus.BAD_REQUEST,
-                    );
-                  }
-                  if (abreviado === 'B' && !regexBoleta.test(value)) {
-                    throw new HttpException(
-                      'regex. Serie inválida ([B]{1,1}[A-Z0-9]{3,3}).',
-                      HttpStatus.BAD_REQUEST,
-                    );
-                  }
-                  //Agregar mas patters...
-
-                  //No se puede crear series existentes
-                  const existSerie = await this.serieRepository.findOne({
-                    where: {
-                      serie: value,
-                      documento: {
-                        id: validDoc.id,
-                      },
-                    },
-                  });
-
-                  if (!existSerie) {
-                    const createObj = this.serieRepository.create({
-                      establecimiento: findEstablecimiento,
-                      serie: value,
-                      documento: validDoc,
-                    });
-                    await entityManager.save(SeriesEntity, createObj);
-                  } else {
-                    throw new HttpException(
-                      `serie. La serie ${value} ya existe.`,
-                      HttpStatus.BAD_REQUEST,
-                    );
-                  }
-
-                  // return result;
-                } else {
+                //if (estado) {
+                const regexFactura = /F[A-Z0-9]{3}/;
+                const regexBoleta = /B[A-Z0-9]{3}/;
+                if (abreviado === 'F' && !regexFactura.test(value)) {
                   throw new HttpException(
-                    `values. El documento ${documento} esta desactivado para la empresa o no existe.`,
+                    'regex. Serie inválida ([F]{1,1}[A-Z0-9]{3,3}).',
                     HttpStatus.BAD_REQUEST,
                   );
                 }
+                if (abreviado === 'B' && !regexBoleta.test(value)) {
+                  throw new HttpException(
+                    'regex. Serie inválida ([B]{1,1}[A-Z0-9]{3,3}).',
+                    HttpStatus.BAD_REQUEST,
+                  );
+                }
+                //Agregar mas patters...
+
+                //No se puede crear series existentes
+                const existSerie = await this.serieRepository.findOne({
+                  where: {
+                    serie: value,
+                    documento: {
+                      id: validDoc.id,
+                    },
+                  },
+                });
+
+                if (!existSerie) {
+                  const createObj = this.serieRepository.create({
+                    establecimiento: findEstablecimiento,
+                    serie: value,
+                    documento: validDoc,
+                  });
+                  await entityManager.save(SeriesEntity, createObj);
+                } else {
+                  throw new HttpException(
+                    `serie. La serie ${value} ya existe.`,
+                    HttpStatus.BAD_REQUEST,
+                  );
+                }
+
+                // return result;
+                //}
+                // else {
+                //   throw new HttpException(
+                //     `values. El documento ${documento} esta desactivado para la empresa o no existe.`,
+                //     HttpStatus.BAD_REQUEST,
+                //   );
+                // }
               }
             }
           } else {
@@ -419,7 +420,7 @@ export class SeriesService {
     const { documentos, empresa, establecimiento } = body;
     const { tokenEntityFull } = userToken;
 
-    //valida existencia empresa
+    //valida existencia y estado de la empresa
     const findEmpresa = await this.empresaService.findOneEmpresaByIdx(
       empresa,
       true,
@@ -445,7 +446,7 @@ export class SeriesService {
       (est) => est.id,
     );
 
-    //valida existencia establecimiento
+    //valida existencia y estado del establecimiento
     const findEstablecimiento =
       await this.establecimientoService.findEstablecimientoById(
         establecimiento,
@@ -467,6 +468,7 @@ export class SeriesService {
           //Validar las keys
           if (key) {
             const id = Number(keys[index]);
+            //Valida estado y existencia del documento de la empresa
             const validDoc =
               await this.tipodocEmpresaService.findOneDocumentByIdAndIdEmpresa(
                 id,
@@ -489,81 +491,81 @@ export class SeriesService {
               for (let index = 0; index < values.length; index++) {
                 const value = values[index].toUpperCase();
                 const abreviado = validDoc.tipodoc.abreviado;
-                const documento = validDoc.tipodoc.tipo_documento;
-                const estado = validDoc.estado;
+                //const documento = validDoc.tipodoc.tipo_documento;
+                //const estado = validDoc.estado;
                 /**
-                 * Si el documento de la empresa esta activo y existe
-                 * se procede a validar los abreviados con los regex para
+                 * Se procede a validar los abreviados con los regex para
                  * que posteriormente sean aceptados y creados
                  */
-                if (estado) {
-                  const regexFactura = /F[A-Z0-9]{3}/;
-                  const regexBoleta = /B[A-Z0-9]{3}/;
-                  if (abreviado === 'F' && !regexFactura.test(value)) {
-                    throw new HttpException(
-                      'regex. Serie inválida ([F]{1,1}[A-Z0-9]{3,3}).',
-                      HttpStatus.BAD_REQUEST,
-                    );
-                  }
-                  if (abreviado === 'B' && !regexBoleta.test(value)) {
-                    throw new HttpException(
-                      'regex. Serie inválida ([B]{1,1}[A-Z0-9]{3,3}).',
-                      HttpStatus.BAD_REQUEST,
-                    );
-                  }
-                  //Agregar mas patters...
-
-                  //No se puede crear series existentes
-                  const existSerie = await this.serieRepository.findOne({
-                    relations: {
-                      establecimiento: true,
-                    },
-                    where: {
-                      serie: value,
-                      documento: {
-                        id: validDoc.id,
-                      },
-                    },
-                  });
-
-                  if (existSerie) {
-                    //Solo actualizara las series que no pertenezcan al establecimiento
-                    if (
-                      existSerie &&
-                      existSerie.establecimiento.id !== findEstablecimiento.id
-                    ) {
-                      await entityManager.update(
-                        SeriesEntity,
-                        {
-                          id: existSerie.id,
-                        },
-                        {
-                          establecimiento: findEstablecimiento,
-                          serie: value,
-                          documento: validDoc,
-                        },
-                      );
-                    } else {
-                      //Si la serie ya pertenece al establecimiento no se actualizara
-                      throw new HttpException(
-                        `serie. La serie ${value} ya pertenece al establecimiento destino.`,
-                        HttpStatus.BAD_REQUEST,
-                      );
-                    }
-                  } else {
-                    throw new HttpException(
-                      `serie. La serie ${value} no existe, para migrar la serie debe existir.`,
-                      HttpStatus.BAD_REQUEST,
-                    );
-                  }
-
-                  // return result;
-                } else {
+                //if (estado) {
+                const regexFactura = /F[A-Z0-9]{3}/;
+                const regexBoleta = /B[A-Z0-9]{3}/;
+                if (abreviado === 'F' && !regexFactura.test(value)) {
                   throw new HttpException(
-                    `values. El documento ${documento} esta desactivado para la empresa o no existe.`,
+                    'regex. Serie inválida ([F]{1,1}[A-Z0-9]{3,3}).',
                     HttpStatus.BAD_REQUEST,
                   );
                 }
+                if (abreviado === 'B' && !regexBoleta.test(value)) {
+                  throw new HttpException(
+                    'regex. Serie inválida ([B]{1,1}[A-Z0-9]{3,3}).',
+                    HttpStatus.BAD_REQUEST,
+                  );
+                }
+                //Agregar mas patters...
+
+                //No se puede crear series existentes
+                const existSerie = await this.serieRepository.findOne({
+                  relations: {
+                    establecimiento: true,
+                  },
+                  where: {
+                    serie: value,
+                    documento: {
+                      id: validDoc.id,
+                    },
+                  },
+                });
+
+                if (existSerie) {
+                  //Solo actualizara las series que no pertenezcan al establecimiento
+                  if (
+                    existSerie &&
+                    existSerie.establecimiento.id !== findEstablecimiento.id
+                  ) {
+                    await entityManager.update(
+                      SeriesEntity,
+                      {
+                        id: existSerie.id,
+                      },
+                      {
+                        establecimiento: findEstablecimiento,
+                        serie: value,
+                        documento: validDoc,
+                      },
+                    );
+                  } else {
+                    //Si la serie ya pertenece al establecimiento no se actualizara
+                    throw new HttpException(
+                      `serie. La serie ${value} ya pertenece al establecimiento destino.`,
+                      HttpStatus.BAD_REQUEST,
+                    );
+                  }
+                } else {
+                  throw new HttpException(
+                    `serie. La serie ${value} no existe, para migrar la serie debe existir.`,
+                    HttpStatus.BAD_REQUEST,
+                  );
+                }
+
+                // return result;
+                //}
+                // else {
+                //   throw new HttpException(
+                //     `values. El documento ${documento} esta desactivado para la empresa o no existe.`,
+                //     HttpStatus.BAD_REQUEST,
+                //   );
+                // }
               }
             }
           } else {

@@ -267,6 +267,13 @@ export class TipodocsEmpresaService {
       );
     }
 
+    if (!tipoDocumento.estado) {
+      throw new HttpException(
+        `El documento ${tipoDocumento.tipodoc.tipo_documento} está desactivado.`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
     return tipoDocumento;
   }
 
