@@ -61,7 +61,7 @@ export class EmpresaController {
     PermissionGuard([Permission.GetOneEmpresas, Permission.UpdateEmpresas]),
   )
   async getEmpresa(@Res() res, @Param('id') id: number, @Req() req: Request) {
-    const response = await this.empresaService.findOneEmpresaByIdx(
+    const response = await this.empresaService.findOneEmpresaById(
       id,
       false,
       req,

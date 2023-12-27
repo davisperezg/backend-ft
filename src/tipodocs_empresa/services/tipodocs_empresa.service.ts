@@ -20,7 +20,7 @@ export class TipodocsEmpresaService {
     let documents: TipodocsEmpresaEntity[];
 
     //Validamos si la empresa existe o no
-    const getEmpresa = await this.empresaService.findOneEmpresaByIdx(idEmpresa);
+    const getEmpresa = await this.empresaService.findOneEmpresaById(idEmpresa);
 
     //Si existe buscamos los documentos que tiene la empresa para emitir
     try {
