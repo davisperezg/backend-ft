@@ -942,6 +942,7 @@ export class UserService {
           nombreCompleto: usu.name + ' ' + usu.lastname,
           correo: usu.email,
           usuario: usu.username,
+          estado: usu.status,
         };
       });
       return userMap;
