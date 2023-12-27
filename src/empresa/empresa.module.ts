@@ -8,9 +8,12 @@ import { TipodocsModule } from 'src/tipodocs/tipodocs.module';
 import { TipodocsEmpresaEntity } from 'src/tipodocs_empresa/entities/tipodocs_empresa.entity';
 import { EstablecimientoModule } from 'src/establecimiento/establecimiento.module';
 import { EstablecimientoEntity } from 'src/establecimiento/entities/establecimiento.entity';
+import { MongooseModule } from '@nestjs/mongoose';
+import { User, UserSchema } from 'src/user/schemas/user.schema';
 
 @Module({
   imports: [
+    MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
     TypeOrmModule.forFeature([
       EmpresaEntity,
       TipodocsEmpresaEntity,

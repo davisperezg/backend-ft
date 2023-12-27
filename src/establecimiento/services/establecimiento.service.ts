@@ -25,10 +25,17 @@ export class EstablecimientoService {
     data: EstablecimientoCreateDto;
     files: any;
   }) {
-    const empresa = (await this.empresaService.findOneEmpresaByIdx(
+    const empresa = (await this.empresaService.findOneEmpresaById(
       body.data.empresa,
       true,
     )) as EmpresaEntity;
+
+    if (!empresa.estado) {
+      throw new HttpException(
+        'La empresa está desactivada.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
 
     const createObj = this.establecimientoRepository.create({
       ...body.data,
@@ -54,10 +61,17 @@ export class EstablecimientoService {
       files: any;
     },
   ) {
-    const empresa = (await this.empresaService.findOneEmpresaByIdx(
+    const empresa = (await this.empresaService.findOneEmpresaById(
       body.data.empresa,
       true,
     )) as EmpresaEntity;
+
+    if (!empresa.estado) {
+      throw new HttpException(
+        'La empresa está desactivada.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
 
     try {
       const establecimiento = await this.establecimientoRepository.findOne({

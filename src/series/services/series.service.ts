@@ -270,10 +270,16 @@ export class SeriesService {
     const { tokenEntityFull } = userToken;
 
     //valida existencia y estado de la empresa
-    const findEmpresa = await this.empresaService.findOneEmpresaByIdx(
+    const findEmpresa = (await this.empresaService.findOneEmpresaById(
       empresa,
       true,
-    );
+    )) as EmpresaEntity;
+    if (!findEmpresa.estado) {
+      throw new HttpException(
+        'La empresa está desactivada.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
 
     /**
      * Solo el rol principal puede crear series de cualquier empresa
@@ -421,10 +427,16 @@ export class SeriesService {
     const { tokenEntityFull } = userToken;
 
     //valida existencia y estado de la empresa
-    const findEmpresa = await this.empresaService.findOneEmpresaByIdx(
+    const findEmpresa = (await this.empresaService.findOneEmpresaById(
       empresa,
       true,
-    );
+    )) as EmpresaEntity;
+    if (!findEmpresa.estado) {
+      throw new HttpException(
+        'La empresa está desactivada.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
 
     /**
      * Solo el rol principal puede migrar series de cualquier empresa
@@ -621,7 +633,7 @@ export class SeriesService {
       const { empresas } = tokenEntityFull;
       for (let index = 0; index < empresas.length; index++) {
         const empresaToken = empresas[index];
-        const findEmpresa = await this.empresaService.findOneEmpresaByIdx(
+        const findEmpresa = await this.empresaService.findOneEmpresaById(
           empresaToken.id,
           true,
         );
@@ -690,7 +702,7 @@ export class SeriesService {
       const { empresas } = tokenEntityFull;
       for (let index = 0; index < empresas.length; index++) {
         const empresaToken = empresas[index];
-        const findEmpresa = await this.empresaService.findOneEmpresaByIdx(
+        const findEmpresa = await this.empresaService.findOneEmpresaById(
           empresaToken.id,
           true,
         );

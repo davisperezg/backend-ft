@@ -26,6 +26,9 @@ import { EstablecimientoService } from 'src/establecimiento/services/establecimi
 import { Request } from 'express';
 import { UpdateEmpresaDTO } from '../dto/update-empresa.dto';
 import { EstablecimientoEntity } from 'src/establecimiento/entities/establecimiento.entity';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { User, UserDocument } from 'src/user/schemas/user.schema';
 
 @Injectable()
 export class EmpresaService {
@@ -41,6 +44,8 @@ export class EmpresaService {
     private establecimientoRepository: Repository<EstablecimientoEntity>,
     private dataSource: DataSource,
     private establecimientoService: EstablecimientoService,
+    @InjectModel(User.name)
+    private userModel: Model<UserDocument>,
   ) {}
 
   async createEmpresa(body: {
@@ -77,6 +82,15 @@ export class EmpresaService {
     if (!userMYSQL) {
       throw new HttpException(
         'No se encontró usuario o no existe EmpresaService.findOne.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    //Usuario en mongo debe estar activo
+    const userMONGO = await this.userModel.findById(userMYSQL._id);
+    if (!userMONGO.status) {
+      throw new HttpException(
+        'El usuario no se encuentra activo.',
         HttpStatus.NOT_FOUND,
       );
     }
@@ -148,6 +162,7 @@ export class EmpresaService {
           //Si tiene documentos el body ingresamos para agregar y crear documentos
           for (let index = 0; index < body.data.documentos.length; index++) {
             const tipo = body.data.documentos[index].id;
+            const nombreDocumento = body.data.documentos[index].nombre;
             const getTipoDoc = await this.tipodocService.findOneTipoDocById(
               tipo,
             );
@@ -160,6 +175,11 @@ export class EmpresaService {
               });
 
               await entityManager.save(TipodocsEmpresaEntity, createObj);
+            } else {
+              throw new HttpException(
+                `El tipo de documento ${nombreDocumento} no existe o está inactivo.`,
+                HttpStatus.NOT_ACCEPTABLE,
+              );
             }
           }
 
@@ -195,9 +215,9 @@ export class EmpresaService {
         data: {
           codigo: '0000',
           denominacion: result.razon_social,
-          departamento: (body.data as any).departamento.label,
-          provincia: (body.data as any).provincia.label,
-          distrito: (body.data as any).distrito.label,
+          departamento: (body.data as any).departamento.label ?? '',
+          provincia: (body.data as any).provincia.label ?? '',
+          distrito: (body.data as any).distrito.label ?? '',
           direccion: result.direccion,
           ubigeo: result.ubigeo,
           empresa: result.id,
@@ -208,7 +228,7 @@ export class EmpresaService {
       return result;
     } catch (e) {
       throw new HttpException(
-        'Error al intentar crear empresa EmpresaService.save.',
+        `Error al intentar crear empresa EmpresaService.save. ${e.message}`,
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -239,6 +259,9 @@ export class EmpresaService {
 
     if (!empresa)
       throw new HttpException('La empresa no existe.', HttpStatus.BAD_REQUEST);
+
+    //No se actualizara el usuario
+    //codigo aqui
 
     //modo 1 = producción
     if (empresa.modo === 1 && body.data.modo === 0)
@@ -591,7 +614,7 @@ export class EmpresaService {
     let estado = false;
 
     //Validamos existencia de la empresa y el estado actual
-    const findEmpresa = (await this.findOneEmpresaByIdx(
+    const findEmpresa = (await this.findOneEmpresaById(
       idEmpresa,
       true,
     )) as EmpresaEntity;
@@ -654,7 +677,7 @@ export class EmpresaService {
     let estado = false;
 
     //Validamos existencia de la empresa y el estado actual
-    const findEmpresa = (await this.findOneEmpresaByIdx(
+    const findEmpresa = (await this.findOneEmpresaById(
       idEmpresa,
       true,
     )) as EmpresaEntity;
@@ -732,11 +755,7 @@ export class EmpresaService {
     return establecimientos;
   }
 
-  async findOneEmpresaByIdx(
-    idEmpresa: number,
-    internal = false,
-    req?: Request,
-  ) {
+  async findOneEmpresaById(idEmpresa: number, internal = false, req?: Request) {
     let empresa: EmpresaEntity;
 
     try {
@@ -762,13 +781,6 @@ export class EmpresaService {
     if (!empresa) {
       throw new HttpException(
         'La empresa no se encuentra o no existe.',
-        HttpStatus.NOT_FOUND,
-      );
-    }
-
-    if (!empresa.estado) {
-      throw new HttpException(
-        'La empresa está desactivada.',
         HttpStatus.NOT_FOUND,
       );
     }
