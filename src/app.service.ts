@@ -145,24 +145,9 @@ export class AppService implements OnApplicationBootstrap {
     //Agregando menus ventas
     const menusToVentas = await Promise.all([
       new this.menuModel({
-        name: 'Factura',
+        name: 'Comprobantes Electrónicos',
         status: true,
-        link: 'factura',
-      }).save(),
-      new this.menuModel({
-        name: 'Boleta',
-        status: true,
-        link: 'boleta',
-      }).save(),
-      new this.menuModel({
-        name: 'Nota de Credito',
-        status: true,
-        link: 'nota-credito',
-      }).save(),
-      new this.menuModel({
-        name: 'Nota de Debito',
-        status: true,
-        link: 'nota-debito',
+        link: 'comprobantes-electronicos',
       }).save(),
       new this.menuModel({
         name: 'Guia Remitente',

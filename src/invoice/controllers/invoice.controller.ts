@@ -27,8 +27,8 @@ export class InvoiceController {
   constructor(private readonly invoiceService: InvoiceService) {}
 
   @Post()
-  @UseGuards(PermissionGuard(Permission.CreateInvoices))
-  async getExample(
+  @UseGuards(PermissionGuard(Permission.CreateFacturas))
+  async createFactura(
     @Res() res: Response,
     @Body() createInvoices: CreateInvoiceDto,
     @CtxUser() user: QueryToken,
