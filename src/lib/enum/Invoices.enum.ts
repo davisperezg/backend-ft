@@ -1,3 +1,3 @@
 export enum InvoicesPermission {
-  CreateInvoices = 'canCreate_invoices',
+  CreateFacturas = 'canCreate_facturas',
 }

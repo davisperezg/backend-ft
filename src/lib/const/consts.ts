@@ -5,7 +5,7 @@ export const CATEGORIA_1 = 'Usuarios';
 export const CATEGORIA_2 = 'Modulos';
 export const CATEGORIA_3 = 'Roles';
 export const CATEGORIA_4 = 'Desarrollador';
-export const CATEGORIA_5 = 'Factura';
+export const CATEGORIA_5 = 'Comprobantes Electronicos';
 export const CATEGORIA_6 = 'Empresa';
 export const CATEGORIA_7 = 'Establecimiento';
 export const CATEGORIA_8 = 'Tipo de documentos';
@@ -523,7 +523,7 @@ export const RECURSOS_DEFECTOS = [
   },
   {
     name: 'Crear Facturas', //add
-    key: 'canCreate_invoices',
+    key: 'canCreate_facturas',
     description: 'Te permite crear facturas.',
     group_resource: CATEGORIA_5,
   },

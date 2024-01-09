@@ -149,7 +149,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
               return {
                 id: item.id,
                 ruc: item.ruc,
-                razon_social: item.empresa,
+                razon_social: item.razon_social,
+                modo: item.modo === 0 ? 'DESARROLLO' : 'PRODUCCION',
                 nombre_comercial: item.nombre_comercial,
                 logo: item.logo,
                 estado: item.estado,
