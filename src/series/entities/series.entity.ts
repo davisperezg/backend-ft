@@ -1,6 +1,7 @@
 import { EstablecimientoEntity } from 'src/establecimiento/entities/establecimiento.entity';
 import { TipodocsEmpresaEntity } from 'src/tipodocs_empresa/entities/tipodocs_empresa.entity';
 import {
+  BeforeInsert,
   Column,
   Entity,
   JoinColumn,
@@ -28,4 +29,11 @@ export class SeriesEntity {
   @ManyToOne(() => EstablecimientoEntity, (est) => est.series)
   @JoinColumn({ name: 'establecimiento_id' })
   establecimiento?: EstablecimientoEntity;
+
+  @Column({
+    type: 'char',
+    length: 8,
+    default: '1',
+  })
+  numero: string;
 }

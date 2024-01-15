@@ -225,6 +225,8 @@ export class SeriesService {
                           id: item.id,
                           serie: item.serie,
                           estado: item.estado,
+                          numeroConCeros: this.completarConCeros(item.numero),
+                          numero: item.numero,
                         },
                       ],
                     });
@@ -234,6 +236,8 @@ export class SeriesService {
                       id: item.id,
                       serie: item.serie,
                       estado: item.estado,
+                      numeroConCeros: this.completarConCeros(item.numero),
+                      numero: item.numero,
                     });
                   }
 
@@ -753,5 +757,22 @@ export class SeriesService {
         HttpStatus.BAD_REQUEST,
       );
     }
+  }
+
+  completarConCeros(valor: string) {
+    // Asegurarse de que el valor sea una cadena
+    let valorCadena = String(valor);
+
+    // Completar con ceros a la izquierda hasta alcanzar la longitud deseada (8)
+    while (valorCadena.length < 8) {
+      valorCadena = '0' + valorCadena;
+    }
+
+    // Limitar la longitud a 8 caracteres
+    if (valorCadena.length > 8) {
+      valorCadena = valorCadena.slice(0, 8);
+    }
+
+    return valorCadena;
   }
 }
