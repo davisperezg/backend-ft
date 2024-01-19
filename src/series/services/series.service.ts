@@ -10,6 +10,7 @@ import { EmpresaEntity } from 'src/empresa/entities/empresa.entity';
 import { EmpresaService } from 'src/empresa/services/empresa.service';
 import { EstablecimientoService } from 'src/establecimiento/services/establecimiento.service';
 import { ROL_PRINCIPAL } from 'src/lib/const/consts';
+import { completarConCeros } from 'src/lib/functions';
 
 @Injectable()
 export class SeriesService {
@@ -225,7 +226,7 @@ export class SeriesService {
                           id: item.id,
                           serie: item.serie,
                           estado: item.estado,
-                          numeroConCeros: this.completarConCeros(item.numero),
+                          numeroConCeros: completarConCeros(item.numero),
                           numero: item.numero,
                         },
                       ],
@@ -236,7 +237,7 @@ export class SeriesService {
                       id: item.id,
                       serie: item.serie,
                       estado: item.estado,
-                      numeroConCeros: this.completarConCeros(item.numero),
+                      numeroConCeros: completarConCeros(item.numero),
                       numero: item.numero,
                     });
                   }
@@ -757,22 +758,5 @@ export class SeriesService {
         HttpStatus.BAD_REQUEST,
       );
     }
-  }
-
-  completarConCeros(valor: string) {
-    // Asegurarse de que el valor sea una cadena
-    let valorCadena = String(valor);
-
-    // Completar con ceros a la izquierda hasta alcanzar la longitud deseada (8)
-    while (valorCadena.length < 8) {
-      valorCadena = '0' + valorCadena;
-    }
-
-    // Limitar la longitud a 8 caracteres
-    if (valorCadena.length > 8) {
-      valorCadena = valorCadena.slice(0, 8);
-    }
-
-    return valorCadena;
   }
 }
