@@ -110,6 +110,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
                 urbanizacion: item.urbanizacion,
                 correo: item.correo,
                 telefono_movil_1: item.telefono_movil_1,
+                establecimientos: item.establecimientos,
               };
             })
           : null,

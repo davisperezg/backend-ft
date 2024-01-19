@@ -41,6 +41,8 @@ lerna-debug.log*
 # Ignorar carpetas
 /uploads/certificado_digital/produccion/
 /xml/
+/uploads/files/*/produccion
+/uploads/files/*
 
 # Excepto la carpeta prueba
 !/uploads/certificado_digital/prueba/
