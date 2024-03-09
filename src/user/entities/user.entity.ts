@@ -1,6 +1,16 @@
-import { Entity, Column, PrimaryGeneratedColumn, OneToMany } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  OneToMany,
+  BeforeInsert,
+  BeforeUpdate,
+} from 'typeorm';
 import { EmpresaEntity } from '../../empresa/entities/empresa.entity';
 import { UsersEmpresaEntity } from 'src/users_empresa/entities/users_empresa.entity';
+import { EntidadEntity } from 'src/entidades/entities/entidad.entity';
+import { InvoiceEntity } from 'src/invoice/entities/invoice.entity';
+import { ConnectionWS } from 'src/connection/entities/connection_ws.entity';
 
 @Entity({ name: 'users' })
 export class UserEntity {
@@ -25,7 +35,25 @@ export class UserEntity {
   @OneToMany(() => EmpresaEntity, (empresa) => empresa.usuario)
   empresas?: EmpresaEntity[];
 
+  //Referencia a entidades para controlar quien creo a sus entidades (cliente)
+  @OneToMany(() => EntidadEntity, (entidad) => entidad.usuario)
+  entidades?: EntidadEntity[];
+
   //Referencia a users_empresa.entity
   @OneToMany(() => UsersEmpresaEntity, (usuemp) => usuemp.usuario)
   users_empresa?: UsersEmpresaEntity[];
+
+  //Referencia a invoice.entity
+  @OneToMany(() => InvoiceEntity, (invoice) => invoice.usuario)
+  invoices?: InvoiceEntity[];
+
+  @OneToMany(() => ConnectionWS, (connection) => connection.connectedUser)
+  connectionsWS: ConnectionWS[];
+
+  @BeforeInsert()
+  @BeforeUpdate()
+  emailAndUsernameToLowerCase() {
+    this.email = this.email.toLowerCase();
+    this.username = this.username.toLowerCase();
+  }
 }

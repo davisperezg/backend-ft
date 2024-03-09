@@ -1,4 +1,6 @@
+import { ConfigEstablecimientoEntity } from 'src/configuraciones/entities/configuraciones_establecimiento.entity';
 import { EmpresaEntity } from 'src/empresa/entities/empresa.entity';
+import { InvoiceEntity } from 'src/invoice/entities/invoice.entity';
 import { SeriesEntity } from 'src/series/entities/series.entity';
 import { UsersEmpresaEntity } from 'src/users_empresa/entities/users_empresa.entity';
 import {
@@ -53,4 +55,14 @@ export class EstablecimientoEntity {
   //Referencia a users_empresa.entity
   @OneToMany(() => UsersEmpresaEntity, (usuemp) => usuemp.establecimiento)
   users_empresa?: UsersEmpresaEntity[];
+
+  @OneToMany(() => InvoiceEntity, (invoice) => invoice.establecimiento)
+  invoices?: InvoiceEntity[];
+
+  //Referencia a establecimiento.entity
+  @OneToMany(
+    () => ConfigEstablecimientoEntity,
+    (config) => config.establecimiento,
+  )
+  configsEstablecimiento?: ConfigEstablecimientoEntity[];
 }

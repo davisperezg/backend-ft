@@ -169,6 +169,32 @@ export class TipodocsService {
     return tipoDocumento;
   }
 
+  async findOneTipoDocByCodigo(codigo: string) {
+    let tipoDocumento: TipodocsEntity;
+
+    try {
+      tipoDocumento = await this.tipodocsRepository.findOne({
+        where: {
+          codigo: codigo,
+        },
+      });
+    } catch (e) {
+      throw new HttpException(
+        'Error al obtener el tipo de documento TipodocsService.findOneTipoDocByCodigo.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // if (!tipoDocumento) {
+    //   throw new HttpException(
+    //     'El tipo de documento no se encuentra o no existe.',
+    //     HttpStatus.NOT_FOUND,
+    //   );
+    // }
+
+    return tipoDocumento;
+  }
+
   async findOneTipoDocByIds(idDocumento: number[]) {
     try {
       return await this.tipodocsRepository.find({

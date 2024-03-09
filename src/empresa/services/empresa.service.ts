@@ -894,7 +894,10 @@ export class EmpresaService {
     try {
       const empresas = await this.empresaRepository.find({
         relations: {
-          establecimientos: true,
+          configsEmpresa: true,
+          establecimientos: {
+            configsEstablecimiento: true,
+          },
         },
         select: {
           id: true,
@@ -937,7 +940,10 @@ export class EmpresaService {
     try {
       return await this.empresaRepository.find({
         relations: {
-          establecimientos: true,
+          configsEmpresa: true,
+          establecimientos: {
+            configsEstablecimiento: true,
+          },
         },
         where: {
           usuario: {
@@ -960,6 +966,7 @@ export class EmpresaService {
       documentos = await this.empresaRepository.findOne({
         relations: {
           establecimientos: {
+            configsEstablecimiento: true,
             series: {
               documento: {
                 tipodoc: true,

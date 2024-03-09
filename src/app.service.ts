@@ -11,6 +11,8 @@ import {
 } from './groups-resources/schemas/groups-resources.schema';
 import {
   CATEGORIA_1,
+  CATEGORIA_10,
+  CATEGORIA_11,
   CATEGORIA_2,
   CATEGORIA_3,
   CATEGORIA_4,
@@ -103,6 +105,12 @@ export class AppService implements OnApplicationBootstrap {
       }).save(),
       new this.groupModel({
         name: CATEGORIA_9,
+      }).save(),
+      new this.groupModel({
+        name: CATEGORIA_10,
+      }).save(),
+      new this.groupModel({
+        name: CATEGORIA_11,
       }).save(),
     ]);
 

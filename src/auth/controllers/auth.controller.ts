@@ -19,7 +19,7 @@ export class AuthController {
   }
 
   @Post('/token')
-  async token(@Body() data: { email: string; refreshToken: string }) {
+  async token(@Body() data: { username: string; refreshToken: string }) {
     return await this.authService.getTokenWithRefresh(data);
   }
 

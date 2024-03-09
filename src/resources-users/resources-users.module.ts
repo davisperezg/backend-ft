@@ -80,5 +80,6 @@ import { SeriesModule } from 'src/series/series.module';
     EstablecimientoService,
   ],
   controllers: [ResourcesUsersController],
+  exports: [ResourcesUsersService],
 })
 export class ResourcesUsersModule {}
