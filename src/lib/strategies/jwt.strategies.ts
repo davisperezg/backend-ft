@@ -78,8 +78,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       userDocument._id,
     );
 
-    //console.log(findUser.empresa);
-
     const user: QueryToken = {
       token_of_permisos: findResource,
       tokenEntityFull: {
@@ -155,6 +153,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
                 nombre_comercial: item.nombre_comercial,
                 logo: item.logo,
                 estado: item.estado,
+                configuraciones: item.configsEmpresa,
                 establecimientos: item.establecimientos.map((est) => {
                   return {
                     ...est,
@@ -166,6 +165,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
           : null,
       },
     };
+
+    //console.log(user.token_of_front);
 
     if (!findUser) {
       throw new UnauthorizedException('Acceso denegado!!!');

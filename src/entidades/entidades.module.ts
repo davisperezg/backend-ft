@@ -5,6 +5,8 @@ import { DepartamentoEntity } from './entities/departamento.entity';
 import { ProvinciaEntity } from './entities/provincia.entity';
 import { DistritoEntity } from './entities/distrito.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { EntidadEntity } from './entities/entidad.entity';
+import { TipoEntidadesModule } from 'src/tipo-entidades/tipo-entidades.module';
 
 @Module({
   imports: [
@@ -12,7 +14,9 @@ import { TypeOrmModule } from '@nestjs/typeorm';
       DepartamentoEntity,
       ProvinciaEntity,
       DistritoEntity,
+      EntidadEntity,
     ]),
+    TipoEntidadesModule,
   ],
   providers: [EntidadesService],
   controllers: [EntidadesController],

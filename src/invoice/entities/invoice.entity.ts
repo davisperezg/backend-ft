@@ -1,52 +1,270 @@
-import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
+import { EmpresaEntity } from 'src/empresa/entities/empresa.entity';
+import { EntidadEntity } from 'src/entidades/entities/entidad.entity';
+import { EstablecimientoEntity } from 'src/establecimiento/entities/establecimiento.entity';
+import { FormaPagosEntity } from 'src/forma-pagos/entities/forma-pagos.entity';
+import { MonedaEntity } from 'src/monedas/entities/monedas.entity';
+import { TipodocsEntity } from 'src/tipodocs/entities/tipodocs.entity';
+import { UserEntity } from 'src/user/entities/user.entity';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  ManyToOne,
+  JoinColumn,
+  CreateDateColumn,
+  OneToMany,
+} from 'typeorm';
+import { InvoiceDetailsEntity } from './invoice_details.entity';
+import { DecimalColumnTransformer } from 'src/lib/helpers/decimal_format';
 
 @Entity({ name: 'invoices' })
 export class InvoiceEntity {
   @PrimaryGeneratedColumn()
   id?: number;
 
-  @Column()
+  @Column({
+    type: 'char',
+    length: 4,
+  })
   tipo_operacion: string;
 
-  @Column()
-  tipo_doc: string;
+  @ManyToOne(() => TipodocsEntity, (tdoc) => tdoc.invoices, {
+    nullable: false,
+  })
+  @JoinColumn({ name: 'tipodoc_id' })
+  tipo_doc: TipodocsEntity;
 
-  @Column()
+  @Column({
+    type: 'char',
+    length: 4,
+  })
   serie: string;
 
-  @Column()
+  @Column({
+    type: 'char',
+    length: 8,
+  })
   correlativo: string;
 
-  @Column()
-  fecha_emision: string;
+  @Column({
+    type: 'datetime',
+  })
+  fecha_emision: Date;
 
-  @Column()
-  forma_pago: string;
+  @Column({
+    type: 'date',
+    nullable: true,
+    default: null,
+  })
+  fecha_vencimiento: Date;
 
-  @Column()
-  tipo_moneda: string;
+  @ManyToOne(() => FormaPagosEntity, (fpago) => fpago.invoices, {
+    nullable: false,
+  })
+  @JoinColumn({ name: 'formapago_id' })
+  forma_pago: FormaPagosEntity;
 
-  @Column()
-  company: string;
+  @ManyToOne(() => MonedaEntity, (moneda) => moneda.invoices, {
+    nullable: false,
+  })
+  @JoinColumn({ name: 'moneda_id' })
+  tipo_moneda: MonedaEntity;
 
-  @Column()
-  client: string;
+  @ManyToOne(() => EmpresaEntity, (empresa) => empresa.invoices, {
+    nullable: false,
+  })
+  @JoinColumn({ name: 'empresa_id' })
+  empresa: EmpresaEntity;
 
-  @Column()
-  mto_operaciones_gravadas: string;
+  @ManyToOne(
+    () => EstablecimientoEntity,
+    (establecimiento) => establecimiento.invoices,
+    {
+      nullable: false,
+    },
+  )
+  @JoinColumn({ name: 'establecimiento_id' })
+  establecimiento: EstablecimientoEntity;
 
-  @Column()
-  mto_igv: string;
+  @ManyToOne(() => EntidadEntity, (entidad) => entidad.invoices, {
+    nullable: true,
+  })
+  @JoinColumn({ name: 'cliente_id' })
+  cliente: EntidadEntity;
 
-  @Column()
-  total_impuestos: string;
+  @ManyToOne(() => UserEntity, (entidad) => entidad.invoices, {
+    nullable: false,
+  })
+  @JoinColumn({ name: 'usuario_id' })
+  usuario: UserEntity;
 
-  @Column()
-  valor_venta: string;
+  //crea una columna de tipo decimal(10,2)
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    transformer: new DecimalColumnTransformer(),
+  })
+  mto_operaciones_gravadas: number;
 
-  @Column()
-  subtotal: string;
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+    default: null,
+    transformer: new DecimalColumnTransformer(),
+  })
+  mto_operaciones_exoneradas: number;
 
-  @Column()
-  mto_imp_venta: string;
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+    default: null,
+    transformer: new DecimalColumnTransformer(),
+  })
+  mto_operaciones_inafectas: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+    default: null,
+    transformer: new DecimalColumnTransformer(),
+  })
+  mto_operaciones_exportacion: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+    default: null,
+    transformer: new DecimalColumnTransformer(),
+  })
+  mto_operaciones_gratuitas: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    transformer: new DecimalColumnTransformer(),
+  })
+  mto_igv: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+    default: null,
+    transformer: new DecimalColumnTransformer(),
+  })
+  mto_igv_gratuitas: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    transformer: new DecimalColumnTransformer(),
+  })
+  porcentaje_igv: number;
+
+  @Column({
+    type: 'tinyint',
+    default: 0, //0 es creado, 1 es enviando, 2 es aceptado, 3 es rechazado
+  })
+  estado_operacion?: number;
+
+  @Column({
+    type: 'tinyint',
+    default: null, //null es anulacion no enviada, 0 es anulacion enviada(con recepcion ticked), 1 anulacion aceptada, 2 anulacion rechazada
+    nullable: true,
+  })
+  estado_anulacion?: number;
+
+  @Column({
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+  })
+  respuesta_sunat_codigo?: string;
+
+  @Column({
+    type: 'text',
+    nullable: true,
+  })
+  respuesta_sunat_descripcion?: string;
+
+  @Column({
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+  })
+  respuesta_anulacion_codigo?: string;
+
+  @Column({
+    type: 'text',
+    nullable: true,
+  })
+  respuesta_anulacion_descripcion?: string;
+
+  @Column({
+    type: 'varchar',
+    length: 10,
+    default: '2.1',
+  })
+  UBLVersionID?: string;
+
+  @Column({
+    type: 'varchar',
+    length: 10,
+    default: '2.0',
+  })
+  CustomizationID?: string;
+
+  @Column({
+    type: 'text',
+    nullable: true,
+  })
+  observaciones?: string;
+
+  //Para plan solo facturacion
+  @Column({
+    type: 'varchar',
+    nullable: true,
+  })
+  entidad: string;
+
+  @Column({
+    type: 'char',
+    length: 1,
+    nullable: true,
+  })
+  entidad_tipo: string;
+
+  @Column({
+    nullable: true,
+  })
+  entidad_documento: string;
+
+  @Column({
+    nullable: true,
+  })
+  entidad_direccion: string;
+  //Fin Para plan solo facturacion
+
+  @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  createdAt?: Date;
+
+  @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  updatedAt?: Date;
+
+  @OneToMany(() => InvoiceDetailsEntity, (detail) => detail.invoice)
+  invoices_details?: InvoiceDetailsEntity[];
+  tipo_entidad: string;
+  ruc: string;
 }

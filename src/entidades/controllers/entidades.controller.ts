@@ -30,4 +30,9 @@ export class EntidadesController {
   getDistritosByProvincias(@Param('id') idProvincia: string) {
     return this.entidadesService.getDistritosByProvincia(idProvincia);
   }
+
+  @Get('/empresa/:id')
+  getEntidadesByEmpresa(@Param('id') idEmpresa: number) {
+    return this.entidadesService.listEntidadByEmpresa(idEmpresa);
+  }
 }

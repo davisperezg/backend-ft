@@ -99,5 +99,6 @@ import { SeriesModule } from 'src/series/series.module';
     EmpresaService,
     EstablecimientoService,
   ],
+  exports: [AuthService],
 })
 export class AuthModule {}

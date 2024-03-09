@@ -1,3 +1,9 @@
+export const validarFormatoUUID = (uuid: string) => {
+  const regex =
+    /^[0-9A-F]{8}-[0-9A-F]{4}-[4][0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$/i;
+  return regex.test(uuid);
+};
+
 export const completarConCeros = (valor: string) => {
   // Asegurarse de que el valor sea una cadena
   let valorCadena = String(valor);
@@ -13,6 +19,10 @@ export const completarConCeros = (valor: string) => {
   }
 
   return valorCadena;
+};
+
+export const quitarCerosIzquierda = (valor: string) => {
+  return valor.replace(/^0+/, '');
 };
 
 export const convertirDecimales = (valor: string, decimales: number) => {

@@ -41,7 +41,7 @@ import {
   Resource_RoleSchema,
 } from './resources-roles/schemas/resources-role';
 import { InvoiceModule } from './invoice/invoice.module';
-import { EntidadModule } from './entidad/entidad.module';
+
 import { EstablecimientoModule } from './establecimiento/establecimiento.module';
 import { TipodocsModule } from './tipodocs/tipodocs.module';
 import { SeriesModule } from './series/series.module';
@@ -50,9 +50,45 @@ import { TipodocsEmpresaModule } from './tipodocs_empresa/tipodocs_empresa.modul
 import { EmpresaModule } from './empresa/empresa.module';
 import { EntidadesModule } from './entidades/entidades.module';
 import { UsersEmpresaModule } from './users_empresa/users_empresa.module';
-
+import { UnidadesModule } from './unidades/unidades.module';
+import { IgvsModule } from './igvs/igvs.module';
+import { MonedasModule } from './monedas/monedas.module';
+import { FormaPagosModule } from './forma-pagos/forma-pagos.module';
+import { TipoEntidadesModule } from './tipo-entidades/tipo-entidades.module';
+import { ConfiguracionesModule } from './configuraciones/configuraciones.module';
+import { ConnectionModule } from './connection/connection.module';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
 @Module({
   imports: [
+    ServeStaticModule.forRootAsync({
+      useFactory: () => {
+        const uploadsPath = join(__dirname, '..', 'uploads/files'); // La ruta física de la carpeta que contiene tus archivos
+        return [
+          {
+            rootPath: uploadsPath,
+            serveRoot: '/files', // La ruta desde la cual los archivos serán servidos
+            serveStaticOptions: {
+              index: false,
+              fallthrough: false,
+              extensions: ['pdf', 'xml', 'zip'],
+              setHeaders: (res, path) => {
+                if (path.endsWith('.xml')) {
+                  res.setHeader('Content-Type', 'application/xml');
+                  res.setHeader('Content-Disposition', 'attachment');
+                } else if (path.endsWith('.zip')) {
+                  res.setHeader('Content-Type', 'application/zip');
+                  res.setHeader('Content-Disposition', 'attachment');
+                } else {
+                  res.setHeader('Content-Type', 'application/pdf');
+                  res.setHeader('Content-Disposition', 'inline');
+                }
+              },
+            },
+          },
+        ];
+      },
+    }),
     TypeOrmModule.forFeature([TipodocsEntity]),
     MongooseModule.forFeature([
       { name: Groupsresources.name, schema: GroupsresourcesSchema },
@@ -96,7 +132,6 @@ import { UsersEmpresaModule } from './users_empresa/users_empresa.module';
     ServicesUsersModule,
     GroupsResourceModule,
     InvoiceModule,
-    EntidadModule,
     EstablecimientoModule,
     TipodocsModule,
     SeriesModule,
@@ -104,6 +139,13 @@ import { UsersEmpresaModule } from './users_empresa/users_empresa.module';
     EmpresaModule,
     EntidadesModule,
     UsersEmpresaModule,
+    UnidadesModule,
+    IgvsModule,
+    MonedasModule,
+    FormaPagosModule,
+    TipoEntidadesModule,
+    ConfiguracionesModule,
+    ConnectionModule,
   ],
   controllers: [AppController],
   providers: [

@@ -9,7 +9,9 @@ import * as express from 'express';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.use(express.static('public'));
-  app.enableCors({ origin: process.env.URL_FRONTEND_ORIGIN });
+  app.enableCors({
+    origin: [process.env.URL_FRONTEND_ORIGIN, 'http://192.168.1.44:5173'],
+  });
 
   const validationOptions: ValidationPipeOptions = {
     whitelist: true,

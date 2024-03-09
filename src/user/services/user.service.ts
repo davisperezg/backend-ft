@@ -864,7 +864,10 @@ export class UserService {
         const usermysql2 = await this.usersEmprersaRepository.find({
           relations: {
             empresa: {
-              establecimientos: true,
+              configsEmpresa: true,
+              establecimientos: {
+                configsEstablecimiento: true,
+              },
               tipodoc_empresa: true,
             },
           },
@@ -874,7 +877,7 @@ export class UserService {
             },
           },
         });
-        //console.log('usermysql2', usermysql2);
+        //console.log('usermysql', usermysql);
         //user part
         empresamysql = await this.empresaService.findAllEmpresasByUserId(
           usermysql.id,
@@ -917,6 +920,15 @@ export class UserService {
     });
   }
 
+  //buscar usuario x _id en mysql
+  async findOneUserByObjectId(_idUsuario: string) {
+    return await this.userRepository.findOne({
+      where: {
+        _id: _idUsuario,
+      },
+    });
+  }
+
   //Metodo para asginar empresas a un usuario
   async listToAsignEmpresasByIdPartner(id: string) {
     const empresas = await this.empresaService.findAllEmpresasByUserIdObject(
@@ -934,9 +946,14 @@ export class UserService {
         creator: tokenEntityFull._id,
       });
 
-      const userMap = users.map((usu, i: number) => {
+      const userMap = users.map(async (usu) => {
+        const usuMysql = await this.userRepository.findOne({
+          where: {
+            _id: String(usu._id),
+          },
+        });
         return {
-          id: i + 1,
+          id: usuMysql.id,
           nombres: usu.name,
           apellidos: usu.lastname,
           nombreCompleto: usu.name + ' ' + usu.lastname,
@@ -945,7 +962,7 @@ export class UserService {
           estado: usu.status,
         };
       });
-      return userMap;
+      return await Promise.all(userMap);
     } catch (e) {
       throw new HttpException(
         'Ocurrio un error al intentar listar los usuarios UserService.findUsersToEmpresa.',

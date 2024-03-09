@@ -14,7 +14,10 @@ export class SeriesEntity {
   @PrimaryGeneratedColumn()
   id?: number;
 
-  @Column()
+  @Column({
+    type: 'char',
+    length: 4,
+  })
   serie: string;
 
   @Column({ default: true })

@@ -33,7 +33,10 @@ export class InvoiceController {
     @Body() createInvoices: CreateInvoiceDto,
     @CtxUser() user: QueryToken,
   ) {
-    const response = await this.invoiceService.getExample(createInvoices, user);
+    const response = await this.invoiceService.createInvoice(
+      createInvoices,
+      user,
+    );
     return res.status(200).json(response);
   }
 

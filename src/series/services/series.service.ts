@@ -150,6 +150,7 @@ export class SeriesService {
             tipodoc: true,
           },
           establecimiento: {
+            configsEstablecimiento: true,
             series: true,
           },
         },
@@ -158,6 +159,7 @@ export class SeriesService {
             id: true,
             codigo: true,
             denominacion: true,
+            configsEstablecimiento: true,
           },
           documento: {
             id: true,
@@ -203,6 +205,7 @@ export class SeriesService {
                 codigo: curr.codigo,
                 denominacion: curr.denominacion,
                 estado: curr.estado,
+                configuraciones: curr.configsEstablecimiento,
                 documentos: curr.series.reduce((result, item) => {
                   const id = item.documento.id;
                   const estado = item.documento.estado;
@@ -255,6 +258,7 @@ export class SeriesService {
               codigo: curr.codigo,
               denominacion: curr.denominacion,
               estado: curr.estado,
+              configuraciones: curr.configsEstablecimiento,
               documentos: [],
             },
           ];

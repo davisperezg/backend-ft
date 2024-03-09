@@ -5,260 +5,14 @@ export const CATEGORIA_1 = 'Usuarios';
 export const CATEGORIA_2 = 'Modulos';
 export const CATEGORIA_3 = 'Roles';
 export const CATEGORIA_4 = 'Desarrollador';
-export const CATEGORIA_5 = 'Comprobantes Electronicos';
+export const CATEGORIA_5 = 'Facturas';
 export const CATEGORIA_6 = 'Empresa';
 export const CATEGORIA_7 = 'Establecimiento';
 export const CATEGORIA_8 = 'Tipo de documentos';
 export const CATEGORIA_9 = 'Series';
-// export const resourcesByDefault = [
-//   // MODULES
-//   {
-//     name: 'Leer Modulos', //add
-//     key: 'canRead_modulesList',
-//     description: 'Te permite leer todos los modulos en su tabla.',
-//     status: true,
-//   },
-//   {
-//     name: 'Leer Modulos en otras entidades', //add
-//     key: 'canRead_modulesItem',
-//     description: 'Te permite leer los modulos en la entidad usuario o roles.',
-//     status: true,
-//   },
-//   {
-//     name: 'Obtener informacion por modulo', //add
-//     key: 'canGetModule',
-//     description:
-//       'Te permite obtener la data de los modulos asignados al usuario al logearte y al editar un modulo.',
-//     status: true,
-//   },
-//   {
-//     name: 'Crear Modulos', //add
-//     key: 'canCreate_modules',
-//     description: 'Te permite crear un modulo.',
-//     status: true,
-//   },
-//   {
-//     name: 'Editar Modulos', //add
-//     key: 'canEdit_modules',
-//     description: 'Te permite editar un modulo.',
-//     status: true,
-//   },
-//   {
-//     name: 'Eliminar Modulos', //add
-//     key: 'canDelete_modules',
-//     description:
-//       'Te permite desactivar un modulo esto afecta a todos los usuarios que tienen el modulo asignado.',
-//     status: true,
-//   },
-//   {
-//     name: 'Restaurar Modulos', //add
-//     key: 'canRestore_modules',
-//     description: 'Te permite restaurar el modulo desactivado.',
-//     status: true,
-//   },
-//   // ROLES
-//   {
-//     name: 'Crear Roles', //add
-//     key: 'canCreate_roles',
-//     description: 'Te permite crear un rol.',
-//     status: true,
-//   },
-//   {
-//     name: 'Editar Roles', //add
-//     key: 'canEdit_roles',
-//     description: 'Te permite editar un rol.',
-//     status: true,
-//   },
-//   {
-//     name: 'Eliminar Roles', //add
-//     key: 'canDelete_roles',
-//     description:
-//       'Te permite desactivar un rol esto afectara al registrar un nuevo usuario o al editar un usuario con el mismo rol desactivado.',
-//     status: true,
-//   },
-//   {
-//     name: 'Leer Roles', //add
-//     key: 'canRead_roles',
-//     description: 'Te permite leer todos los roles en su tabla.',
-//     status: true,
-//   },
-//   {
-//     name: 'Obtener informacion por rol', //add
-//     key: 'canGetRole',
-//     description: 'Te permite obtener la data de un rol.',
-//     status: true,
-//   },
-//   {
-//     name: 'Imprimir Roles', //add
-//     key: 'canPrint_roles',
-//     description: 'Te permite imprimir la tabla roles.',
-//     status: true,
-//   },
-//   {
-//     name: 'Restaurar Roles', //add
-//     key: 'canRestore_roles',
-//     description: 'Te permite resturar un rol desactivado.',
-//     status: true,
-//   },
-//   // USERS
-//   {
-//     name: 'Leer Usuarios', //add
-//     key: 'canRead_users',
-//     description: 'Te permite leer usuarios en su tabla.',
-//     status: true,
-//   },
-//   {
-//     name: 'Obtener informacion por usuario', //add
-//     key: 'canGetUser',
-//     description: 'Te permite obtener data de un usuario.',
-//     status: true,
-//   },
-//   {
-//     name: 'Crear Usuarios', //add
-//     key: 'canCreate_users',
-//     description: 'Te permite crear un usuario.',
-//     status: true,
-//   },
-//   {
-//     name: 'Editar Usuarios', //add
-//     key: 'canEdit_users',
-//     description: 'Te permite editar un usuario.',
-//     status: true,
-//   },
-//   {
-//     name: 'Eliminar Usuarios', //add
-//     key: 'canDelete_users',
-//     description: 'Te permite desactivar un usuario esto afectara al loguearse.',
-//     status: true,
-//   },
-//   {
-//     name: 'Cambiar contraseña de usuarios', //add
-//     key: 'canChangePassword_users',
-//     description: 'Te permite cambiar la password del usuario.',
-//     status: true,
-//   },
-//   {
-//     name: 'Restaurar Usuarios', //add
-//     key: 'canRestore_users',
-//     description: 'Te permite restaurar un usuario desactivado.',
-//     status: true,
-//   },
-//   // RESOURCES
-//   {
-//     name: 'Crear Permiso(DESARROLLADOR)', //add
-//     key: 'canCreate_Resource',
-//     description:
-//       'Te permite crear un permiso(Se recomienda solo para desarrolladores).',
-//     status: true,
-//   },
-//   {
-//     name: 'Leer Permisos(DESARROLLADOR)', //add
-//     key: 'canRead_ResourcesList',
-//     description:
-//       'Te permite leer todos los permisos de su tabla(Se recomienda solo para desarrolladores).',
-//     status: true,
-//   },
-//   {
-//     name: 'Leer Permisos en otras entidades', //add
-//     key: 'canRead_ResourcesItem',
-//     description: 'Te permite leer los permisos en las entidades usuario o rol',
-//     status: true,
-//   },
-//   {
-//     name: 'Editar Permisos(DESARROLLADOR)', //add
-//     key: 'canEdit_Resource',
-//     description:
-//       'Te permite editar un permiso(Se recomienda solo para desarrolladores).',
-//     status: true,
-//   },
-//   {
-//     name: 'Obtener informacion por permiso(DESARROLLADOR)', //add
-//     key: 'canGetResource',
-//     description:
-//       'Te permite obtener la data por permiso(Se recomienda solo para desarrolladores).',
-//     status: true,
-//   },
-//   // RR
-//   {
-//     name: 'Leer los recursos por rol en la entidad rol', //add
-//     key: 'canRead_ResourcebyRol',
-//     description:
-//       'Te permite leer los recursos o permisos en la entidad solo rol.',
-//     status: true,
-//   },
-//   {
-//     name: 'Crear y/o actualizar recursos por roles', //add
-//     key: 'canCreate_ResourceR',
-//     description:
-//       'Te permite crear y/o actualizar los recrusos o permisos en la entidad solo rol.',
-//     status: true,
-//   },
-//   // MENU
-//   {
-//     name: 'Leer Menus', //add
-//     key: 'canRead_menus',
-//     description: 'Te permite leer menus en la entidad modulos.',
-//     status: true,
-//   },
-//   {
-//     name: 'Crear Menu(DESARROLLADOR)', //add
-//     key: 'canCreate_menus',
-//     description:
-//       'Te permite crear un menu(Se recomienda solo para desarrolladores).',
-//     status: true,
-//   },
-//   {
-//     name: 'Editar Menu(DESARROLLADOR)', //add
-//     key: 'canEdit_menus',
-//     description:
-//       'Te permite crear un menu(Se recomienda solo para desarrolladores).',
-//     status: true,
-//   },
-//   {
-//     name: 'Eliminar Menu(DESARROLLADOR)', //add
-//     key: 'canDelete_menus',
-//     description:
-//       'Te permite crear un menu(Se recomienda solo para desarrolladores).',
-//     status: true,
-//   },
-//   {
-//     name: 'Restaurar Menu(DESARROLLADOR)', //add
-//     key: 'canRestore_menus',
-//     description:
-//       'Te permite crear un menu(Se recomienda solo para desarrolladores).',
-//     status: true,
-//   },
-//   // RU
-//   {
-//     name: 'Leer los recursos por usuario en otras entidades', //add
-//     key: 'canRead_ResourcebyUser',
-//     description:
-//       'Te permite leer los recursos o permisos por usuario solo en la entidad usuario.',
-//     status: true,
-//   },
-//   {
-//     name: 'Crear y/o actualizar recursos por usuario', //add
-//     key: 'canCreate_ResourceU',
-//     description:
-//       'Te permite crear y/o actualizar los permisos o recusos por usuario solo en la entidad usuario.',
-//     status: true,
-//   },
-//   // SU
-//   {
-//     name: 'Leer los modulos o servicios por usuario en otras entidades', //add
-//     key: 'canRead_ServicebyUser',
-//     description:
-//       'Te permite leer los modulos o servicios por usuario esto afecta al usuario al loguearse y en la entidad usuario',
-//     status: true,
-//   },
-//   {
-//     name: 'Crear y/o actualizar modulos o servicios por usuario', //add
-//     key: 'canCreate_ServiceU',
-//     description:
-//       'Te permite crear y/o actualizar los modulos o servicios por usuario solo en la entidad usuario.',
-//     status: true,
-//   },
-// ];
+export const CATEGORIA_10 = 'Cliente';
+export const CATEGORIA_11 = 'Comprobantes Electrónicos';
+export const URL_STATIC = process.env.URL_FILES_STATIC;
 
 export const RECURSOS_DEFECTOS = [
   // USERS
@@ -663,6 +417,24 @@ export const RECURSOS_DEFECTOS = [
     key: 'canRead_series',
     description: 'Te permite listar series.',
     group_resource: CATEGORIA_9,
+  },
+  {
+    name: 'Crear Clientes', //add
+    key: 'canCreate_clientes',
+    description: 'Te permite crear clientes.',
+    group_resource: CATEGORIA_10,
+  },
+  {
+    name: 'Activar boton para vender sin stock', //add
+    key: 'canCreate_invoices_nostock',
+    description: 'Te permite crear ventas sin descontar stock.',
+    group_resource: CATEGORIA_11,
+  },
+  {
+    name: 'Leer comprobantes', //add
+    key: 'canRead_invoices',
+    description: 'Te permite listar los comprobantes.',
+    group_resource: CATEGORIA_11,
   },
   // RU
   // {
@@ -2798,4 +2570,230 @@ export const DISTRITOS = [
   { id: '250304', distrito: 'Neshuya' },
   { id: '250305', distrito: 'Alexander von Humboldt' },
   { id: '250401', distrito: 'Purus' },
+];
+
+export const UNIDADES = [
+  { codigo: 'NIU', unidad: 'UNIDAD (BIENES)' },
+  { codigo: 'ZZ', unidad: 'UNIDAD (SERVICIOS)' },
+  { codigo: '4A', unidad: 'BOBINAS' },
+  { codigo: 'BJ', unidad: 'BALDE' },
+  { codigo: 'BLL', unidad: 'BARRILES' },
+  { codigo: 'BG', unidad: 'BOLSA' },
+  { codigo: 'BO', unidad: 'BOTELLAS' },
+  { codigo: 'BX', unidad: 'CAJA' },
+  { codigo: 'CT', unidad: 'CARTONES' },
+  { codigo: 'CMK', unidad: 'CENTIMETRO CUADRADO' },
+  { codigo: 'CMQ', unidad: 'CENTIMETRO CUBICO' },
+  { codigo: 'CMT', unidad: 'CENTIMETRO LINEAL' },
+  { codigo: 'CEN', unidad: 'CIENTO DE UNIDADES' },
+  { codigo: 'CY', unidad: 'CILINDRO' },
+  { codigo: 'CJ', unidad: 'CONOS' },
+  { codigo: 'DZN', unidad: 'DOCENA' },
+  { codigo: 'DZP', unidad: 'DOCENA POR 10**6' },
+  { codigo: 'BE', unidad: 'FARDO' },
+  { codigo: 'GLI', unidad: 'GALON INGLES (4,545956L)' },
+  { codigo: 'GRM', unidad: 'GRAMO' },
+  { codigo: 'GRO', unidad: 'GRUESA' },
+  { codigo: 'HLT', unidad: 'HECTOLITRO' },
+  { codigo: 'LEF', unidad: 'HOJA' },
+  { codigo: 'SET', unidad: 'JUEGO' },
+  { codigo: 'KGM', unidad: 'KILOGRAMO' },
+  { codigo: 'KTM', unidad: 'KILOMETRO' },
+  { codigo: 'KWH', unidad: 'KILOVATIO HORA' },
+  { codigo: 'KT', unidad: 'KIT' },
+  { codigo: 'CA', unidad: 'LATAS' },
+  { codigo: 'LBR', unidad: 'LIBRAS' },
+  { codigo: 'LTR', unidad: 'LITRO' },
+  { codigo: 'MWH', unidad: 'MEGAWATT HORA' },
+  { codigo: 'MTR', unidad: 'METRO' },
+  { codigo: 'MTK', unidad: 'METRO CUADRADO' },
+  { codigo: 'MTQ', unidad: 'METRO CUBICO' },
+  { codigo: 'MGM', unidad: 'MILIGRAMOS' },
+  { codigo: 'MLT', unidad: 'MILILITRO' },
+  { codigo: 'MMT', unidad: 'MILIMETRO' },
+  { codigo: 'MMK', unidad: 'MILIMETRO CUADRADO' },
+  { codigo: 'MMQ', unidad: 'MILIMETRO CUBICO' },
+  { codigo: 'MLL', unidad: 'MILLARES' },
+  { codigo: 'UM', unidad: 'MILLON DE UNIDADES' },
+  { codigo: 'ONZ', unidad: 'ONZAS' },
+  { codigo: 'PF', unidad: 'PALETAS' },
+  { codigo: 'PK', unidad: 'PAQUETE' },
+  { codigo: 'PR', unidad: 'PAR' },
+  { codigo: 'FOT', unidad: 'PIES' },
+  { codigo: 'FTK', unidad: 'PIES CUADRADOS' },
+  { codigo: 'FTQ', unidad: 'PIES CUBICOS' },
+  { codigo: 'C62', unidad: 'PIEZAS' },
+  { codigo: 'PG', unidad: 'PLACAS' },
+  { codigo: 'ST', unidad: 'PLIEGO' },
+  { codigo: 'INH', unidad: 'PULGADAS' },
+  { codigo: 'RM', unidad: 'RESMA' },
+  { codigo: 'DR', unidad: 'TAMBOR' },
+  { codigo: 'STN', unidad: 'TONELADA CORTA' },
+  { codigo: 'LTN', unidad: 'TONELADA LARGA' },
+  { codigo: 'TNE', unidad: 'TONELADAS' },
+  { codigo: 'TU', unidad: 'TUBOS' },
+  { codigo: 'GLL', unidad: 'US GALON (3,7843 L)' },
+  { codigo: 'YRD', unidad: 'YARDA' },
+  { codigo: 'YDK', unidad: 'YARDA CUADRADA' },
+];
+
+export const MONEDAS = [
+  { moneda: 'soles', abreviado: 'sol', abrstandar: 'PEN', simbolo: 'S/' },
+  { moneda: 'dólares', abreviado: 'dol', abrstandar: 'USD', simbolo: '$' },
+  { moneda: 'euros', abreviado: 'eur', abrstandar: 'EUR', simbolo: 'E' },
+];
+
+export const TIPOS_IGVS = [
+  {
+    codigo: '10',
+    tipo_igv: 'Operación Gravada',
+    codigo_de_tributo: '1000',
+    categoria: 'Operaciones Onerosas',
+  },
+  {
+    codigo: '11',
+    tipo_igv: 'Gravado - Retiro por premio',
+    codigo_de_tributo: '9996',
+    categoria: 'Operaciones Gratuitas',
+  },
+  {
+    codigo: '12',
+    tipo_igv: 'Gravado - Retiro por donación',
+    codigo_de_tributo: '9996',
+    categoria: 'Operaciones Gratuitas',
+  },
+  {
+    codigo: '13',
+    tipo_igv: 'Gravado - Retiro',
+    codigo_de_tributo: '9996',
+    categoria: 'Operaciones Gratuitas',
+  },
+  {
+    codigo: '14',
+    tipo_igv: 'Gravado - Retiro por publicidad',
+    codigo_de_tributo: '9996',
+    categoria: 'Operaciones Gratuitas',
+  },
+  {
+    codigo: '15',
+    tipo_igv: 'Gravado - Bonificaciones',
+    codigo_de_tributo: '9996',
+    categoria: 'Operaciones Gratuitas',
+  },
+  {
+    codigo: '16',
+    tipo_igv: 'Gravado - Retiro por entrega a trabajadores',
+    codigo_de_tributo: '9996',
+    categoria: 'Operaciones Gratuitas',
+  },
+  {
+    codigo: '17',
+    tipo_igv: 'Gravado - IVAP',
+    codigo_de_tributo: '9996',
+    categoria: 'Operaciones Gratuitas',
+  },
+  {
+    codigo: '20',
+    tipo_igv: 'Operación Exonerada',
+    codigo_de_tributo: '9997',
+    categoria: 'Operaciones Onerosas',
+  },
+  {
+    codigo: '21',
+    tipo_igv: 'Exonerado - Transferencia gratuita',
+    codigo_de_tributo: '9996',
+    categoria: 'Operaciones Gratuitas',
+  },
+  {
+    codigo: '30',
+    tipo_igv: 'Operación Inafecto',
+    codigo_de_tributo: '9998',
+    categoria: 'Operaciones Onerosas',
+  },
+  {
+    codigo: '31',
+    tipo_igv: 'Inafecto - Retiro por Bonificación',
+    codigo_de_tributo: '9996',
+    categoria: 'Operaciones Gratuitas',
+  },
+  {
+    codigo: '32',
+    tipo_igv: 'Inafecto - Retiro',
+    codigo_de_tributo: '9996',
+    categoria: 'Operaciones Gratuitas',
+  },
+  {
+    codigo: '33',
+    tipo_igv: 'Inafecto - Retiro por Muestras Médicas',
+    codigo_de_tributo: '9996',
+    categoria: 'Operaciones Gratuitas',
+  },
+  {
+    codigo: '34',
+    tipo_igv: 'Inafecto - Retiro por Convenio Colectivo',
+    codigo_de_tributo: '9996',
+    categoria: 'Operaciones Gratuitas',
+  },
+  {
+    codigo: '35',
+    tipo_igv: 'Inafecto - Retiro por premio',
+    codigo_de_tributo: '9996',
+    categoria: 'Operaciones Gratuitas',
+  },
+  {
+    codigo: '36',
+    tipo_igv: 'Inafecto - Retiro por publicidad',
+    codigo_de_tributo: '9996',
+    categoria: 'Operaciones Gratuitas',
+  },
+  {
+    codigo: '37',
+    tipo_igv: 'Inafecto - Transferencia gratuita',
+    codigo_de_tributo: '9996',
+    categoria: 'Operaciones Gratuitas',
+  },
+  {
+    codigo: '40',
+    tipo_igv: 'Exportación de Bienes o Servicios',
+    codigo_de_tributo: '9995',
+    categoria: 'Operaciones Onerosas',
+  },
+];
+
+export const TIPO_ENTIDADES = [
+  {
+    tipo_entidad: 'DNI',
+    codigo: '1',
+    descripcion: 'DOC.NACIONAL DE IDEN',
+    abreviatura: 'DNI',
+  },
+  {
+    tipo_entidad: 'RUC',
+    codigo: '6',
+    descripcion: 'REG. UNICO DE CONTRI',
+    abreviatura: 'RUC',
+  },
+  {
+    tipo_entidad: 'Empresas Del Extranjero - No Domiciliado',
+    codigo: '0',
+    descripcion: 'DOC.TRIB.NO.DOM.SIN.RUC',
+    abreviatura: 'Emp. Ext',
+  },
+  {
+    tipo_entidad: 'Carnet de Extranjeria',
+    codigo: '4',
+    descripcion: 'CARNET DE EXTRANJERIA',
+    abreviatura: 'Car. Ext',
+  },
+  {
+    tipo_entidad: 'Pasaporte',
+    codigo: '7',
+    descripcion: 'PASAPORTE',
+    abreviatura: 'Pasaport',
+  },
+];
+
+export const FORMAS_PAGO = [
+  { forma_pago: 'Contado' },
+  { forma_pago: 'Crédito' },
 ];

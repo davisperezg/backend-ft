@@ -101,6 +101,9 @@ export class EstablecimientoService {
 
     try {
       establecimiento = await this.establecimientoRepository.findOne({
+        relations: {
+          configsEstablecimiento: true,
+        },
         where: {
           id,
         },

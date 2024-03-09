@@ -55,16 +55,15 @@ export class AuthService {
   }
 
   //method to validate token with refresh-token v0.0.1
-  async getTokenWithRefresh(body: { email: string; refreshToken: string }) {
-    const email = body.email;
+  async getTokenWithRefresh(body: { username: string; refreshToken: string }) {
+    const username = body.username;
     const refreshToken = body.refreshToken;
-
-    const findUser = await this.userService.findUserByUsername(email);
+    const findUser = await this.userService.findUserByUsername(username);
 
     //verify if exist refresh token and email in refresh token, is correct  ?f
     if (
       refreshToken in refreshTokens &&
-      refreshTokens[refreshToken] === email
+      refreshTokens[refreshToken] === username
     ) {
       return { access_token: this.getToken(findUser._id) };
     } else {
@@ -117,7 +116,7 @@ export class AuthService {
         throw new HttpException(e.response, HttpStatus.NOT_FOUND);
       }
 
-      const dta = e.response.data;
+      const dta = e.response?.data;
 
       if (dta) {
         const { error } = dta;
@@ -135,9 +134,17 @@ export class AuthService {
       }
 
       throw new HttpException(
-        'Ha ocurrido un error al intentar buscar a la entidad. Comuniquese con el administrador del sistema o intente ingresar la información de la entidad manualmente.',
+        'Ha ocurrido un error al intentar buscar a la entidad. Verifique la conexión a internet o comuniquese con el administrador del sistema e intente ingresar la información de la entidad manualmente.',
         HttpStatus.FOUND,
       );
     }
+  }
+
+  verifyJwt(jwt: string): Promise<any> {
+    return this.jwt.verifyAsync(jwt);
+  }
+
+  async findOneUserMysqlByObjId(id: string) {
+    return await this.userService.findOneUserByObjectId(id);
   }
 }

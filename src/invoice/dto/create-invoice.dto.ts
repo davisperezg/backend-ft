@@ -4,6 +4,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Length,
   MaxLength,
   MinLength,
 } from 'class-validator';
@@ -57,15 +58,28 @@ export class CreateInvoiceDto {
   })
   establecimiento: number;
 
-  @IsInt({
-    message: 'El tipo de documento debe contener un valor entero y válido.',
+  //boleta, factura, etc... - para facturas 01
+  @Length(2, 2, {
+    message: 'El tipo de documento debe tener exactamente dos caracteres.',
+  })
+  @IsString({
+    message: 'El tipo de documento debe ser una cadena de caracteres.',
   })
   @IsNotEmpty({
-    message: 'Por favor complete el tipo de documento del cliente.',
+    message: 'Por favor complete el tipo de documento.',
   })
-  tipo_documento: number;
+  tipo_documento: string;
 
-  //
+  //dni, ruc, etc...
+  @IsString({
+    message: 'El tipo de entidad debe contener una cadena de texto.',
+  })
+  @IsNotEmpty({
+    message: 'Por favor complete el tipo de entidad del cliente.',
+  })
+  tipo_entidad: string;
+
+  //venta interna - 0101
   @IsString({
     message: 'El tipo de operación debe contener una cadena de texto.',
   })
@@ -98,17 +112,17 @@ export class CreateInvoiceDto {
   @IsOptional()
   fecha_vencimiento?: Date;
 
-  @IsInt({
-    message: 'La forma de pago debe contener un valor entero y válido.',
+  @IsString({
+    message: 'La forma de pago debe contener una cadena de texto.',
   })
   @IsNotEmpty({ message: 'Por favor complete la forma de pago de la venta.' })
-  forma_pago: number;
+  forma_pago: string;
 
-  @IsInt({
-    message: 'La moneda debe contener un valor entero y válido.',
+  @IsString({
+    message: 'La moneda debe contener una cadena de texto.',
   })
   @IsNotEmpty({ message: 'Por favor complete la moneda de la venta.' })
-  moneda: number;
+  moneda: string;
 
   // @IsInt({
   //   message: 'El total gravado debe contener un valor entero y válido.',

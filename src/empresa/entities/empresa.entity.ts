@@ -10,6 +10,10 @@ import { UserEntity } from '../../user/entities/user.entity';
 import { TipodocsEmpresaEntity } from 'src/tipodocs_empresa/entities/tipodocs_empresa.entity';
 import { EstablecimientoEntity } from 'src/establecimiento/entities/establecimiento.entity';
 import { UsersEmpresaEntity } from 'src/users_empresa/entities/users_empresa.entity';
+import { EntidadEntity } from 'src/entidades/entities/entidad.entity';
+import { InvoiceEntity } from 'src/invoice/entities/invoice.entity';
+import { ConfigEmpresaEntity } from 'src/configuraciones/entities/configuraciones_empresa.entity';
+import { ConfigEstablecimientoEntity } from 'src/configuraciones/entities/configuraciones_establecimiento.entity';
 
 @Entity({ name: 'empresas' })
 export class EmpresaEntity {
@@ -100,4 +104,22 @@ export class EmpresaEntity {
   //Referencia a users_empresa.entity
   @OneToMany(() => UsersEmpresaEntity, (usuemp) => usuemp.empresa)
   users_empresa?: UsersEmpresaEntity[];
+
+  //Referencia a entidades para controlar quien creo a sus entidades (cliente)
+  @OneToMany(() => EntidadEntity, (entidad) => entidad.empresa)
+  entidades?: EntidadEntity[];
+
+  @OneToMany(() => InvoiceEntity, (invoice) => invoice.empresa)
+  invoices?: InvoiceEntity[];
+
+  //Referencia a empresa.entity
+  @OneToMany(() => ConfigEmpresaEntity, (config) => config.empresa)
+  configsEmpresa?: ConfigEmpresaEntity[];
+
+  //Referencia a establecimiento.entity
+  @OneToMany(
+    () => ConfigEstablecimientoEntity,
+    (config) => config.establecimiento,
+  )
+  configsEstablecimiento?: ConfigEstablecimientoEntity[];
 }
