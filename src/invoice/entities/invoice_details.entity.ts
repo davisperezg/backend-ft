@@ -37,14 +37,14 @@ export class InvoiceDetailsEntity {
   producto?: string;
   //finsolo permite generar fact
 
-  @Column({
-    type: 'decimal',
-    precision: 10,
-    scale: 2,
-    nullable: false,
-    default: null,
-  })
-  igv: number;
+  //   @Column({
+  //     type: 'decimal',
+  //     precision: 10,
+  //     scale: 2,
+  //     nullable: false,
+  //     default: null,
+  //   })
+  //   igv: number;
 
   //   @Column({
   //     type: 'decimal',
@@ -55,32 +55,32 @@ export class InvoiceDetailsEntity {
   //   })
   //   igvUnitario: number;
 
-  @Column({
-    type: 'decimal',
-    precision: 10,
-    scale: 2,
-    nullable: false,
-    default: null,
-  })
-  mtoBaseIgv: number;
+  //   @Column({
+  //     type: 'decimal',
+  //     precision: 10,
+  //     scale: 2,
+  //     nullable: false,
+  //     default: null,
+  //   })
+  //   mtoBaseIgv: number;
 
-  @Column({
-    type: 'decimal',
-    precision: 10,
-    scale: 3,
-    nullable: false,
-    default: null,
-  })
-  mtoPrecioUnitario: number;
+  //   @Column({
+  //     type: 'decimal',
+  //     precision: 10,
+  //     scale: 3,
+  //     nullable: false,
+  //     default: null,
+  //   })
+  //   mtoPrecioUnitario: number;
 
-  @Column({
-    type: 'decimal',
-    precision: 10,
-    scale: 3,
-    nullable: true,
-    default: null,
-  })
-  mtoPrecioUnitarioGratuito?: number;
+  //   @Column({
+  //     type: 'decimal',
+  //     precision: 10,
+  //     scale: 3,
+  //     nullable: true,
+  //     default: null,
+  //   })
+  //   mtoPrecioUnitarioGratuito?: number;
 
   //   @Column({
   //     type: 'decimal',
@@ -109,14 +109,14 @@ export class InvoiceDetailsEntity {
   })
   mtoValorGratuito?: number;
 
-  @Column({
-    type: 'decimal',
-    precision: 10,
-    scale: 2,
-    nullable: false,
-    default: null,
-  })
-  mtoValorVenta: number;
+  //   @Column({
+  //     type: 'decimal',
+  //     precision: 10,
+  //     scale: 2,
+  //     nullable: false,
+  //     default: null,
+  //   })
+  //   mtoValorVenta: number;
 
   @Column({
     type: 'decimal',
@@ -125,14 +125,14 @@ export class InvoiceDetailsEntity {
   })
   porcentajeIgv: number;
 
-  @Column({
-    type: 'decimal',
-    precision: 10,
-    scale: 2,
-    nullable: false,
-    default: null,
-  })
-  totalImpuestos: number;
+  //   @Column({
+  //     type: 'decimal',
+  //     precision: 10,
+  //     scale: 2,
+  //     nullable: false,
+  //     default: null,
+  //   })
+  //   totalImpuestos: number;
 
   @ManyToOne(() => UnidadEntity, (unidad) => unidad.invoices_details, {
     nullable: false,

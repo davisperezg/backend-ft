@@ -25,6 +25,10 @@ export const quitarCerosIzquierda = (valor: string) => {
   return valor.replace(/^0+/, '');
 };
 
+export const parseFloatDecimal = (valor: number, decimales: number) => {
+  return Math.round(valor * decimales) / decimales;
+};
+
 export const convertirDecimales = (valor: string, decimales: number) => {
   const valorNumber = parseFloat(valor.replace(/,/g, ''));
   return parseFloat(valorNumber.toFixed(decimales));
