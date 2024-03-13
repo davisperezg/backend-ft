@@ -23,6 +23,7 @@ import {
   completarConCeros,
   convertirDecimales,
   numeroALetras,
+  parseFloatDecimal,
 } from 'src/lib/functions';
 import { EstablecimientoEntity } from 'src/establecimiento/entities/establecimiento.entity';
 import { MonedasService } from 'src/monedas/services/monedas.service';
@@ -231,6 +232,19 @@ export class InvoiceService {
           }
         }
 
+        const porcentajesAvailables = [18, 0];
+        const gravadasGratuitas = ['11', '12', '13', '14', '15', '16', '17']; //18%
+        const inafectasGratuitas = [
+          '31',
+          '32',
+          '33',
+          '34',
+          '35',
+          '36',
+          '37',
+          '21',
+        ]; //0%
+
         //Obj para invoice details
         const productos = invoice.productos.map(async (producto) => {
           const unidad = await this.unidadService.findUnidadByCodigo(
@@ -239,6 +253,39 @@ export class InvoiceService {
           const tipAfeIgv = await this.tipoIgvService.findTipIgvByCodigo(
             producto.tipAfeIgv,
           );
+
+          //Si el cliente ingresa un porcentaje invalido a sus producto alterando el igv se mostrara error
+          if (!porcentajesAvailables.includes(producto.porcentajeIgv)) {
+            throw new HttpException(
+              'El porcentaje de IGV no es válido',
+              HttpStatus.BAD_REQUEST,
+            );
+          }
+
+          if (
+            producto.porcentajeIgv !== 18 &&
+            (tipAfeIgv.codigo === '10' || //gravada onerosa
+              gravadasGratuitas.includes(tipAfeIgv.codigo)) //gravada gratuitas
+          ) {
+            throw new HttpException(
+              'El porcentaje de IGV no es válido para el tipo de afectación',
+              HttpStatus.BAD_REQUEST,
+            );
+          }
+
+          if (
+            producto.porcentajeIgv !== 0 &&
+            (tipAfeIgv.codigo === '20' || //exonerada onerosa
+              tipAfeIgv.codigo === '30' || //inafecta onerosa
+              tipAfeIgv.codigo === '40' || //exportacion
+              inafectasGratuitas.includes(tipAfeIgv.codigo)) //inafecta gratuitas
+          ) {
+            throw new HttpException(
+              'El porcentaje de IGV no es válido para el tipo de afectación',
+              HttpStatus.BAD_REQUEST,
+            );
+          }
+
           const item: InvoiceDetailsEntity = {
             unidad, // Unidad - Catalog. 03
             tipAfeIgv, // Gravado Op. Onerosa - Catalog. 07
@@ -246,15 +293,7 @@ export class InvoiceService {
             cantidad: producto.cantidad,
             producto: producto.descripcion,
             mtoValorUnitario: convertirDecimales(producto.mtoValorUnitario, 3),
-            mtoBaseIgv: convertirDecimales(producto.mtoBaseIgv, 3),
-            porcentajeIgv: producto.porcentajeIgv, // 18%
-            igv: convertirDecimales(producto.igv, 3),
-            totalImpuestos: convertirDecimales(producto.totalImpuestos, 3), // Suma de impuestos en el detalle
-            mtoValorVenta: convertirDecimales(producto.mtoValorVenta, 3),
-            mtoPrecioUnitario: convertirDecimales(
-              producto.mtoPrecioUnitario,
-              3,
-            ),
+            porcentajeIgv: producto.porcentajeIgv,
           };
 
           if (producto.mtoValorGratuito) {
@@ -269,8 +308,8 @@ export class InvoiceService {
 
         const todosProductos = await Promise.all(productos);
 
-        const calc = this.obtenerOperacionesInvoice(todosProductos);
-
+        const calcOperaciones = this.obtenerOperacionesInvoice(todosProductos);
+        console.log(calcOperaciones);
         //Obj para invoice
         const invoiceObj = this.invoiceRepository.create({
           tipo_operacion: invoice.tipo_operacion,
@@ -285,13 +324,13 @@ export class InvoiceService {
           establecimiento,
           usuario,
           cliente: clienteEntity,
-          mto_operaciones_gravadas: calc.valorVentaGravadas,
-          mto_operaciones_exoneradas: calc.valorVentaExoneradas,
-          mto_operaciones_inafectas: calc.valorVentaInafectas,
-          mto_operaciones_exportacion: calc.valorVentaExportaciones,
-          mto_operaciones_gratuitas: calc.valorVentaGratuitas,
-          mto_igv: calc.totalImpuestosGravadas,
-          mto_igv_gratuitas: calc.totalImpuestosGratuitas,
+          mto_operaciones_gravadas: calcOperaciones.mtoOperGravadas,
+          mto_operaciones_exoneradas: calcOperaciones.mtoOperExoneradas,
+          mto_operaciones_inafectas: calcOperaciones.mtoOperInafectas,
+          mto_operaciones_exportacion: calcOperaciones.mtoOperExportacion,
+          mto_operaciones_gratuitas: calcOperaciones.mtoOperGratuitas,
+          mto_igv: calcOperaciones.mtoIGV,
+          mto_igv_gratuitas: calcOperaciones.mtoIGVGratuitas,
           porcentaje_igv: 0.18,
           entidad: existPermisoRegCliente ? null : invoice.cliente,
           entidad_tipo: existPermisoRegCliente ? null : invoice.tipo_entidad,
@@ -305,7 +344,7 @@ export class InvoiceService {
           invoiceObj,
         );
 
-        console.log(await this.findOneInvoice('F003', '00000001', 1, 4));
+        // console.log(await this.findOneInvoice('F003', '00000001', 1, 4));
 
         for (let index = 0; index < todosProductos.length; index++) {
           const producto = todosProductos[index];
@@ -320,10 +359,10 @@ export class InvoiceService {
 
         //console.log(invoiceResult);
         const genXML = await this.generarXML(
-          invoiceResult,
+          invoiceObj,
           invoiceResult.empresa,
           invoiceResult.establecimiento,
-          calc,
+          calcOperaciones,
           todosProductos,
         );
 
@@ -374,39 +413,14 @@ export class InvoiceService {
       });
     } catch (e) {
       throw new HttpException(
-        `Error al intentar crear CPE InvoiceService.create. ${e.response}`,
+        `Error al intentar crear CPE InvoiceService.create. ${
+          e.response ?? e.message
+        }`,
         HttpStatus.BAD_REQUEST,
       );
     }
 
     return result;
-
-    //Enviamos a Sunat
-    // const sunat = await this.enviarSunat(
-    //   empresa.web_service,
-    //   empresa.ose_enabled
-    //     ? empresa.usu_secundario_ose_user
-    //     : empresa.usu_secundario_user,
-    //   empresa.ose_enabled
-    //     ? empresa.usu_secundario_ose_password
-    //     : empresa.usu_secundario_password,
-    //   fileName,
-    //   xmlSigned,
-    // );
-
-    // const { cdrZip, ...restoSunat } = sunat;
-
-    // //Decodificamos el CDR en base64(respuesta de sunat)
-    // const CdrZip = Buffer.from(cdrZip, 'base64');
-
-    // //Guardamos el CDR en el directorio del cliente
-    // const pathCDR = this.guardarArchivo(
-    //   empresa.ruc,
-    //   `facturas/RPTA`,
-    //   `R-${fileName}.zip`,
-    //   CdrZip,
-    //   true,
-    // );
 
     // return {
     //   ...restoSunat,
@@ -427,7 +441,7 @@ export class InvoiceService {
       await this.invoiceRepository.update(idInvoice, {
         respuesta_anulacion_codigo: rptaCod,
         respuesta_anulacion_descripcion: rptaDesc,
-        observaciones: rptaObs,
+        observaciones_sunat: rptaObs,
       });
 
       return this.invoiceRepository.findOne({ where: { id: idInvoice } });
@@ -449,7 +463,7 @@ export class InvoiceService {
       await this.invoiceRepository.update(idInvoice, {
         respuesta_sunat_codigo: rptaCod,
         respuesta_sunat_descripcion: rptaDesc,
-        observaciones: rptaObs,
+        observaciones_sunat: rptaObs,
       });
 
       return this.invoiceRepository.findOne({ where: { id: idInvoice } });
@@ -501,8 +515,8 @@ export class InvoiceService {
     invoice: InvoiceEntity,
     empresa: EmpresaEntity,
     establecimiento: EstablecimientoEntity,
-    calc: any,
-    todosProductos: any,
+    calcOperaciones: any,
+    todosProductos: InvoiceDetailsEntity[],
   ) {
     //Si el producto tiene id validamos producto
 
@@ -541,20 +555,229 @@ export class InvoiceService {
       tipo_documento: invoice.tipo_doc.codigo, //para facturas 01
       forma_pago: invoice.forma_pago.forma_pago, //1 = Contado; 2 = Credito
       moneda: invoice.tipo_moneda.abrstandar, //PEN
-      productos: todosProductos.map((producto) => {
-        return {
-          ...producto,
-          unidad: producto.unidad.codigo,
-          tipAfeIgv: producto.tipAfeIgv.codigo,
-        };
-      }),
+      productos: todosProductos.reduce((acc, producto) => {
+        //gravada onerosa
+        if (producto.tipAfeIgv.codigo === '10') {
+          const mtoValorUnitario = parseFloatDecimal(
+            producto.mtoValorUnitario,
+            1000,
+          );
+          const mtoValorVenta = mtoValorUnitario * producto.cantidad;
+          const mtoBaseIgv = mtoValorVenta;
+          const porcentajeIgv = producto.porcentajeIgv;
+
+          //producto.porcentajeIgv = 18
+          const igvUnitario = (mtoValorUnitario * porcentajeIgv) / 100;
+          const igv = igvUnitario * producto.cantidad;
+          const totalImpuestos = igv + 0;
+          const mtoPrecioUnitario = mtoValorUnitario + igvUnitario;
+
+          const objProduct = {
+            codigo: producto.codigo,
+            unidad: producto.unidad.codigo,
+            producto: producto.producto,
+            cantidad: producto.cantidad,
+            mtoValorUnitario: mtoValorUnitario, //3decimales
+            mtoValorVenta: parseFloatDecimal(mtoValorVenta, 100),
+            mtoBaseIgv: parseFloatDecimal(mtoBaseIgv, 100),
+            porcentajeIgv: porcentajeIgv,
+            igv: parseFloatDecimal(igv, 100),
+            tipAfeIgv: producto.tipAfeIgv.codigo,
+            totalImpuestos: parseFloatDecimal(totalImpuestos, 100),
+            mtoPrecioUnitario: parseFloatDecimal(mtoPrecioUnitario, 100),
+          };
+
+          acc.push(objProduct);
+        }
+
+        //exonerada onerosa
+        if (producto.tipAfeIgv.codigo === '20') {
+          const mtoValorUnitario = parseFloatDecimal(
+            producto.mtoValorUnitario,
+            1000,
+          );
+          const mtoValorVenta = mtoValorUnitario * producto.cantidad;
+          const mtoBaseIgv = mtoValorVenta;
+          const porcentajeIgv = producto.porcentajeIgv;
+
+          //producto.porcentajeIgv = 0
+          const igvUnitario = (mtoValorUnitario * porcentajeIgv) / 100;
+          const igv = igvUnitario * producto.cantidad;
+          const totalImpuestos = igv + 0;
+          const mtoPrecioUnitario = mtoValorUnitario + igvUnitario;
+
+          const objProduct = {
+            codigo: producto.codigo,
+            unidad: producto.unidad.codigo,
+            producto: producto.producto,
+            cantidad: producto.cantidad,
+            mtoValorUnitario: mtoValorUnitario,
+            mtoValorVenta: parseFloatDecimal(mtoValorVenta, 100),
+            mtoBaseIgv: parseFloatDecimal(mtoBaseIgv, 100),
+            porcentajeIgv: porcentajeIgv,
+            igv: parseFloatDecimal(igv, 100),
+            tipAfeIgv: producto.tipAfeIgv.codigo,
+            totalImpuestos: parseFloatDecimal(totalImpuestos, 100),
+            mtoPrecioUnitario: parseFloatDecimal(mtoPrecioUnitario, 100),
+          };
+
+          acc.push(objProduct);
+        }
+
+        //inafecto onerosa
+        if (producto.tipAfeIgv.codigo === '30') {
+          const mtoValorUnitario = parseFloatDecimal(
+            producto.mtoValorUnitario,
+            1000,
+          );
+          const mtoValorVenta = mtoValorUnitario * producto.cantidad;
+          const mtoBaseIgv = mtoValorVenta;
+          const porcentajeIgv = producto.porcentajeIgv;
+
+          //producto.porcentajeIgv = 0
+          const igvUnitario = (mtoValorUnitario * porcentajeIgv) / 100;
+          const igv = igvUnitario * producto.cantidad;
+          const totalImpuestos = igv + 0;
+          const mtoPrecioUnitario = mtoValorUnitario + igvUnitario;
+
+          const objProduct = {
+            codigo: producto.codigo,
+            unidad: producto.unidad.codigo,
+            producto: producto.producto,
+            cantidad: producto.cantidad,
+            mtoValorUnitario: mtoValorUnitario,
+            mtoValorVenta: parseFloatDecimal(mtoValorVenta, 100),
+            mtoBaseIgv: parseFloatDecimal(mtoBaseIgv, 100),
+            porcentajeIgv: porcentajeIgv,
+            igv: parseFloatDecimal(igv, 100),
+            tipAfeIgv: producto.tipAfeIgv.codigo,
+            totalImpuestos: parseFloatDecimal(totalImpuestos, 100),
+            mtoPrecioUnitario: parseFloatDecimal(mtoPrecioUnitario, 100),
+          };
+
+          acc.push(objProduct);
+        }
+
+        //exportacion
+        if (producto.tipAfeIgv.codigo === '40') {
+          const mtoValorUnitario = parseFloatDecimal(
+            producto.mtoValorUnitario,
+            1000,
+          );
+          const mtoValorVenta = mtoValorUnitario * producto.cantidad;
+          const mtoBaseIgv = mtoValorVenta;
+          const porcentajeIgv = producto.porcentajeIgv;
+
+          //producto.porcentajeIgv = 0
+          const igvUnitario = (mtoValorUnitario * porcentajeIgv) / 100;
+          const igv = igvUnitario * producto.cantidad;
+          const totalImpuestos = igv + 0;
+          const mtoPrecioUnitario = mtoValorUnitario + igvUnitario;
+
+          const objProduct = {
+            codigo: producto.codigo,
+            //setCodProdSunat('44121618') // Codigo Producto Sunat, requerido.
+            unidad: producto.unidad.codigo,
+            producto: producto.producto,
+            cantidad: producto.cantidad,
+            mtoValorUnitario: mtoValorUnitario,
+            mtoValorVenta: parseFloatDecimal(mtoValorVenta, 100),
+            mtoBaseIgv: parseFloatDecimal(mtoBaseIgv, 100),
+            porcentajeIgv: porcentajeIgv,
+            igv: parseFloatDecimal(igv, 100),
+            tipAfeIgv: producto.tipAfeIgv.codigo,
+            totalImpuestos: parseFloatDecimal(totalImpuestos, 100),
+            mtoPrecioUnitario: parseFloatDecimal(mtoPrecioUnitario, 100),
+          };
+
+          acc.push(objProduct);
+        }
+
+        //gravadas gratuitas
+        if (
+          ['11', '12', '13', '14', '15', '16', '17'].includes(
+            producto.tipAfeIgv.codigo,
+          )
+        ) {
+          const mtoValorGratuito = parseFloatDecimal(
+            producto.mtoValorGratuito,
+            1000,
+          );
+          const mtoValorVenta = mtoValorGratuito * producto.cantidad;
+          const mtoBaseIgv = mtoValorVenta;
+          const porcentajeIgv = producto.porcentajeIgv;
+
+          //producto.porcentajeIgv = 18
+          const igvUnitario = (mtoValorGratuito * porcentajeIgv) / 100;
+          const igv = igvUnitario * producto.cantidad;
+          const totalImpuestos = igv + 0;
+
+          const objProduct = {
+            codigo: producto.codigo,
+            unidad: producto.unidad.codigo,
+            producto: producto.producto,
+            cantidad: producto.cantidad,
+            mtoValorUnitario: 0,
+            mtoValorGratuito: mtoValorGratuito,
+            mtoValorVenta: parseFloatDecimal(mtoValorVenta, 100),
+            mtoBaseIgv: parseFloatDecimal(mtoBaseIgv, 100),
+            porcentajeIgv: porcentajeIgv,
+            igv: parseFloatDecimal(igv, 100),
+            tipAfeIgv: producto.tipAfeIgv.codigo,
+            totalImpuestos: parseFloatDecimal(totalImpuestos, 100),
+            mtoPrecioUnitario: 0,
+          };
+
+          acc.push(objProduct);
+        }
+
+        //inafectas gratuitas
+        if (
+          ['31', '32', '33', '34', '35', '36', '37', '21'].includes(
+            producto.tipAfeIgv.codigo,
+          )
+        ) {
+          const mtoValorGratuito = parseFloatDecimal(
+            producto.mtoValorGratuito,
+            1000,
+          );
+          const mtoValorVenta = mtoValorGratuito * producto.cantidad;
+          const mtoBaseIgv = mtoValorVenta;
+          const porcentajeIgv = producto.porcentajeIgv;
+
+          //producto.porcentajeIgv = 0
+          const igvUnitario = (mtoValorGratuito * porcentajeIgv) / 100;
+          const igv = igvUnitario * producto.cantidad;
+          const totalImpuestos = igv + 0;
+
+          const objProduct = {
+            codigo: producto.codigo,
+            unidad: producto.unidad.codigo,
+            producto: producto.producto,
+            cantidad: producto.cantidad,
+            mtoValorUnitario: 0,
+            mtoValorGratuito: mtoValorGratuito,
+            mtoValorVenta: parseFloatDecimal(mtoValorVenta, 100),
+            mtoBaseIgv: parseFloatDecimal(mtoBaseIgv, 100),
+            porcentajeIgv: porcentajeIgv,
+            igv: parseFloatDecimal(igv, 100),
+            tipAfeIgv: producto.tipAfeIgv.codigo,
+            totalImpuestos: parseFloatDecimal(totalImpuestos, 100),
+            mtoPrecioUnitario: 0,
+          };
+
+          acc.push(objProduct);
+        }
+
+        return acc;
+      }, []),
       MtoOperGravadas: invoice.mto_operaciones_gravadas,
       MtoIGV: invoice.mto_igv,
-      TotalImpuestos: calc.totalImpuestos,
-      ValorVenta: calc.valorVenta,
-      SubTotal: calc.SubTotal,
-      MtoImpVenta: calc.MtoImpVenta,
-      LegendValue: calc.Legend,
+      TotalImpuestos: calcOperaciones.totalImpuestos,
+      ValorVenta: calcOperaciones.valorVenta,
+      SubTotal: calcOperaciones.subTotal,
+      MtoImpVenta: calcOperaciones.mtoImpVenta,
+      LegendValue: numeroALetras(String(calcOperaciones.mtoImpVenta), 'SOLES'),
       LegendCode: 1000, // Monto en letras - Catalog. 52
       MtoOperExoneradas: invoice.mto_operaciones_exoneradas,
       MtoOperInafectas: invoice.mto_operaciones_inafectas,
@@ -569,11 +792,54 @@ export class InvoiceService {
     //   data['fecha_vencimiento'] = invoice.fecha_vencimiento;
     // }
 
+    //Solo enviaremos los datos necesarios a la api generar xml
+    if (
+      invoice.mto_operaciones_gravadas === null ||
+      invoice.mto_operaciones_gravadas === 0
+    ) {
+      delete dataApi.MtoOperGravadas;
+    }
+
+    if (
+      invoice.mto_operaciones_exoneradas === null ||
+      invoice.mto_operaciones_exoneradas === 0
+    ) {
+      delete dataApi.MtoOperExoneradas;
+    }
+
+    if (
+      invoice.mto_operaciones_inafectas === null ||
+      invoice.mto_operaciones_inafectas === 0
+    ) {
+      delete dataApi.MtoOperInafectas;
+    }
+
+    if (
+      invoice.mto_operaciones_exportacion === null ||
+      invoice.mto_operaciones_exportacion === 0
+    ) {
+      delete dataApi.MtoOperExportacion;
+    }
+
+    if (
+      invoice.mto_operaciones_gratuitas === null ||
+      invoice.mto_operaciones_gratuitas === 0
+    ) {
+      delete dataApi.MtoOperGratuitas;
+    }
+
+    if (invoice.mto_igv_gratuitas === null || invoice.mto_igv_gratuitas === 0) {
+      delete dataApi.MtoIGVGratuitas;
+    }
+
+    if (invoice.mto_igv === null || invoice.mto_igv === 0) {
+      delete dataApi.MtoIGV;
+    }
+
     // if (invoice.observaciones && invoice.observaciones.length > 0) {
     //   data['observaciones'] = invoice.observaciones;
     // }
     //fin opcionales
-
     try {
       const res = await axios.post(
         `${process.env.API_SERVICE_PHP}/gen-xml`,
@@ -927,133 +1193,196 @@ export class InvoiceService {
   }
 
   obtenerOperacionesInvoice(productos: InvoiceDetailsEntity[]) {
-    //buscamos todas las operaciones gravadas
-    const operacionesGravadas = productos.filter(
-      (producto) => producto.tipAfeIgv.codigo === '10',
+    const operaciones = productos.reduce(
+      (acc, producto) => {
+        //gravadas
+        if (producto.tipAfeIgv.codigo === '10') {
+          const igv = parseFloatDecimal(
+            ((producto.mtoValorUnitario * producto.porcentajeIgv) / 100) *
+              producto.cantidad,
+            100,
+          );
+
+          const opeGravadas = parseFloatDecimal(
+            producto.mtoValorUnitario * producto.cantidad,
+            100,
+          );
+
+          acc.mtoIGVGravadas += igv;
+          acc.mtoOperGravadas += opeGravadas;
+        }
+
+        //exonegaradas
+        if (producto.tipAfeIgv.codigo === '20') {
+          const igv = parseFloatDecimal(
+            ((producto.mtoValorUnitario * producto.porcentajeIgv) / 100) *
+              producto.cantidad,
+            100,
+          );
+
+          const opeExoneradas = parseFloatDecimal(
+            producto.mtoValorUnitario * producto.cantidad,
+            100,
+          );
+
+          acc.mtoOperExoneradas += opeExoneradas;
+          acc.mtoIGVExoneradas += igv;
+        }
+
+        //inafectas
+        if (producto.tipAfeIgv.codigo === '30') {
+          const igv = parseFloatDecimal(
+            ((producto.mtoValorUnitario * producto.porcentajeIgv) / 100) *
+              producto.cantidad,
+            100,
+          );
+
+          const opeInafectas = parseFloatDecimal(
+            producto.mtoValorUnitario * producto.cantidad,
+            100,
+          );
+
+          acc.mtoOperInafectas += opeInafectas;
+          acc.mtoIGVInafectas += igv;
+        }
+
+        //exportacion
+        if (producto.tipAfeIgv.codigo === '40') {
+          const igv = parseFloatDecimal(
+            ((producto.mtoValorUnitario * producto.porcentajeIgv) / 100) *
+              producto.cantidad,
+            100,
+          );
+
+          const opeExportacion = parseFloatDecimal(
+            producto.mtoValorUnitario * producto.cantidad,
+            100,
+          );
+
+          acc.mtoOperExportacion += opeExportacion;
+          acc.mtoIGVExportacion += igv;
+        }
+
+        //gratuitas
+        if (
+          producto.tipAfeIgv.codigo === '11' ||
+          producto.tipAfeIgv.codigo === '12' ||
+          producto.tipAfeIgv.codigo === '13' ||
+          producto.tipAfeIgv.codigo === '14' ||
+          producto.tipAfeIgv.codigo === '15' ||
+          producto.tipAfeIgv.codigo === '16' ||
+          producto.tipAfeIgv.codigo === '17' ||
+          producto.tipAfeIgv.codigo === '21' ||
+          producto.tipAfeIgv.codigo === '31' ||
+          producto.tipAfeIgv.codigo === '32' ||
+          producto.tipAfeIgv.codigo === '33' ||
+          producto.tipAfeIgv.codigo === '34' ||
+          producto.tipAfeIgv.codigo === '35' ||
+          producto.tipAfeIgv.codigo === '36' ||
+          producto.tipAfeIgv.codigo === '37'
+        ) {
+          const igv = parseFloatDecimal(
+            ((producto.mtoValorGratuito * producto.porcentajeIgv) / 100) *
+              producto.cantidad,
+            100,
+          );
+
+          const opeGratuitas = parseFloatDecimal(
+            producto.mtoValorGratuito * producto.cantidad,
+            100,
+          );
+
+          acc.mtoOperGratuitas += opeGratuitas;
+          acc.mtoIGVGratuitas += igv;
+        }
+
+        acc.mtoIGV =
+          acc.mtoIGVGravadas +
+          acc.mtoIGVExoneradas +
+          acc.mtoIGVInafectas +
+          acc.mtoIGVExportacion;
+
+        acc.totalImpuestos =
+          acc.mtoIGVGravadas +
+          acc.mtoIGVExoneradas +
+          acc.mtoIGVInafectas +
+          acc.mtoIGVExportacion; //IGV + ISC + OTH
+
+        acc.valorVenta =
+          acc.mtoOperGravadas +
+          acc.mtoOperExoneradas +
+          acc.mtoOperInafectas +
+          acc.mtoOperExportacion;
+
+        acc.subTotal = parseFloatDecimal(
+          acc.valorVenta + acc.totalImpuestos,
+          100,
+        );
+
+        acc.mtoImpVenta = acc.subTotal;
+        return acc;
+      },
+      {
+        mtoOperGravadas: 0.0,
+        mtoOperExoneradas: 0.0,
+        mtoOperInafectas: 0.0,
+        mtoOperExportacion: 0.0,
+        mtoOperGratuitas: 0.0,
+        mtoIGV: 0.0,
+        totalImpuestos: 0.0,
+        valorVenta: 0.0,
+        subTotal: 0.0,
+        mtoImpVenta: 0.0,
+        mtoIGVGravadas: 0.0,
+        mtoIGVExoneradas: 0.0,
+        mtoIGVInafectas: 0.0,
+        mtoIGVExportacion: 0.0,
+        mtoIGVGratuitas: 0.0,
+      },
     );
 
-    //buscamos todas las operaciones exoneradas
-    const operacionesExoneradas = productos.filter(
-      (producto) => producto.tipAfeIgv.codigo === '20',
-    );
-
-    //buscamos todas las operaciones inafectas
-    const operacionesInafectas = productos.filter(
-      (producto) => producto.tipAfeIgv.codigo === '30',
-    );
-
-    //buscamos todas las operaciones exportacion
-    const operacionesExportacion = productos.filter(
-      (producto) => producto.tipAfeIgv.codigo === '40',
-    );
-
-    //buscamos todas las operaciones gratuitas
-    const operacionesGratuitas = productos.filter(
-      (producto) =>
-        producto.tipAfeIgv.codigo === '11' ||
-        producto.tipAfeIgv.codigo === '12' ||
-        producto.tipAfeIgv.codigo === '13' ||
-        producto.tipAfeIgv.codigo === '14' ||
-        producto.tipAfeIgv.codigo === '15' ||
-        producto.tipAfeIgv.codigo === '16' ||
-        producto.tipAfeIgv.codigo === '17' ||
-        producto.tipAfeIgv.codigo === '21' ||
-        producto.tipAfeIgv.codigo === '31' ||
-        producto.tipAfeIgv.codigo === '32' ||
-        producto.tipAfeIgv.codigo === '33' ||
-        producto.tipAfeIgv.codigo === '34' ||
-        producto.tipAfeIgv.codigo === '35' ||
-        producto.tipAfeIgv.codigo === '36' ||
-        producto.tipAfeIgv.codigo === '37',
-    );
-
-    //Sumar igv de las operaciones gravadas
-    const totalImpuestosGravadas = operacionesGravadas.reduce(
-      (acc, producto) => acc + parseFloat(String(producto.totalImpuestos)),
-      0,
-    );
-
-    //Sumar igv de las operaciones gratuitas
-    const totalImpuestosGratuitas = operacionesGratuitas.reduce(
-      (acc, producto) => acc + parseFloat(String(producto.totalImpuestos)),
-      0,
-    );
-
-    //Sumar total de impuestos de las operaciones gravadas IGV + ISC + OTH
-    const totalImpuestos = operacionesGravadas.reduce(
-      (acc, producto) => acc + parseFloat(String(producto.totalImpuestos)),
-      0,
-    );
-
-    //Sumar valor de venta de las operaciones gravadas
-    const valorVentaGravadas = operacionesGravadas.reduce(
-      (acc, producto) => acc + parseFloat(String(producto.mtoValorVenta)),
-      0,
-    );
-
-    //Sumar valor de venta de las operaciones inafectas
-    const valorVentaInafectas = operacionesInafectas.reduce(
-      (acc, producto) => acc + parseFloat(String(producto.mtoValorVenta)),
-      0,
-    );
-
-    //Sumar valor de venta de las operaciones exoneradas
-    const valorVentaExoneradas = operacionesExoneradas.reduce(
-      (acc, producto) => acc + parseFloat(String(producto.mtoValorVenta)),
-      0,
-    );
-
-    //Sumar valor de ventas de las operaciones exportaciones
-    const valorVentaExportaciones = operacionesExportacion.reduce(
-      (acc, producto) => acc + parseFloat(String(producto.mtoValorVenta)),
-      0,
-    );
-
-    //Sumar valor de ventas de las operaciones gratuitas
-    const valorVentaGratuitas = operacionesGratuitas.reduce(
-      (acc, producto) => acc + parseFloat(String(producto.mtoValorVenta)),
-      0,
-    );
-
-    //Sumar todas las ventas de las operaciones
-    const valorVenta =
-      valorVentaGravadas +
-      valorVentaInafectas +
-      valorVentaExoneradas +
-      valorVentaExportaciones;
-
-    //Sumar el total de ventas + impuestos
-    const SubTotal = valorVenta + totalImpuestos;
-
-    //Sumar MtoImpVenta
-    const MtoImpVenta = SubTotal;
-
-    //Leyend
-    const Legend = numeroALetras(String(MtoImpVenta), 'SOLES');
-
-    return {
-      valorVenta,
-      valorVentaGravadas,
-      // valorVentaInafectas,
-      // valorVentaExoneradas,
-      // valorVentaExportaciones,
-      // valorVentaGratuitas,
-      totalImpuestosGravadas,
-      //totalImpuestosGratuitas,
-      totalImpuestos,
-      SubTotal,
-      MtoImpVenta,
-      Legend,
-      valorVentaExoneradas:
-        operacionesExoneradas.length > 0 ? valorVentaExoneradas : null,
-      valorVentaInafectas:
-        operacionesInafectas.length > 0 ? valorVentaInafectas : null,
-      valorVentaExportaciones:
-        operacionesExportacion.length > 0 ? valorVentaExportaciones : null,
-      valorVentaGratuitas:
-        operacionesGratuitas.length > 0 ? valorVentaGratuitas : null,
-      totalImpuestosGratuitas:
-        operacionesGratuitas.length > 0 ? totalImpuestosGratuitas : null,
+    const mapOperaciones = {
+      mtoOperGravadas: operaciones.mtoOperGravadas,
+      mtoOperExoneradas: operaciones.mtoOperExoneradas,
+      mtoOperInafectas: operaciones.mtoOperInafectas,
+      mtoOperExportacion: operaciones.mtoOperExportacion,
+      mtoOperGratuitas: operaciones.mtoOperGratuitas,
+      mtoIGV: operaciones.mtoIGV,
+      totalImpuestos: operaciones.totalImpuestos,
+      valorVenta: operaciones.valorVenta,
+      subTotal: operaciones.subTotal,
+      mtoImpVenta: operaciones.mtoImpVenta,
+      mtoIGVGratuitas: operaciones.mtoIGVGratuitas,
     };
+
+    if (mapOperaciones.mtoOperGravadas === 0) {
+      mapOperaciones.mtoOperGravadas = null;
+    }
+
+    if (mapOperaciones.mtoOperExoneradas === 0) {
+      mapOperaciones.mtoOperExoneradas = null;
+    }
+
+    if (mapOperaciones.mtoOperInafectas === 0) {
+      mapOperaciones.mtoOperInafectas = null;
+    }
+
+    if (mapOperaciones.mtoOperExportacion === 0) {
+      mapOperaciones.mtoOperExportacion = null;
+    }
+
+    if (mapOperaciones.mtoOperGratuitas === 0) {
+      mapOperaciones.mtoOperGratuitas = null;
+    }
+
+    if (mapOperaciones.mtoIGVGratuitas === 0) {
+      mapOperaciones.mtoIGVGratuitas = null;
+    }
+
+    if (mapOperaciones.mtoIGV === 0) {
+      mapOperaciones.mtoIGV = null;
+    }
+
+    return mapOperaciones;
   }
 }

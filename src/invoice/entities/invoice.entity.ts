@@ -103,9 +103,11 @@ export class InvoiceEntity {
     type: 'decimal',
     precision: 10,
     scale: 2,
+    nullable: true,
+    default: null,
     transformer: new DecimalColumnTransformer(),
   })
-  mto_operaciones_gravadas: number;
+  mto_operaciones_gravadas?: number;
 
   @Column({
     type: 'decimal',
@@ -115,7 +117,7 @@ export class InvoiceEntity {
     default: null,
     transformer: new DecimalColumnTransformer(),
   })
-  mto_operaciones_exoneradas: number;
+  mto_operaciones_exoneradas?: number;
 
   @Column({
     type: 'decimal',
@@ -125,7 +127,7 @@ export class InvoiceEntity {
     default: null,
     transformer: new DecimalColumnTransformer(),
   })
-  mto_operaciones_inafectas: number;
+  mto_operaciones_inafectas?: number;
 
   @Column({
     type: 'decimal',
@@ -135,7 +137,7 @@ export class InvoiceEntity {
     default: null,
     transformer: new DecimalColumnTransformer(),
   })
-  mto_operaciones_exportacion: number;
+  mto_operaciones_exportacion?: number;
 
   @Column({
     type: 'decimal',
@@ -145,15 +147,7 @@ export class InvoiceEntity {
     default: null,
     transformer: new DecimalColumnTransformer(),
   })
-  mto_operaciones_gratuitas: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 10,
-    scale: 2,
-    transformer: new DecimalColumnTransformer(),
-  })
-  mto_igv: number;
+  mto_operaciones_gratuitas?: number;
 
   @Column({
     type: 'decimal',
@@ -163,7 +157,17 @@ export class InvoiceEntity {
     default: null,
     transformer: new DecimalColumnTransformer(),
   })
-  mto_igv_gratuitas: number;
+  mto_igv?: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+    default: null,
+    transformer: new DecimalColumnTransformer(),
+  })
+  mto_igv_gratuitas?: number;
 
   @Column({
     type: 'decimal',
@@ -230,7 +234,13 @@ export class InvoiceEntity {
     type: 'text',
     nullable: true,
   })
-  observaciones?: string;
+  observaciones_invoice?: string;
+
+  @Column({
+    type: 'text',
+    nullable: true,
+  })
+  observaciones_sunat?: string;
 
   //Para plan solo facturacion
   @Column({

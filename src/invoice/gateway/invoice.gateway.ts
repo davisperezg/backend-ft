@@ -173,6 +173,7 @@ export class InvoiceGateway
 
   private exceptionHandler(client: Socket, message = '') {
     client.emit('exception', new WsException(message));
+    this.logger.error(`Cliente ${client.id} - ${message}.`);
     //client.disconnect();
   }
 
