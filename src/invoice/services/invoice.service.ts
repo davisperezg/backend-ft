@@ -309,7 +309,7 @@ export class InvoiceService {
         const todosProductos = await Promise.all(productos);
 
         const calcOperaciones = this.obtenerOperacionesInvoice(todosProductos);
-        console.log(calcOperaciones);
+
         //Obj para invoice
         const invoiceObj = this.invoiceRepository.create({
           tipo_operacion: invoice.tipo_operacion,
@@ -331,7 +331,7 @@ export class InvoiceService {
           mto_operaciones_gratuitas: calcOperaciones.mtoOperGratuitas,
           mto_igv: calcOperaciones.mtoIGV,
           mto_igv_gratuitas: calcOperaciones.mtoIGVGratuitas,
-          porcentaje_igv: 0.18,
+          //porcentaje_igv: 0.18,
           entidad: existPermisoRegCliente ? null : invoice.cliente,
           entidad_tipo: existPermisoRegCliente ? null : invoice.tipo_entidad,
           entidad_documento: existPermisoRegCliente ? null : invoice.ruc,
@@ -996,6 +996,34 @@ export class InvoiceService {
     }
   }
 
+  async consultarCDR(
+    usuario: string,
+    contrasenia: string,
+    ruc: string,
+    tipoDoc: string,
+    serie: string,
+    correlativo: string,
+  ) {
+    try {
+      return await axios.post(`${process.env.API_SERVICE_PHP}/consult-cdr`, {
+        usuario,
+        contrasenia,
+        ruc,
+        tipoDoc,
+        serie,
+        correlativo,
+      });
+    } catch (e) {
+      const message = `[${e.response.data.error?.code}]:${e.response.data.error?.message}`;
+      throw new HttpException(
+        `Error de comunicación con el servicio: sunat.consultarCDR - ${
+          e.response?.data ? message : 'Internal'
+        }`,
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+  }
+
   async findOneInvoice(
     serie: string,
     numero: string,
@@ -1033,7 +1061,36 @@ export class InvoiceService {
     }
   }
 
-  async finAllInvoices(idEmpresa: number, idEstablecimiento: number) {
+  async findAllInvoicesCron(idEmpresa: number, idEstablecimiento: number) {
+    try {
+      return await this.invoiceRepository.find({
+        relations: {
+          tipo_doc: true,
+          cliente: true,
+          empresa: true,
+          establecimiento: true,
+          tipo_moneda: true,
+          forma_pago: true,
+          usuario: true,
+        },
+        where: {
+          empresa: {
+            id: idEmpresa,
+          },
+          establecimiento: {
+            id: idEstablecimiento,
+          },
+        },
+      });
+    } catch (e) {
+      throw new HttpException(
+        `Error al buscar comprobantes InvoiceService.findAllInvoicesCron`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  async finAllInvoicesTable(idEmpresa: number, idEstablecimiento: number) {
     try {
       const invoices = await this.invoiceRepository.find({
         relations: {
@@ -1053,12 +1110,109 @@ export class InvoiceService {
             id: idEstablecimiento,
           },
         },
+        order: {
+          createdAt: 'DESC',
+        },
       });
 
       const urlStatic = this.configService.get<string>('URL_FILES_STATIC');
 
-      return invoices
-        .map((invoice) => {
+      return {
+        statusCode: 'success',
+        data: invoices.map((invoice) => {
+          const { CustomizationID, UBLVersionID, ...rest } = invoice;
+          const ruc = invoice.empresa.ruc;
+          const tipoDoc = invoice.tipo_doc.codigo;
+          const nomDoc = invoice.tipo_doc.tipo_documento;
+          const serie = invoice.serie;
+          const correlativo = invoice.correlativo;
+          const fileName = `${ruc}-${tipoDoc}-${serie}-${correlativo}`;
+          const establecimiento = `${invoice.establecimiento.codigo}`;
+          return {
+            ...rest,
+            establecimiento: {
+              id: invoice.establecimiento.id,
+              codigo: invoice.establecimiento.codigo,
+              denominacion: invoice.establecimiento.denominacion,
+              estado: invoice.establecimiento.estado,
+            },
+            xmlSigned: `${urlStatic}/${ruc}/${establecimiento}/${nomDoc}/FIRMA/${fileName}.xml`,
+            pdfA4: `${urlStatic}/${ruc}/${establecimiento}/${nomDoc}/PDF/A4/${fileName}.pdf`,
+            cdr: `${urlStatic}/${ruc}/${establecimiento}/${nomDoc}/RPTA/R-${fileName}.zip`,
+            xml: `${urlStatic}/${ruc}/${establecimiento}/${nomDoc}/XML/${fileName}.xml`,
+            usuario: invoice.usuario.nombres + ' ' + invoice.usuario.apellidos,
+            moneda: invoice.tipo_moneda,
+            fecha_registro: dayjs(invoice.createdAt).format(
+              'DD-MM-YYYY·HH:mm:ss',
+            ),
+            fecha_emision: dayjs(invoice.fecha_emision).format(
+              'DD-MM-YYYY·HH:mm:ss',
+            ),
+          };
+        }),
+      };
+    } catch (e) {
+      throw new HttpException(
+        'Error al buscar los cpes listado',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  async finAllInvoices(
+    idEmpresa: number,
+    idEstablecimiento: number,
+    page: number,
+    pageSize: number,
+  ) {
+    const _take = pageSize || 10;
+    const _skip = (page - 1) * _take;
+
+    try {
+      const invoices = await this.invoiceRepository.find({
+        take: _take,
+        skip: _skip,
+        relations: {
+          tipo_doc: true,
+          cliente: true,
+          empresa: true,
+          establecimiento: true,
+          tipo_moneda: true,
+          forma_pago: true,
+          usuario: true,
+        },
+        where: {
+          empresa: {
+            id: idEmpresa,
+          },
+          establecimiento: {
+            id: idEstablecimiento,
+          },
+        },
+        order: {
+          createdAt: 'DESC',
+        },
+      });
+
+      const countInvoices = await this.invoiceRepository.count({
+        where: {
+          empresa: {
+            id: idEmpresa,
+          },
+          establecimiento: {
+            id: idEstablecimiento,
+          },
+        },
+      });
+
+      const urlStatic = this.configService.get<string>('URL_FILES_STATIC');
+      const nextPage = countInvoices > _take * page;
+      const prevPage = page > 1;
+      const totalPage = Math.ceil(countInvoices / _take);
+
+      return {
+        statusCode: 'success',
+        data: invoices.map((invoice) => {
           const { CustomizationID, UBLVersionID, ...rest } = invoice;
           const ruc = invoice.empresa.ruc;
           const tipoDoc = invoice.tipo_doc.codigo;
@@ -1096,8 +1250,13 @@ export class InvoiceService {
               'DD-MM-YYYY·HH:mm:ss',
             ),
           };
-        })
-        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        }),
+        total: countInvoices,
+        currentPage: page,
+        nextPage: nextPage,
+        prevPage: prevPage,
+        totalPage: totalPage,
+      };
     } catch (e) {
       throw new HttpException(
         'Error al buscar los cpes',

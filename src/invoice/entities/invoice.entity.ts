@@ -169,13 +169,13 @@ export class InvoiceEntity {
   })
   mto_igv_gratuitas?: number;
 
-  @Column({
-    type: 'decimal',
-    precision: 10,
-    scale: 2,
-    transformer: new DecimalColumnTransformer(),
-  })
-  porcentaje_igv: number;
+  // @Column({
+  //   type: 'decimal',
+  //   precision: 10,
+  //   scale: 2,
+  //   transformer: new DecimalColumnTransformer(),
+  // })
+  // porcentaje_igv: number;
 
   @Column({
     type: 'tinyint',
