@@ -131,4 +131,24 @@ export class EstablecimientoService {
 
     return establecimiento;
   }
+
+  async findAllEstablecimientos() {
+    let establecimientos: EstablecimientoEntity[];
+
+    try {
+      establecimientos = await this.establecimientoRepository.find({
+        relations: {
+          configsEstablecimiento: true,
+          empresa: true,
+        },
+      });
+    } catch (e) {
+      throw new HttpException(
+        'Error al intentar obtener establecimientos EstablecimientoService.findAllEstablecimientos.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    return establecimientos;
+  }
 }

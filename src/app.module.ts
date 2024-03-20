@@ -59,8 +59,11 @@ import { ConfiguracionesModule } from './configuraciones/configuraciones.module'
 import { ConnectionModule } from './connection/connection.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
+import { ScheduleModule } from '@nestjs/schedule';
+
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     ServeStaticModule.forRootAsync({
       useFactory: () => {
         const uploadsPath = join(__dirname, '..', 'uploads/files'); // La ruta física de la carpeta que contiene tus archivos
