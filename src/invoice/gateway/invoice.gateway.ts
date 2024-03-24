@@ -74,7 +74,7 @@ export class InvoiceGateway
   }
 
   //Se ejecutara esta tarea todos los dias a las 1am -> enviara todos cpes pendientes a sunat
-  @Cron('0 0 1 * * *')
+  @Cron('0 0,20,40,59 1 * * *')
   async handleCron() {
     this.logger.debug(
       'INICIANDO ENVIO DE COMPROBANTES A SUNAT MEDIANTE CRON...',
@@ -449,48 +449,19 @@ export class InvoiceGateway
       //fin validar
 
       //Se mostraran todos los CPE de la empresa y establecimiento actual
-      const invoices = await this.invoiceService.finAllInvoices(
-        Number(empresaId),
-        Number(establecimientoId),
-        data?.page ? data.page : 1,
-        data?.pageSize ? data.pageSize : 10,
-      );
-
-      const invoicesAll = await this.invoiceService.finAllInvoicesTable(
+      const invoices = await this.invoiceService.getInvoicesToNotify(
         Number(empresaId),
         Number(establecimientoId),
       );
 
       const configuraciones = establecimiento.configsEstablecimiento;
 
-      const invoicesEnviando = {
-        data: invoices.data.map((invoice) => {
-          return {
-            ...invoice,
-            empresa: {
-              id: invoice.empresa.id,
-              ruc: invoice.empresa.ruc,
-              razon_social: invoice.empresa.razon_social,
-              nombre_comercial: invoice.empresa.nombre_comercial,
-              estado: invoice.empresa.estado,
-              modo: invoice.empresa.modo,
-            },
-          };
-        }),
-        ...invoices,
-      };
-
       //Si el establecimiento actual tiene la configuracion de enviar inmediatamente a sunat se enviara y notifica a los usaurios
       if (
         configuraciones.some((config) => config.enviar_inmediatamente_a_sunat)
       ) {
-        //notificar al cliente con el eveneto
-        this.server
-          .to(`room_invoices_emp-${empresaId}_est-${establecimientoId}`)
-          .emit('server::listInvoices', invoicesEnviando);
-
-        for (let index = 0; index < invoicesAll.data.length; index++) {
-          const invoice = invoicesAll.data[index];
+        for (let index = 0; index < invoices.length; index++) {
+          const invoice = invoices[index];
 
           switch (invoice.estado_operacion) {
             //creado
@@ -500,27 +471,168 @@ export class InvoiceGateway
                 1,
               ); //cambiamos estado a enviando...
 
-              //actualizamos en tiempo real la lista principal
-              for (
-                let indexAux = 0;
-                indexAux < invoicesEnviando.data.length;
-                indexAux++
-              ) {
-                const element = invoicesEnviando.data[indexAux];
-
-                if (element.id === invoice.id) {
-                  invoicesEnviando.data[indexAux].estado_operacion =
-                    updated.estado_operacion;
-                }
-              }
+              //actualizamos el estado
+              invoice.estado_operacion = updated.estado_operacion;
 
               this.logger.log(
                 `Cliente#getInvoices ${client.id} - está enviando CPE ${invoice.correlativo} a SUNAT.`,
               );
 
-              this.server
-                .to(`room_invoices_emp-${empresaId}_est-${establecimientoId}`)
-                .emit('server::listInvoices', invoicesEnviando);
+              //Una vez cambiado a loading mandamos a sunat
+              if (invoice.estado_operacion === 1) {
+                try {
+                  const ruc = invoice.empresa.ruc;
+                  const tipoDoc = invoice.tipo_doc.codigo;
+                  const serie = invoice.serie;
+                  const correlativo = invoice.correlativo;
+                  const fileName = `${ruc}-${tipoDoc}-${serie}-${correlativo}`;
+                  //para enviar cada cpe buscamos y leermos el archivo xml firmado en la carpeta uploads
+                  const pathDir = path.join(
+                    process.cwd(),
+                    `uploads/files/${ruc}/${invoice.establecimiento.codigo}/${invoice.tipo_doc.tipo_documento}/FIRMA/${fileName}.xml`,
+                  );
+
+                  //si no existe el xml firmado no procede a enviar sunat pero normalmente siempre debe existir un xml firmado
+                  if (!fs.existsSync(pathDir)) {
+                    this.logger.error(
+                      `Cliente ${client.id} CPE ${invoice.correlativo} - No se encontró XML firmado.`,
+                    );
+                    break;
+                  }
+
+                  const xmlSigned = fs.readFileSync(pathDir, 'utf8');
+
+                  const sunat = await this.invoiceService.enviarSunat(
+                    invoice.empresa.web_service,
+                    invoice.empresa.ose_enabled
+                      ? invoice.empresa.usu_secundario_ose_user
+                      : invoice.empresa.usu_secundario_user,
+                    invoice.empresa.ose_enabled
+                      ? invoice.empresa.usu_secundario_ose_password
+                      : invoice.empresa.usu_secundario_password,
+                    fileName,
+                    xmlSigned,
+                  );
+
+                  const {
+                    cdrZip,
+                    codigo_sunat,
+                    mensaje_sunat,
+                    observaciones_sunat,
+                  } = sunat.data;
+
+                  const observaciones_sunat_modified =
+                    (observaciones_sunat as []).length > 0
+                      ? observaciones_sunat.join('|')
+                      : null;
+
+                  //Decodificamos el CDR en base64 (LA RESPUESTA DE SUNAT)
+                  const CdrZip = Buffer.from(cdrZip, 'base64');
+
+                  //Guardamos el CDR en el servidor en el directorio del cliente
+                  this.invoiceService.guardarArchivo(
+                    invoice.empresa.ruc,
+                    `${invoice.establecimiento.codigo}/${invoice.tipo_doc.tipo_documento}/RPTA`,
+                    `R-${fileName}.zip`,
+                    CdrZip,
+                    true,
+                  );
+
+                  if (codigo_sunat === 0) {
+                    const updated =
+                      await this.invoiceService.updateEstadoOperacion(
+                        invoice.id,
+                        2,
+                      ); //cambiamos a aceptado
+
+                    await this.invoiceService.updateRptaSunat(
+                      invoice.id,
+                      codigo_sunat,
+                      mensaje_sunat,
+                      observaciones_sunat_modified,
+                    );
+
+                    //actualizamos en tiempo real la lista principal
+                    invoice.estado_operacion = updated.estado_operacion;
+
+                    this.logger.log(`Cliente ${client.id} - ${mensaje_sunat}.`);
+
+                    this.server
+                      .to(
+                        `room_invoices_emp-${empresaId}_est-${establecimientoId}`,
+                      )
+                      .emit('server::notifyInvoice', {
+                        type: 'sunat.success',
+                        correlativo: invoice.correlativo,
+                        time: dayjs(new Date()).format('DD-MM-YYYY·HH:mm:ss'),
+                        message: `${mensaje_sunat}`,
+                      });
+                  } else if (codigo_sunat >= 2000 && codigo_sunat <= 3999) {
+                    const updated =
+                      await this.invoiceService.updateEstadoOperacion(
+                        invoice.id,
+                        3,
+                      ); //cambiamos a rechazado
+
+                    await this.invoiceService.updateRptaSunat(
+                      invoice.id,
+                      codigo_sunat,
+                      mensaje_sunat,
+                      observaciones_sunat_modified,
+                    );
+
+                    //actualizamos en tiempo real la lista principal
+                    invoice.estado_operacion = updated.estado_operacion;
+
+                    this.logger.error(
+                      `Cliente ${client.id} ha enviado CPE ${invoice.correlativo} a SUNAT - ${codigo_sunat}:${mensaje_sunat}.`,
+                    );
+
+                    this.server
+                      .to(
+                        `room_invoices_emp-${empresaId}_est-${establecimientoId}`,
+                      )
+                      .emit('server::notifyInvoice', {
+                        type: 'sunat.failed',
+                        correlativo: invoice.correlativo,
+                        time: dayjs(new Date()).format('DD-MM-YYYY·HH:mm:ss'),
+                        message: `El CPE#${invoice.correlativo} fue rechazado por SUNAT - ${codigo_sunat}:${mensaje_sunat}.`,
+                      });
+                  } else {
+                    this.logger.warn(
+                      `Cliente ${client.id} - Warning:${mensaje_sunat}.`,
+                    );
+
+                    this.server
+                      .to(
+                        `room_invoices_emp-${empresaId}_est-${establecimientoId}`,
+                      )
+                      .emit('server::notifyInvoice', {
+                        type: 'sunat.warn',
+                        correlativo: invoice.correlativo,
+                        time: dayjs(new Date()).format('DD-MM-YYYY·HH:mm:ss'),
+                        message: `El CPE#${invoice.correlativo}  -  Warning:${mensaje_sunat}.`,
+                      });
+                  }
+                } catch (e) {
+                  this.logger.error(
+                    `Cliente ${client.id} CPE ${invoice.correlativo} - ${e.message}.`,
+                  );
+
+                  this.server
+                    .to(
+                      `room_invoices_emp-${empresaId}_est-${establecimientoId}`,
+                    )
+                    .emit('server::notifyInvoice', {
+                      type: 'error',
+                      correlativo: invoice.correlativo,
+                      time: dayjs(new Date()).format('DD-MM-YYYY·HH:mm:ss'),
+                      message: e.message,
+                    });
+                  continue;
+                }
+              }
+
               break;
 
             //enviando...
@@ -537,7 +649,16 @@ export class InvoiceGateway
                   `uploads/files/${ruc}/${invoice.establecimiento.codigo}/${invoice.tipo_doc.tipo_documento}/FIRMA/${fileName}.xml`,
                 );
 
+                //si no existe el xml firmado no procede a enviar sunat pero normalmente siempre debe existir un xml firmado
+                if (!fs.existsSync(pathDir)) {
+                  this.logger.error(
+                    `Cliente ${client.id} CPE ${invoice.correlativo} - No se encontró XML firmado.`,
+                  );
+                  break;
+                }
+
                 const xmlSigned = fs.readFileSync(pathDir, 'utf8');
+
                 const sunat = await this.invoiceService.enviarSunat(
                   invoice.empresa.web_service,
                   invoice.empresa.ose_enabled
@@ -589,18 +710,7 @@ export class InvoiceGateway
                   );
 
                   //actualizamos en tiempo real la lista principal
-                  for (
-                    let indexAux = 0;
-                    indexAux < invoicesEnviando.data.length;
-                    indexAux++
-                  ) {
-                    const element = invoicesEnviando.data[indexAux];
-
-                    if (element.id === invoice.id) {
-                      invoicesEnviando.data[indexAux].estado_operacion =
-                        updated.estado_operacion;
-                    }
-                  }
+                  invoice.estado_operacion = updated.estado_operacion;
 
                   this.logger.log(`Cliente ${client.id} - ${mensaje_sunat}.`);
 
@@ -629,18 +739,7 @@ export class InvoiceGateway
                   );
 
                   //actualizamos en tiempo real la lista principal
-                  for (
-                    let indexAux = 0;
-                    indexAux < invoicesEnviando.data.length;
-                    indexAux++
-                  ) {
-                    const element = invoicesEnviando.data[indexAux];
-
-                    if (element.id === invoice.id) {
-                      invoicesEnviando.data[indexAux].estado_operacion =
-                        updated.estado_operacion;
-                    }
-                  }
+                  invoice.estado_operacion = updated.estado_operacion;
 
                   this.logger.error(
                     `Cliente ${client.id} ha enviado CPE ${invoice.correlativo} a SUNAT - ${codigo_sunat}:${mensaje_sunat}.`,
@@ -672,12 +771,11 @@ export class InvoiceGateway
                       message: `El CPE#${invoice.correlativo}  -  Warning:${mensaje_sunat}.`,
                     });
                 }
-
-                //notificar al cliente con el eveneto
-                this.server
-                  .to(`room_invoices_emp-${empresaId}_est-${establecimientoId}`)
-                  .emit('server::listInvoices', invoicesEnviando);
               } catch (e) {
+                this.logger.error(
+                  `Cliente ${client.id} CPE ${invoice.correlativo} - ${e.message}.`,
+                );
+
                 this.server
                   .to(`room_invoices_emp-${empresaId}_est-${establecimientoId}`)
                   .emit('server::notifyInvoice', {
@@ -742,16 +840,10 @@ export class InvoiceGateway
           }
         }
       } else {
-        if (invoices.total === 0) {
-          this.server
-            .to(`room_invoices_emp-${empresaId}_est-${establecimientoId}`)
-            .emit('server::listInvoices', invoices);
-        }
-
         //Si hay cpe en estado 1 y el cliente desactiva el envio inmediato a sunat procedemores a cancelar el envio
         //cambiando el estado de 1 a 0(creado)
-        for (let index = 0; index < invoicesAll.data.length; index++) {
-          const invoice = invoicesAll.data[index];
+        for (let index = 0; index < invoices.length; index++) {
+          const invoice = invoices[index];
 
           switch (invoice.estado_operacion) {
             case 1:
@@ -760,29 +852,16 @@ export class InvoiceGateway
                 0,
               ); //cambiamos a creado
 
-              //actualizamos en tiempo real la lista principal
-              for (
-                let indexAux = 0;
-                indexAux < invoicesEnviando.data.length;
-                indexAux++
-              ) {
-                const element = invoicesEnviando.data[indexAux];
-
-                if (element.id === invoice.id) {
-                  invoicesEnviando.data[indexAux].estado_operacion =
-                    updated.estado_operacion;
-                }
-              }
+              invoice.estado_operacion = updated.estado_operacion;
 
               this.server
                 .to(`room_invoices_emp-${empresaId}_est-${establecimientoId}`)
-                .emit('server::listInvoices', invoicesEnviando);
-              break;
-
-            default:
-              this.server
-                .to(`room_invoices_emp-${empresaId}_est-${establecimientoId}`)
-                .emit('server::listInvoices', invoicesEnviando);
+                .emit('server::notifyInvoice', {
+                  type: 'sunat.success',
+                  correlativo: '#',
+                  time: dayjs(new Date()).format('DD-MM-YYYY·HH:mm:ss'),
+                  message: `Se cambio la configuración de envio inmediato a sunat para: ${empresa.razon_social}-${establecimiento.codigo}`,
+                });
               break;
           }
         }
@@ -813,109 +892,92 @@ export class InvoiceGateway
     //Se crearan los CPE de la empresa y establecimiento actual del socket conectado
     const { empresaId, establecimientoId } = this.getHeaders(client);
 
-    try {
-      //Si esta en proceso y es otro usuairo se le notifica
-      if (this.invoiceInProcess) {
-        this.logger.log(
-          `Cliente ${client.id} - Otro usuario esta creando un CPE. Esperando...`,
-        );
-        client.emit(
-          'server::invoiceInProcess',
-          'Otro usuario esta creando un CPE. Por favor, espere.',
-        );
-        release();
-        return;
-      }
-
-      const user = (await this.handleConnection(client, false)) as QueryToken;
-
-      //Validamos permiso de crear facturas
-      this.validarPermiso(client, user, Permission.CreateFacturas);
-
-      this.invoiceInProcess = true;
-      this.logger.log(`Cliente ${client.id} está creando un CPE...`);
-
-      //Se crea el CPE y valida si la empresa y establecimiento pertecene al usuario
-      const res = await this.invoiceService.createInvoice(
-        {
-          ...data,
-          empresa: Number(empresaId),
-          establecimiento: Number(establecimientoId),
-        },
-        user,
-      );
-
-      const { invoice, fileName, xmlSigned } = res;
-
-      this.invoiceInProcess = false;
-      release();
+    //Si esta en proceso y es otro usuairo se le notifica
+    if (this.invoiceInProcess) {
       this.logger.log(
-        `Cliente ${client.id} ha creado correctamente un nuevo CPE ${invoice.correlativo}.`,
+        `Cliente ${client.id} - Otro usuario esta creando un CPE. Esperando...`,
+      );
+      client.emit(
+        'server::invoiceInProcess',
+        'Otro usuario esta creando un CPE. Por favor, espere.',
+      );
+      release();
+      return;
+    }
+
+    const user = (await this.handleConnection(client, false)) as QueryToken;
+
+    //Validamos permiso de crear facturas
+    this.validarPermiso(client, user, Permission.CreateFacturas);
+
+    this.invoiceInProcess = true;
+    this.logger.log(`Cliente ${client.id} está creando un CPE...`);
+
+    //Se crea el CPE y valida si la empresa y establecimiento pertecene al usuario
+    const res = await this.invoiceService.createInvoice(
+      {
+        ...data,
+        empresa: Number(empresaId),
+        establecimiento: Number(establecimientoId),
+      },
+      user,
+    );
+
+    const { invoice, fileName, xmlSigned } = res;
+
+    this.invoiceInProcess = false;
+    release();
+    this.logger.log(
+      `Cliente ${client.id} ha creado correctamente un nuevo CPE ${invoice.correlativo}.`,
+    );
+
+    //Notificamos el nuevo nro de serie al cliente
+    this.server
+      .to(
+        `room_invoices_emp-${invoice.empresa.id}_est-${invoice.establecimiento.id}`,
+      )
+      .emit('server::getIdInvoice', {
+        estado: 'success',
+        loading: false,
+        mensaje: 'El CPE se ha creado correctamente.',
+        observacion: 'El CPE no se ha enviado a SUNAT.',
+        numeroConCeros: completarConCeros(
+          String(Number(quitarCerosIzquierda(invoice.correlativo)) + 1),
+        ),
+        numero: String(Number(quitarCerosIzquierda(invoice.correlativo)) + 1),
+      });
+
+    //Revisamos las configuraciones del establecimiento
+    const establecimiento =
+      await this.establecimientoService.findEstablecimientoById(
+        invoice.establecimiento.id,
       );
 
-      //Notificamos el nuevo nro de serie al cliente
-      this.server
-        .to(
-          `room_invoices_emp-${invoice.empresa.id}_est-${invoice.establecimiento.id}`,
-        )
-        .emit('server::getIdInvoice', {
-          estado: 'success',
-          loading: false,
-          mensaje: 'El CPE se ha creado correctamente.',
-          observacion: 'El CPE no se ha enviado a SUNAT.',
-          numeroConCeros: completarConCeros(
-            String(Number(quitarCerosIzquierda(invoice.correlativo)) + 1),
-          ),
-          numero: String(Number(quitarCerosIzquierda(invoice.correlativo)) + 1),
-        });
+    const configuraciones = establecimiento.configsEstablecimiento;
 
-      //Revisamos las configuraciones del establecimiento
-      const establecimiento =
-        await this.establecimientoService.findEstablecimientoById(
-          invoice.establecimiento.id,
-        );
-
-      const configuraciones = establecimiento.configsEstablecimiento;
-
+    try {
       //Si el establecimiento tiene la configuracion de enviar inmediatamente a sunat se enviara y notifica a los usaurios
       if (
         configuraciones.some((config) => config.enviar_inmediatamente_a_sunat)
       ) {
-        await this.invoiceService.updateEstadoOperacion(invoice.id, 1); //estado enviando
+        const update = await this.invoiceService.updateEstadoOperacion(
+          invoice.id,
+          1,
+        ); //estado enviando
+
+        invoice.estado_operacion = update.estado_operacion;
+
         this.logger.log(
           `Cliente ${client.id} está enviando CPE ${invoice.correlativo} a sunat...`,
         );
-        //Listara todos los CPE
-        const invoicesEnviando = await this.invoiceService.finAllInvoices(
-          invoice.empresa.id,
-          invoice.establecimiento.id,
-          1,
-          10,
-        );
-
-        const invoicesEnviandoMap = {
-          data: invoicesEnviando.data.map((invoice) => {
-            return {
-              ...invoice,
-              empresa: {
-                id: invoice.empresa.id,
-                ruc: invoice.empresa.ruc,
-                razon_social: invoice.empresa.razon_social,
-                nombre_comercial: invoice.empresa.nombre_comercial,
-                estado: invoice.empresa.estado,
-                modo: invoice.empresa.modo,
-              },
-            };
-          }),
-          ...invoicesEnviando,
-        };
 
         //notifica que esta enviando a sunat
+        const __invoice = this.invoiceService.formatListInvoices(invoice);
         this.server
           .to(
             `room_invoices_emp-${invoice.empresa.id}_est-${invoice.establecimiento.id}`,
           )
-          .emit('server::listInvoices', invoicesEnviandoMap);
+          .emit('server::newInvoice', __invoice);
 
         //Enviamos sunat
         const sunat = await this.invoiceService.enviarSunat(
@@ -931,13 +993,8 @@ export class InvoiceGateway
         );
 
         //console.log(sunat);
-        const {
-          cdrZip,
-          codigo_sunat,
-          estado_sunat,
-          mensaje_sunat,
-          observaciones_sunat,
-        } = sunat.data;
+        const { cdrZip, codigo_sunat, mensaje_sunat, observaciones_sunat } =
+          sunat.data;
 
         const observaciones_sunat_modified =
           (observaciones_sunat as []).length > 0
@@ -948,7 +1005,7 @@ export class InvoiceGateway
         const CdrZip = Buffer.from(cdrZip, 'base64');
 
         //Guardamos el CDR en el servidor en el directorio del cliente
-        const pathCDR = this.invoiceService.guardarArchivo(
+        this.invoiceService.guardarArchivo(
           invoice.empresa.ruc,
           `${invoice.establecimiento.codigo}/${invoice.tipo_doc.tipo_documento}/RPTA`,
           `R-${fileName}.zip`,
@@ -957,7 +1014,11 @@ export class InvoiceGateway
         );
 
         if (codigo_sunat === 0) {
-          await this.invoiceService.updateEstadoOperacion(invoice.id, 2); //estado enviado y aceptado
+          const update = await this.invoiceService.updateEstadoOperacion(
+            invoice.id,
+            2,
+          ); //estado enviado y aceptado
+          invoice.estado_operacion = update.estado_operacion;
 
           await this.invoiceService.updateRptaSunat(
             invoice.id,
@@ -977,7 +1038,11 @@ export class InvoiceGateway
               message: `${mensaje_sunat}`,
             });
         } else if (codigo_sunat >= 2000 && codigo_sunat <= 3999) {
-          await this.invoiceService.updateEstadoOperacion(invoice.id, 3); //estado enviado y rechazado
+          const update = await this.invoiceService.updateEstadoOperacion(
+            invoice.id,
+            3,
+          ); //estado enviado y rechazado
+          invoice.estado_operacion = update.estado_operacion;
 
           await this.invoiceService.updateRptaSunat(
             invoice.id,
@@ -1011,56 +1076,31 @@ export class InvoiceGateway
             });
         }
 
-        //Listara todos los CPE
-        const invoicesSunat = await this.invoiceService.finAllInvoices(
-          invoice.empresa.id,
-          invoice.establecimiento.id,
-          1,
-          10,
-        );
-
-        const invoiceSunatMap = {
-          data: invoicesSunat.data.map((invoice) => {
-            return {
-              ...invoice,
-              empresa: {
-                id: invoice.empresa.id,
-                ruc: invoice.empresa.ruc,
-                razon_social: invoice.empresa.razon_social,
-                nombre_comercial: invoice.empresa.nombre_comercial,
-                estado: invoice.empresa.estado,
-                modo: invoice.empresa.modo,
-              },
-            };
-          }),
-          ...invoicesSunat,
-        };
-
         //notifica que esta enviando a sunat
+        const ___invoice = this.invoiceService.formatListInvoices(invoice);
         this.server
           .to(
             `room_invoices_emp-${invoice.empresa.id}_est-${invoice.establecimiento.id}`,
           )
-          .emit('server::listInvoices', invoiceSunatMap);
+          .emit('server::newInvoice', ___invoice);
       } else {
         this.logger.log(
           `Cliente ${client.id} NO está enviando CPE ${invoice.correlativo} a sunat.`,
         );
-        //Listara todos los CPE
-        const invoices = await this.invoiceService.finAllInvoices(
-          invoice.empresa.id,
-          invoice.establecimiento.id,
-          1,
-          10,
-        );
 
+        //Notificamos que se ha creado un CPE
+        const _invoice = this.invoiceService.formatListInvoices(invoice);
         this.server
           .to(
             `room_invoices_emp-${invoice.empresa.id}_est-${invoice.establecimiento.id}`,
           )
-          .emit('server::listInvoices', invoices);
+          .emit('server::newInvoice', _invoice);
       }
     } catch (e) {
+      this.logger.error(
+        `Cliente ${client.id} CPE ${invoice.correlativo} - ${e.message}.`,
+      );
+
       //Notificamos que ocurrio un error y liberamos loading
       this.server
         .to(`room_invoices_emp-${empresaId}_est-${establecimientoId}`)
