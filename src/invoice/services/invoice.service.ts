@@ -383,7 +383,7 @@ export class InvoiceService {
         const xmlSigned = await this.firmar(xml, certificado);
 
         //Guardamos el XML Firmado en el directorio del cliente
-        const pathXML = this.guardarArchivo(
+        this.guardarArchivo(
           invoiceResult.empresa.ruc,
           `${establecimiento.codigo}/${tipoDocumento.tipo_documento}/FIRMA`,
           `${fileName}.xml`,
@@ -392,7 +392,7 @@ export class InvoiceService {
         );
 
         //Creamos el pdf A4
-        const pathPDFA4 = this.getPdf(
+        this.getPdf(
           invoiceResult.empresa.ruc,
           `${establecimiento.codigo}/${tipoDocumento.tipo_documento}/PDF/A4`,
           fileName,
@@ -1061,6 +1061,7 @@ export class InvoiceService {
     }
   }
 
+  //CRON SERVER
   async findAllInvoicesCron(idEmpresa: number, idEstablecimiento: number) {
     try {
       return await this.invoiceRepository.find({
@@ -1090,9 +1091,57 @@ export class InvoiceService {
     }
   }
 
-  async finAllInvoicesTable(idEmpresa: number, idEstablecimiento: number) {
+  //API
+  async listInvoices(
+    user: QueryToken,
+    idEmpresa: number,
+    idEstablecimiento: number,
+    page: number,
+    pageSize: number,
+  ) {
+    const _take = Number(pageSize);
+    const _skip = (Number(page) - 1) * _take;
+
+    const empresasAsignadas = user.tokenEntityFull.empresas;
+
+    //validamos la existencia de la empresa
+    const empresa = (await this.empresaService.findOneEmpresaById(
+      idEmpresa,
+      true,
+    )) as EmpresaEntity;
+
+    //Validamos si la empresa emisora pertenece a las empresas asignadas al usuario
+    const existEmpresa = empresasAsignadas.find((emp) => emp.id === empresa.id);
+
+    if (!existEmpresa) {
+      throw new HttpException(
+        'La empresa en consulta no existe.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    //Validamos la existencia del establecimiento
+    const establecimiento =
+      await this.establecimientoService.findEstablecimientoById(
+        idEstablecimiento,
+      );
+
+    //Validamos si el establecimiento emisor pertenece a las empresas asignadas al usuario
+    const existEstablecimiento = existEmpresa.establecimientos.find(
+      (est) => est.id === establecimiento.id,
+    );
+
+    if (!existEstablecimiento) {
+      throw new HttpException(
+        'El establecimiento en consulta no existe.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
     try {
       const invoices = await this.invoiceRepository.find({
+        take: _take,
+        skip: _skip,
         relations: {
           tipo_doc: true,
           cliente: true,
@@ -1115,12 +1164,30 @@ export class InvoiceService {
         },
       });
 
+      const countInvoices = await this.invoiceRepository.count({
+        where: {
+          empresa: {
+            id: idEmpresa,
+          },
+          establecimiento: {
+            id: idEstablecimiento,
+          },
+        },
+      });
+
       const urlStatic = this.configService.get<string>('URL_FILES_STATIC');
+      const nextPage = countInvoices > _take * page;
+      const prevPage = page > 1;
+      const totalPage = Math.ceil(countInvoices / _take);
 
       return {
         statusCode: 'success',
-        data: invoices.map((invoice) => {
-          const { CustomizationID, UBLVersionID, ...rest } = invoice;
+        total: countInvoices,
+        currentPage: Number(page),
+        nextPage: nextPage,
+        prevPage: prevPage,
+        totalPage: totalPage,
+        items: invoices.map((invoice) => {
           const ruc = invoice.empresa.ruc;
           const tipoDoc = invoice.tipo_doc.codigo;
           const nomDoc = invoice.tipo_doc.tipo_documento;
@@ -1128,18 +1195,62 @@ export class InvoiceService {
           const correlativo = invoice.correlativo;
           const fileName = `${ruc}-${tipoDoc}-${serie}-${correlativo}`;
           const establecimiento = `${invoice.establecimiento.codigo}`;
+
+          const pathDirFirma = path.join(
+            process.cwd(),
+            `uploads/files/${ruc}/${establecimiento}/${nomDoc}/FIRMA/${fileName}.xml`,
+          );
+
+          const pathDirCDR = path.join(
+            process.cwd(),
+            `uploads/files/${ruc}/${establecimiento}/${nomDoc}/RPTA/R-${fileName}.zip`,
+          );
+
+          const {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            UBLVersionID,
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            CustomizationID,
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            createdAt,
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            fecha_emision,
+            ...rest
+          } = invoice;
+
           return {
             ...rest,
+            cliente: invoice.cliente
+              ? {
+                  id: invoice.cliente.id,
+                  entidad: rest.cliente.entidad,
+                  nombre_comercial: invoice.cliente.nombre_comercial,
+                  numero_documento: invoice.cliente.numero_documento,
+                  estado: invoice.cliente.estado,
+                }
+              : null,
+            empresa: {
+              id: invoice.empresa.id,
+              ruc: invoice.empresa.ruc,
+              razon_social: invoice.empresa.razon_social,
+              nombre_comercial: invoice.empresa.nombre_comercial,
+              estado: invoice.empresa.estado,
+              modo: invoice.empresa.modo === 0 ? 'BETA' : 'PRODUCCION',
+            },
             establecimiento: {
               id: invoice.establecimiento.id,
               codigo: invoice.establecimiento.codigo,
               denominacion: invoice.establecimiento.denominacion,
               estado: invoice.establecimiento.estado,
             },
-            xmlSigned: `${urlStatic}/${ruc}/${establecimiento}/${nomDoc}/FIRMA/${fileName}.xml`,
+            status: [0, 2, 3].includes(invoice.estado_operacion),
+            xml: !fs.existsSync(pathDirFirma)
+              ? '#'
+              : `${urlStatic}/${ruc}/${establecimiento}/${nomDoc}/FIRMA/${fileName}.xml`,
+            cdr: !fs.existsSync(pathDirCDR)
+              ? '#'
+              : `${urlStatic}/${ruc}/${establecimiento}/${nomDoc}/RPTA/R-${fileName}.zip`,
             pdfA4: `${urlStatic}/${ruc}/${establecimiento}/${nomDoc}/PDF/A4/${fileName}.pdf`,
-            cdr: `${urlStatic}/${ruc}/${establecimiento}/${nomDoc}/RPTA/R-${fileName}.zip`,
-            xml: `${urlStatic}/${ruc}/${establecimiento}/${nomDoc}/XML/${fileName}.xml`,
             usuario: invoice.usuario.nombres + ' ' + invoice.usuario.apellidos,
             moneda: invoice.tipo_moneda,
             fecha_registro: dayjs(invoice.createdAt).format(
@@ -1159,6 +1270,40 @@ export class InvoiceService {
     }
   }
 
+  //SOCKET
+  async getInvoicesToNotify(idEmpresa: number, idEstablecimiento: number) {
+    try {
+      return await this.invoiceRepository.find({
+        relations: {
+          tipo_doc: true,
+          cliente: true,
+          empresa: true,
+          establecimiento: true,
+          tipo_moneda: true,
+          forma_pago: true,
+          usuario: true,
+        },
+        where: {
+          empresa: {
+            id: idEmpresa,
+          },
+          establecimiento: {
+            id: idEstablecimiento,
+          },
+        },
+        order: {
+          createdAt: 'DESC',
+        },
+      });
+    } catch (e) {
+      throw new HttpException(
+        'Error al buscar los cpes listado InvoiceService.getInvoicesToNotify',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  //SOCKET
   async finAllInvoices(
     idEmpresa: number,
     idEstablecimiento: number,
@@ -1237,6 +1382,7 @@ export class InvoiceService {
               denominacion: invoice.establecimiento.denominacion,
               estado: invoice.establecimiento.estado,
             },
+            status: [0, 2, 3].includes(invoice.estado_operacion),
             xmlSigned: `${urlStatic}/${ruc}/${establecimiento}/${nomDoc}/FIRMA/${fileName}.xml`,
             pdfA4: `${urlStatic}/${ruc}/${establecimiento}/${nomDoc}/PDF/A4/${fileName}.pdf`,
             cdr: `${urlStatic}/${ruc}/${establecimiento}/${nomDoc}/RPTA/R-${fileName}.zip`,
@@ -1543,5 +1689,78 @@ export class InvoiceService {
     }
 
     return mapOperaciones;
+  }
+
+  formatListInvoices(invoice: InvoiceEntity) {
+    //formateamos result
+    const urlStatic = this.configService.get<string>('URL_FILES_STATIC');
+    const rucAux = invoice.empresa.ruc;
+    const tipoDocAux = invoice.tipo_doc.codigo;
+    const nomDocAux = invoice.tipo_doc.tipo_documento;
+    const serieAux = invoice.serie;
+    const correlativoAux = invoice.correlativo;
+    const fileNameAux = `${rucAux}-${tipoDocAux}-${serieAux}-${correlativoAux}`;
+    const establecimientoAux = `${invoice.establecimiento.codigo}`;
+
+    const pathDirFirma = path.join(
+      process.cwd(),
+      `uploads/files/${rucAux}/${establecimientoAux}/${nomDocAux}/FIRMA/${fileNameAux}.xml`,
+    );
+
+    const pathDirCDR = path.join(
+      process.cwd(),
+      `uploads/files/${rucAux}/${establecimientoAux}/${nomDocAux}/RPTA/R-${fileNameAux}.zip`,
+    );
+
+    const {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      UBLVersionID,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      CustomizationID,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      createdAt,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      fecha_emision,
+      ...rest
+    } = invoice;
+
+    return {
+      ...rest,
+      cliente: invoice.cliente
+        ? {
+            id: invoice.cliente.id,
+            entidad: rest.cliente.entidad,
+            nombre_comercial: invoice.cliente.nombre_comercial,
+            numero_documento: invoice.cliente.numero_documento,
+            estado: invoice.cliente.estado,
+          }
+        : null,
+      empresa: {
+        id: invoice.empresa.id,
+        ruc: invoice.empresa.ruc,
+        razon_social: invoice.empresa.razon_social,
+        nombre_comercial: invoice.empresa.nombre_comercial,
+        estado: invoice.empresa.estado,
+        modo: invoice.empresa.modo === 0 ? 'BETA' : 'PRODUCCION',
+      },
+      establecimiento: {
+        id: invoice.establecimiento.id,
+        codigo: invoice.establecimiento.codigo,
+        denominacion: invoice.establecimiento.denominacion,
+        estado: invoice.establecimiento.estado,
+      },
+      status: [0, 2, 3].includes(invoice.estado_operacion),
+      xml: !fs.existsSync(pathDirFirma)
+        ? '#'
+        : `${urlStatic}/${rucAux}/${establecimientoAux}/${nomDocAux}/FIRMA/${fileNameAux}.xml`,
+      cdr: !fs.existsSync(pathDirCDR)
+        ? '#'
+        : `${urlStatic}/${rucAux}/${establecimientoAux}/${nomDocAux}/RPTA/R-${fileNameAux}.zip`,
+      pdfA4: `${urlStatic}/${rucAux}/${establecimientoAux}/${nomDocAux}/PDF/A4/${fileNameAux}.pdf`,
+      usuario: invoice.usuario.nombres + ' ' + invoice.usuario.apellidos,
+      moneda: invoice.tipo_moneda,
+      fecha_registro: dayjs(invoice.createdAt).format('DD-MM-YYYY·HH:mm:ss'),
+      fecha_emision: dayjs(invoice.fecha_emision).format('DD-MM-YYYY·HH:mm:ss'),
+    };
   }
 }

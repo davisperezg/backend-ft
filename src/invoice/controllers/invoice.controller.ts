@@ -9,6 +9,7 @@ import {
   HttpStatus,
   StreamableFile,
   Header,
+  Query,
 } from '@nestjs/common';
 import { InvoiceService } from '../services/invoice.service';
 import { Response } from 'express';
@@ -38,6 +39,25 @@ export class InvoiceController {
       user,
     );
     return res.status(200).json(response);
+  }
+
+  //https://stackoverflow.com/questions/54958244/how-to-use-query-parameters-in-nest-js
+  @Get()
+  @UseGuards(PermissionGuard(Permission.ListInvoices))
+  async listInvoices(
+    @CtxUser() user: QueryToken,
+    @Query('empresa') empresa: number,
+    @Query('establecimiento') establecimiento: number,
+    @Query('page') page: number,
+    @Query('pageSize') pageSize: number,
+  ) {
+    return await this.invoiceService.listInvoices(
+      user,
+      empresa,
+      establecimiento,
+      page,
+      pageSize,
+    );
   }
 
   @Get()
