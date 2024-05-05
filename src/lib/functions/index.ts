@@ -4,18 +4,18 @@ export const validarFormatoUUID = (uuid: string) => {
   return regex.test(uuid);
 };
 
-export const completarConCeros = (valor: string) => {
+export const completarConCeros = (valor: string, longitud = 8) => {
   // Asegurarse de que el valor sea una cadena
   let valorCadena = String(valor);
 
   // Completar con ceros a la izquierda hasta alcanzar la longitud deseada (8)
-  while (valorCadena.length < 8) {
+  while (valorCadena.length < longitud) {
     valorCadena = '0' + valorCadena;
   }
 
   // Limitar la longitud a 8 caracteres
-  if (valorCadena.length > 8) {
-    valorCadena = valorCadena.slice(0, 8);
+  if (valorCadena.length > longitud) {
+    valorCadena = valorCadena.slice(0, longitud);
   }
 
   return valorCadena;

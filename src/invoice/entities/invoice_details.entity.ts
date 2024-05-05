@@ -8,6 +8,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { InvoiceEntity } from './invoice.entity';
+import { DecimalColumnTransformer } from 'src/lib/helpers/decimal_format';
 
 @Entity({ name: 'invoices_details' })
 export class InvoiceDetailsEntity {
@@ -97,6 +98,7 @@ export class InvoiceDetailsEntity {
     scale: 3,
     nullable: false,
     default: null,
+    transformer: new DecimalColumnTransformer(),
   })
   mtoValorUnitario: number;
 
@@ -106,6 +108,7 @@ export class InvoiceDetailsEntity {
     scale: 3,
     nullable: true,
     default: null,
+    transformer: new DecimalColumnTransformer(),
   })
   mtoValorGratuito?: number;
 
@@ -122,6 +125,7 @@ export class InvoiceDetailsEntity {
     type: 'decimal',
     precision: 10,
     scale: 2,
+    transformer: new DecimalColumnTransformer(),
   })
   porcentajeIgv: number;
 

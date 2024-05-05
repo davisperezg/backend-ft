@@ -60,6 +60,7 @@ import { ConnectionModule } from './connection/connection.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { ScheduleModule } from '@nestjs/schedule';
+import { AnulacionesModule } from './anulaciones/anulaciones.module';
 
 @Module({
   imports: [
@@ -149,6 +150,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     TipoEntidadesModule,
     ConfiguracionesModule,
     ConnectionModule,
+    AnulacionesModule,
   ],
   controllers: [AppController],
   providers: [

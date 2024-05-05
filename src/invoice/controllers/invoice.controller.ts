@@ -22,10 +22,28 @@ import PdfPrinter from 'pdfmake';
 import * as fs from 'fs';
 import { join } from 'path';
 import { Readable } from 'stream';
+import { CreateComuBajaDTO } from '../dto/create-comunicacion_baja';
 
 @Controller('api/v1/invoices')
 export class InvoiceController {
   constructor(private readonly invoiceService: InvoiceService) {}
+
+  @Post('bajadirecto')
+  async bajaDirecto(
+    @Res() res: Response,
+    @Body()
+    data: {
+      empresaId: number;
+      establecimientoId: number;
+    },
+  ) {
+    const { empresaId, establecimientoId } = data;
+    const response = await this.invoiceService.bajaAux(
+      empresaId,
+      establecimientoId,
+    );
+    return res.status(200).json(response);
+  }
 
   @Post()
   @UseGuards(PermissionGuard(Permission.CreateFacturas))
@@ -40,6 +58,13 @@ export class InvoiceController {
     );
     return res.status(200).json(response);
   }
+
+  // @Post('comunicar-baja')
+  // @UseGuards(PermissionGuard(Permission.CreateFacturas))
+  // async comunicarBaja(@Res() res: Response, @Body() body: CreateComuBajaDTO) {
+  //   const response = await this.invoiceService.comunicarBaja(body);
+  //   return res.status(200).json(response);
+  // }
 
   //https://stackoverflow.com/questions/54958244/how-to-use-query-parameters-in-nest-js
   @Get()

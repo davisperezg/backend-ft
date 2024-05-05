@@ -16,6 +16,7 @@ import {
 } from 'typeorm';
 import { InvoiceDetailsEntity } from './invoice_details.entity';
 import { DecimalColumnTransformer } from 'src/lib/helpers/decimal_format';
+import { AnulacionEntity } from 'src/anulaciones/entities/anulacion.entity';
 
 @Entity({ name: 'invoices' })
 export class InvoiceEntity {
@@ -169,23 +170,25 @@ export class InvoiceEntity {
   })
   mto_igv_gratuitas?: number;
 
-  // @Column({
-  //   type: 'decimal',
-  //   precision: 10,
-  //   scale: 2,
-  //   transformer: new DecimalColumnTransformer(),
-  // })
-  // porcentaje_igv: number;
+  //por el momento solo es estatico ya que el % se aplica en el mismo servicio
+  //esto se usara mas adelante
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    transformer: new DecimalColumnTransformer(),
+  })
+  porcentaje_igv: number;
 
   @Column({
     type: 'tinyint',
-    default: 0, //0 es creado, 1 es enviando, 2 es aceptado, 3 es rechazado
+    default: 0, //0 es creado, 1 es enviando, 2 es aceptado, 3 es rechazado, 4 borrador
   })
   estado_operacion?: number;
 
   @Column({
     type: 'tinyint',
-    default: null, //null es anulacion no enviada, 0 es anulacion enviada(con recepcion ticked), 1 anulacion aceptada, 2 anulacion rechazada
+    default: null, //null es anulacion no enviada, 1 es anulacion enviada(con recepcion ticked), 2 anulacion aceptada, 3 anulacion rechazada
     nullable: true,
   })
   estado_anulacion?: number;
@@ -275,6 +278,10 @@ export class InvoiceEntity {
 
   @OneToMany(() => InvoiceDetailsEntity, (detail) => detail.invoice)
   invoices_details?: InvoiceDetailsEntity[];
-  tipo_entidad: string;
-  ruc: string;
+
+  @OneToMany(() => AnulacionEntity, (anulacion) => anulacion.invoice)
+  anulaciones?: AnulacionEntity[];
+
+  @Column({ default: false })
+  borrador?: boolean;
 }
