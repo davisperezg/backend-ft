@@ -1,4 +1,10 @@
-import { Injectable, Inject, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  HttpException,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { InvoiceEntity } from '../entities/invoice.entity';
@@ -48,9 +54,16 @@ import { InvoiceDetailsEntity } from '../entities/invoice_details.entity';
 import { Request } from 'express';
 import { URL_STATIC } from 'src/lib/const/consts';
 import { ConfigService } from '@nestjs/config';
+import { CreateComuBajaDTO } from '../dto/create-comunicacion_baja';
+import { AnulacionEntity } from 'src/anulaciones/entities/anulacion.entity';
+import { InvoiceGateway } from '../gateway/invoice.gateway';
+import { uid } from 'rand-token';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class InvoiceService {
+  private logger = new Logger('InvoiceService');
+
   constructor(
     @InjectRepository(InvoiceEntity)
     private invoiceRepository: Repository<InvoiceEntity>,
@@ -73,10 +86,118 @@ export class InvoiceService {
     private invoiceDetailsRepository: Repository<InvoiceDetailsEntity>,
     private dataSource: DataSource,
     private readonly configService: ConfigService,
+    @InjectRepository(AnulacionEntity)
+    private anulacionRepository: Repository<AnulacionEntity>,
+    private readonly invoiceGateway: InvoiceGateway,
   ) {
     dayjs.extend(utc);
     dayjs.extend(timezone);
     dayjs.tz.setDefault('America/Lima'); // Establecer el huso horario de Perú como predeterminado
+  }
+
+  async bajaAux(empresaId: number, establecimientoId: number) {
+    const empresa = await this.empresaService.findOneEmpresaById(
+      empresaId,
+      true,
+    );
+    const establecimiento =
+      await this.establecimientoService.findEstablecimientoById(
+        establecimientoId,
+      );
+
+    const dataXML = {
+      empresa: {
+        ruc: empresa.ruc,
+        razon_social: empresa.razon_social,
+        nombre_comercial: empresa.nombre_comercial,
+      },
+      establecimiento: {
+        ubigeo: establecimiento.ubigeo,
+        departamento: establecimiento.departamento,
+        provincia: establecimiento.provincia,
+        distrito: establecimiento.distrito,
+        direccion: establecimiento.direccion,
+        urbanizacion: '-',
+        codLocal: establecimiento.codigo,
+      },
+      tipo_documento: '01',
+      serie: 'F001',
+      correlativo: '3',
+      fecha_emision: new Date(),
+      fecha_comunicacion: new Date(),
+      motivo: 'Error en la operacion',
+      correlativoBaja: '00001',
+    };
+
+    //GENERAMOS XML
+    const xmlBaja = await axios.post(
+      `${process.env.API_SERVICE_PHP}/gen-xml-baja`,
+      dataXML,
+    );
+
+    const { fileName, xml } = xmlBaja.data;
+
+    //Verificamos si el cliente esta en modo beta o produccion
+    const certFilePath = path.join(
+      process.cwd(),
+      `uploads/certificado_digital/produccion/${empresa.ruc}/${empresa.cert}`,
+    );
+
+    //Generamos el certificado.pem para firmar
+    const pemFilePath = path.join(
+      process.cwd(),
+      `uploads/certificado_digital/produccion/${empresa.ruc}/${empresa.fieldname_cert}.pem`,
+    );
+
+    const certificado = this.convertToPem(
+      certFilePath,
+      pemFilePath,
+      empresa.cert_password,
+    );
+
+    //FIRMAMOS XML
+    const xmlSigned = await this.firmar(xml, certificado);
+
+    //PREPARAMOS OBJ PARA IDENTIFICARNOS Y GENERAR TICKET
+    const dataIdentify = {
+      urlService: empresa.web_service,
+      usuario: empresa.ose_enabled
+        ? empresa.usu_secundario_ose_user
+        : empresa.usu_secundario_user,
+      contrasenia: empresa.ose_enabled
+        ? empresa.usu_secundario_ose_password
+        : empresa.usu_secundario_password,
+      fileName: fileName,
+      contentFile: xmlSigned,
+    };
+
+    //GENERAMOS TICKET DE SUNAT
+    const resa = await axios.post(
+      `${process.env.API_SERVICE_PHP}/gen-ticket-baja`,
+      dataIdentify,
+    );
+
+    const ticket = resa.data.ticket;
+
+    await setTimeout(2000);
+
+    const dataIdentifyTicket = {
+      urlService: empresa.web_service,
+      usuario: empresa.ose_enabled
+        ? empresa.usu_secundario_ose_user
+        : empresa.usu_secundario_user,
+      contrasenia: empresa.ose_enabled
+        ? empresa.usu_secundario_ose_password
+        : empresa.usu_secundario_password,
+      ticket: ticket,
+    };
+
+    const res = await axios.post(
+      `${process.env.API_SERVICE_PHP}/sendSunatBaja`,
+      dataIdentifyTicket,
+    );
+
+    console.log(res.data);
   }
 
   async createInvoice(invoice: CreateInvoiceDto, user: QueryToken) {
@@ -184,7 +305,11 @@ export class InvoiceService {
     let result: {
       invoice: InvoiceEntity;
       fileName: string;
-      xmlSigned: string;
+      codigo_respuesta_sunat: null | number;
+      documento: string;
+      serie: string;
+      total: string;
+      correlativo: string;
     } = null;
 
     try {
@@ -286,6 +411,7 @@ export class InvoiceService {
             );
           }
 
+          //convertirDecimales(producto.mtoValorUnitario, 3)
           const item: InvoiceDetailsEntity = {
             unidad, // Unidad - Catalog. 03
             tipAfeIgv, // Gravado Op. Onerosa - Catalog. 07
@@ -331,11 +457,12 @@ export class InvoiceService {
           mto_operaciones_gratuitas: calcOperaciones.mtoOperGratuitas,
           mto_igv: calcOperaciones.mtoIGV,
           mto_igv_gratuitas: calcOperaciones.mtoIGVGratuitas,
-          //porcentaje_igv: 0.18,
+          porcentaje_igv: 18,
           entidad: existPermisoRegCliente ? null : invoice.cliente,
           entidad_tipo: existPermisoRegCliente ? null : invoice.tipo_entidad,
           entidad_documento: existPermisoRegCliente ? null : invoice.ruc,
           entidad_direccion: existPermisoRegCliente ? null : invoice.direccion,
+          borrador: invoice.borrador,
         });
 
         //GUardamos invoice
@@ -391,6 +518,261 @@ export class InvoiceService {
           true,
         );
 
+        //formatemos el invoice solo para mostrar lo necesario
+        const invoiceView = this.formatListInvoices(
+          invoiceResult,
+          null,
+          todosProductos,
+        );
+        let codigo_respuesta_sunat = null;
+
+        if (invoiceResult.borrador) {
+          this.logger.log(
+            `El usuario ${usuario.username} está creando un CPE como borrador...`,
+          );
+
+          //Notificamos que se ha creado un CPE pero no se ha enviado a sunat
+          this.logger.log(
+            `NO está enviando CPE ${invoiceResult.correlativo} a sunat por ser borrador.`,
+          );
+          this.invoiceGateway.server
+            .to(`room_invoices_emp-${empresa.id}_est-${establecimiento.id}`)
+            .emit('server::newInvoice', {
+              ...invoiceView,
+            });
+        } else {
+          //Si el documento no es un borrador verificamos si tiene la opcion de enviar a sunat inmeidatamente o no
+          this.logger.log(
+            `El usuario ${usuario.username} está creando un CPE...`,
+          );
+
+          //Envia sunat segun sus configuraciones
+          const configuraciones = establecimiento.configsEstablecimiento;
+          if (
+            configuraciones.some(
+              (config) => config.enviar_inmediatamente_a_sunat,
+            )
+          ) {
+            //Cambiamos el estado de creado a enviando
+            await entityManager.update(
+              InvoiceEntity,
+              { id: invoiceResult.id },
+              { estado_operacion: 1 },
+            );
+
+            //Notificamos que estamos enviando a sunat
+            this.invoiceGateway.server
+              .to(`room_invoices_emp-${empresa.id}_est-${establecimiento.id}`)
+              .emit('server::newInvoice', {
+                ...invoiceView,
+                estado_operacion: 1,
+              });
+
+            this.logger.log(
+              `El usuario ${usuario.username} esta enviando a sunat con nro de cpe: ${fileName}`,
+            );
+
+            let sunat = null;
+
+            try {
+              //Enviamos a sunat
+              sunat = await this.enviarSunat(
+                invoiceResult.empresa.web_service,
+                invoiceResult.empresa.ose_enabled
+                  ? invoiceResult.empresa.usu_secundario_ose_user
+                  : invoiceResult.empresa.usu_secundario_user,
+                invoiceResult.empresa.ose_enabled
+                  ? invoiceResult.empresa.usu_secundario_ose_password
+                  : invoiceResult.empresa.usu_secundario_password,
+                fileName,
+                xmlSigned,
+              );
+            } catch (e) {
+              const code = Number(e.response.code);
+              if (
+                (code >= 100 && code <= 999) ||
+                e.response.code === 'HTTP' ||
+                e.response.code === 'http'
+              ) {
+                const message = e.response.message;
+                this.logger.warn(
+                  `Hoy, ${dayjs()}, se presenta intermitencia en los servidores de la SUNAT - [${code}]:${message}`,
+                );
+                this.logger.warn(
+                  `Usuario ${usuario.username} sunat tiene problemas el ${fileName} sera enviado pronto...`,
+                );
+
+                this.invoiceGateway.server
+                  .to(
+                    `room_invoices_emp-${empresa.id}_est-${establecimiento.id}`,
+                  )
+                  .emit('server::notifyInvoice', {
+                    type: 'sunat.success',
+                    correlativo: invoiceResult.correlativo,
+                    time: dayjs(new Date()).format('DD-MM-YYYY·HH:mm:ss'),
+                    message: `Comprobante ${fileName} ha sido creado.`,
+                  });
+
+                //Actualizamos serie
+                await entityManager.save(SeriesEntity, {
+                  ...serie,
+                  numero: String(Number(serie.numero) + 1),
+                });
+
+                return {
+                  invoice: invoiceResult,
+                  fileName,
+                  codigo_respuesta_sunat: code,
+                  documento:
+                    tipoDocumento.tipo_documento.toUpperCase() +
+                    ' ' +
+                    'ELECTRÓNICA',
+                  serie: invoiceResult.serie,
+                  correlativo: invoiceResult.correlativo,
+                  total:
+                    tipoMoneda.simbolo +
+                    String(
+                      invoiceResult.mto_operaciones_gravadas +
+                        invoiceResult.mto_operaciones_exoneradas +
+                        invoiceResult.mto_operaciones_exportacion +
+                        invoiceResult.mto_operaciones_gratuitas +
+                        invoiceResult.mto_operaciones_inafectas +
+                        invoiceResult.mto_igv,
+                    ),
+                };
+              }
+              //Errores al conectar con el servicio sunat o sunat respondera con eres del 1000-1999
+              else {
+                throw new HttpException(e.message, HttpStatus.BAD_REQUEST);
+              }
+            }
+
+            //Si hay conexion y repuesta de sunat descargamos CDR
+            const { cdrZip, codigo_sunat, mensaje_sunat, observaciones_sunat } =
+              sunat.data;
+
+            codigo_respuesta_sunat = codigo_sunat;
+
+            const observaciones_sunat_modified =
+              (observaciones_sunat as [])?.length > 0
+                ? observaciones_sunat.join('|')
+                : null;
+
+            //Decodificamos el CDR en base64 (LA RESPUESTA DE SUNAT)
+            const CdrZip = Buffer.from(cdrZip, 'base64');
+
+            //Guardamos el CDR en el servidor en el directorio del cliente
+            this.guardarArchivo(
+              invoiceResult.empresa.ruc,
+              `${invoiceResult.establecimiento.codigo}/${invoiceResult.tipo_doc.tipo_documento}/RPTA`,
+              `R-${fileName}.zip`,
+              CdrZip,
+              true,
+            );
+
+            if (codigo_sunat === 0) {
+              //Cambiamos el estado de enviado a aceptado
+              await entityManager.update(
+                InvoiceEntity,
+                { id: invoiceResult.id },
+                {
+                  estado_operacion: 2,
+                  respuesta_sunat_codigo: codigo_sunat,
+                  respuesta_sunat_descripcion: mensaje_sunat,
+                  observaciones_sunat: observaciones_sunat_modified,
+                },
+              );
+
+              const _invoice = this.formatListInvoices(
+                {
+                  ...invoiceResult,
+                  estado_operacion: 2,
+                  respuesta_sunat_codigo: codigo_sunat,
+                  respuesta_sunat_descripcion: mensaje_sunat,
+                  observaciones_sunat: observaciones_sunat_modified,
+                },
+                null,
+                todosProductos,
+              );
+
+              //Notificamos a los clientes que se acepto a sunat
+              this.logger.log(`${usuario.username} - ${mensaje_sunat}`);
+              this.invoiceGateway.server
+                .to(`room_invoices_emp-${empresa.id}_est-${establecimiento.id}`)
+                .emit('server::notifyInvoice', {
+                  type: 'sunat.success',
+                  correlativo: invoiceResult.correlativo,
+                  time: dayjs(new Date()).format('DD-MM-YYYY·HH:mm:ss'),
+                  message: `${mensaje_sunat}`,
+                });
+              this.invoiceGateway.server
+                .to(`room_invoices_emp-${empresa.id}_est-${establecimiento.id}`)
+                .emit('server::newInvoice', _invoice);
+            } else if (codigo_sunat >= 2000 && codigo_sunat <= 3999) {
+              //Cambiamos el estado de enviado a rechazado
+              await entityManager.update(
+                InvoiceEntity,
+                { id: invoiceResult.id },
+                {
+                  estado_operacion: 3,
+                  respuesta_sunat_codigo: codigo_sunat,
+                  respuesta_sunat_descripcion: mensaje_sunat,
+                  observaciones_sunat: observaciones_sunat_modified,
+                },
+              );
+
+              const _invoice = this.formatListInvoices(
+                {
+                  ...invoiceResult,
+                  estado_operacion: 3,
+                  respuesta_sunat_codigo: codigo_sunat,
+                  respuesta_sunat_descripcion: mensaje_sunat,
+                  observaciones_sunat: observaciones_sunat_modified,
+                },
+                null,
+                todosProductos,
+              );
+
+              //Notificamos a los clientes que sunat rechazo el cpe
+              this.logger.error(
+                `${fileName} fue rechazado por SUNAT - ${codigo_sunat}:${mensaje_sunat}.`,
+              );
+              this.invoiceGateway.server
+                .to(`room_invoices_emp-${empresa.id}_est-${establecimiento.id}`)
+                .emit('server::notifyInvoice', {
+                  type: 'sunat.failed',
+                  correlativo: invoiceResult.correlativo,
+                  time: dayjs(new Date()).format('DD-MM-YYYY·HH:mm:ss'),
+                  message: `${fileName} fue rechazado por SUNAT - ${codigo_sunat}:${mensaje_sunat}.`,
+                });
+              this.invoiceGateway.server
+                .to(`room_invoices_emp-${empresa.id}_est-${establecimiento.id}`)
+                .emit('server::newInvoice', _invoice);
+            } else {
+              //probablemente no entre aca
+              this.logger.warn(`Warning:${mensaje_sunat}.`);
+              this.invoiceGateway.server
+                .to(`room_invoices_emp-${empresa.id}_est-${establecimiento.id}`)
+                .emit('server::notifyInvoice', {
+                  type: 'sunat.warn',
+                  correlativo: invoiceResult.correlativo,
+                  time: dayjs(new Date()).format('DD-MM-YYYY·HH:mm:ss'),
+                  message: `El CPE#${invoiceResult.correlativo}  -  Warning:${mensaje_sunat}.`,
+                });
+            }
+          } else {
+            //Notificamos que se ha creado un CPE pero no se ha enviado a sunat
+            this.logger.log(
+              `NO está enviando CPE ${invoiceResult.correlativo} a sunat.`,
+            );
+            this.invoiceGateway.server
+              .to(`room_invoices_emp-${empresa.id}_est-${establecimiento.id}`)
+              .emit('server::newInvoice', {
+                ...invoiceView,
+              });
+          }
+        }
+
         //Creamos el pdf A4
         this.getPdf(
           invoiceResult.empresa.ruc,
@@ -408,7 +790,21 @@ export class InvoiceService {
         return {
           invoice: invoiceResult,
           fileName,
-          xmlSigned,
+          codigo_respuesta_sunat,
+          documento:
+            tipoDocumento.tipo_documento.toUpperCase() + ' ' + 'ELECTRÓNICA',
+          serie: invoiceResult.serie,
+          correlativo: invoiceResult.correlativo,
+          total:
+            tipoMoneda.simbolo +
+            String(
+              invoiceResult.mto_operaciones_gravadas +
+                invoiceResult.mto_operaciones_exoneradas +
+                invoiceResult.mto_operaciones_exportacion +
+                invoiceResult.mto_operaciones_gratuitas +
+                invoiceResult.mto_operaciones_inafectas +
+                invoiceResult.mto_igv,
+            ),
         };
       });
     } catch (e) {
@@ -485,6 +881,21 @@ export class InvoiceService {
     } catch (e) {
       throw new HttpException(
         'Error al actualizar el estado de la operación',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  async updateEstadoOperacionAnulacion(idInvoice: number, estado: number) {
+    try {
+      await this.invoiceRepository.update(idInvoice, {
+        estado_anulacion: estado,
+      });
+
+      return this.invoiceRepository.findOne({ where: { id: idInvoice } });
+    } catch (e) {
+      throw new HttpException(
+        'Error al actualizar el estado de la anulación',
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -840,6 +1251,7 @@ export class InvoiceService {
     //   data['observaciones'] = invoice.observaciones;
     // }
     //fin opcionales
+
     try {
       const res = await axios.post(
         `${process.env.API_SERVICE_PHP}/gen-xml`,
@@ -854,6 +1266,13 @@ export class InvoiceService {
         fileName,
       };
     } catch (e) {
+      if (e.code === 'ECONNREFUSED') {
+        throw new HttpException(
+          'Verifique el servidor de la API Greenter actualmente esta deshabilitado.',
+          HttpStatus.BAD_GATEWAY,
+        );
+      }
+
       throw new HttpException(
         `Error de comunicación con el servicio: sunat.generarXML ${
           e.response?.data?.message ?? 'Internal'
@@ -954,6 +1373,13 @@ export class InvoiceService {
 
       return xmlSigned.data;
     } catch (e) {
+      if (e.code === 'ECONNREFUSED') {
+        throw new HttpException(
+          'Verifique el servidor de la API Greenter actualmente esta deshabilitado.',
+          HttpStatus.BAD_GATEWAY,
+        );
+      }
+
       throw new HttpException(
         `Error de comunicación con el servicio: sunat.firmar - ${
           e.response?.data?.message ?? 'Internal'
@@ -978,19 +1404,22 @@ export class InvoiceService {
         fileName,
         contentFile,
       });
-
-      // return {
-      //   ...sunat.data,
-      //   observaciones_sunat: this.quitarComillaDoble(
-      //     sunat.data.observaciones_sunat,
-      //   ),
-      //};
     } catch (e) {
-      const message = `[${e.response.data.error.code}]:${e.response.data.error.message}`;
+      if (e.code === 'ECONNREFUSED') {
+        throw new HttpException(
+          'Verifique el servidor de la API Greenter actualmente esta deshabilitado.',
+          HttpStatus.BAD_GATEWAY,
+        );
+      }
+
       throw new HttpException(
-        `Error de comunicación con el servicio: sunat.enviarSunat - CPE#${fileName} - ${
-          e.response?.data ? message : 'Internal'
-        }`,
+        {
+          sendSunat: true,
+          code: e.response.data?.error?.code,
+          message: `Error de comunicación con el servicio: sunat.enviarSunat - [${
+            e.response.data?.error?.code
+          }]:${e.response.data?.error?.message ?? 'Internal'}`,
+        },
         HttpStatus.BAD_GATEWAY,
       );
     }
@@ -1014,6 +1443,13 @@ export class InvoiceService {
         correlativo,
       });
     } catch (e) {
+      if (e.code === 'ECONNREFUSED') {
+        throw new HttpException(
+          'Verifique el servidor de la API Greenter actualmente esta deshabilitado.',
+          HttpStatus.BAD_GATEWAY,
+        );
+      }
+
       const message = `[${e.response.data.error?.code}]:${e.response.data.error?.message}`;
       throw new HttpException(
         `Error de comunicación con el servicio: sunat.consultarCDR - ${
@@ -1024,14 +1460,151 @@ export class InvoiceService {
     }
   }
 
-  async findOneInvoice(
-    serie: string,
-    numero: string,
-    empresa: number,
-    establecimiento: number,
+  //para facturas
+  async comunicarBaja(
+    invoice: InvoiceEntity,
+    motivo: string,
+    correlativoBaja: string,
   ) {
+    const certificado = this.validarCertificado(invoice);
+
+    const dataXML = {
+      empresa: {
+        ruc: invoice.empresa.ruc,
+        razon_social: invoice.empresa.razon_social,
+        nombre_comercial: invoice.empresa.nombre_comercial,
+      },
+      establecimiento: {
+        ubigeo: invoice.establecimiento.ubigeo,
+        departamento: invoice.establecimiento.departamento,
+        provincia: invoice.establecimiento.provincia,
+        distrito: invoice.establecimiento.distrito,
+        direccion: invoice.establecimiento.direccion,
+        urbanizacion: '-',
+        codLocal: invoice.establecimiento.codigo,
+      },
+      tipo_documento: invoice.tipo_doc.codigo,
+      serie: invoice.serie,
+      correlativo: invoice.correlativo,
+      fecha_emision: invoice.fecha_emision,
+      fecha_comunicacion: new Date(),
+      motivo,
+      correlativoBaja,
+    };
+
     try {
-      return await this.invoiceRepository.findOne({
+      //GENERAMOS XML
+      const xmlBaja = await axios.post(
+        `${process.env.API_SERVICE_PHP}/gen-xml-baja`,
+        dataXML,
+      );
+
+      const { fileName, fileNameExtension, xml } = xmlBaja.data;
+
+      //GUARDAMOS XML
+      this.guardarArchivo(
+        invoice.empresa.ruc,
+        `${invoice.establecimiento.codigo}/${invoice.tipo_doc.tipo_documento}/BAJA/XML`,
+        `${fileNameExtension}`,
+        xml,
+        true,
+      );
+
+      //FIRMAMOS XML
+      const xmlSigned = await this.firmar(xml, certificado);
+
+      //GUARDAMOS XML FIRMADO
+      this.guardarArchivo(
+        invoice.empresa.ruc,
+        `${invoice.establecimiento.codigo}/${invoice.tipo_doc.tipo_documento}/BAJA/FIRMA`,
+        `${fileNameExtension}`,
+        xmlSigned,
+        true,
+      );
+
+      //PREPARAMOS OBJ PARA IDENTIFICARNOS Y GENERAR TICKET
+      const dataIdentify = {
+        urlService: invoice.empresa.web_service,
+        usuario: invoice.empresa.ose_enabled
+          ? invoice.empresa.usu_secundario_ose_user
+          : invoice.empresa.usu_secundario_user,
+        contrasenia: invoice.empresa.ose_enabled
+          ? invoice.empresa.usu_secundario_ose_password
+          : invoice.empresa.usu_secundario_password,
+        fileName: fileName,
+        contentFile: xmlSigned,
+      };
+
+      //GENERAMOS TICKET DE SUNAT
+      const res = await axios.post(
+        `${process.env.API_SERVICE_PHP}/gen-ticket-baja`,
+        dataIdentify,
+      );
+
+      return {
+        numero: res.data.ticket,
+        fileName: fileName,
+        fecha_comunicacion: dataXML.fecha_comunicacion,
+      };
+    } catch (e) {
+      if (e.code === 'ECONNREFUSED') {
+        throw new HttpException(
+          'Verifique el servidor de la API Greenter actualmente esta deshabilitado.',
+          HttpStatus.BAD_GATEWAY,
+        );
+      }
+
+      const message = `[${e.response.data.error?.code}]:${e.response.data.error?.message}`;
+      throw new HttpException(
+        `Error al comunicar la baja InvoiceService.comunicarBaja - ${
+          e.response?.data ? message : 'Internal'
+        }`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  async enviarSunatTicket(invoice: InvoiceEntity, ticket: string) {
+    const dataIdentify = {
+      urlService: invoice.empresa.web_service,
+      usuario: invoice.empresa.ose_enabled
+        ? invoice.empresa.usu_secundario_ose_user
+        : invoice.empresa.usu_secundario_user,
+      contrasenia: invoice.empresa.ose_enabled
+        ? invoice.empresa.usu_secundario_ose_password
+        : invoice.empresa.usu_secundario_password,
+      ticket: ticket,
+    };
+
+    try {
+      const res = await axios.post(
+        `${process.env.API_SERVICE_PHP}/sendSunatBaja`,
+        dataIdentify,
+      );
+      return res.data;
+    } catch (e) {
+      if (e.code === 'ECONNREFUSED') {
+        throw new HttpException(
+          'Verifique el servidor de la API Greenter actualmente esta deshabilitado.',
+          HttpStatus.BAD_GATEWAY,
+        );
+      }
+
+      const message = `[${e.response.data.error.code}]:${e.response.data.error.message}`;
+      throw new HttpException(
+        `Error de comunicación con el servicio: sunat.enviarSunatTicket - ${
+          e.response?.data ? message : 'Internal'
+        }`,
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+  }
+
+  async findOneInvoiceById(idInvoice: number) {
+    let invoice: InvoiceEntity = null;
+
+    try {
+      invoice = await this.invoiceRepository.findOne({
         relations: {
           tipo_moneda: true,
           forma_pago: true,
@@ -1041,6 +1614,45 @@ export class InvoiceService {
           },
           empresa: true,
           establecimiento: true,
+        },
+        where: {
+          id: idInvoice,
+        },
+      });
+    } catch (e) {
+      throw new HttpException(
+        'Error al buscar la factura InvoiceService.findOneInvoiceById',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    if (!invoice) {
+      throw new HttpException('El CPE no existe.', HttpStatus.BAD_REQUEST);
+    }
+
+    return invoice;
+  }
+
+  async findOneInvoice(
+    serie: string,
+    numero: string,
+    empresa: number,
+    establecimiento: number,
+  ) {
+    let invoice: InvoiceEntity = null;
+
+    try {
+      invoice = await this.invoiceRepository.findOne({
+        relations: {
+          tipo_moneda: true,
+          forma_pago: true,
+          tipo_doc: true,
+          cliente: {
+            tipo_entidad: true,
+          },
+          empresa: true,
+          establecimiento: true,
+          usuario: true,
         },
         where: {
           serie: serie,
@@ -1059,6 +1671,12 @@ export class InvoiceService {
         HttpStatus.BAD_REQUEST,
       );
     }
+
+    // if (!invoice) {
+    //   throw new HttpException('El CPE no existe.', HttpStatus.BAD_REQUEST);
+    // }
+
+    return invoice;
   }
 
   //CRON SERVER
@@ -1144,12 +1762,18 @@ export class InvoiceService {
         skip: _skip,
         relations: {
           tipo_doc: true,
-          cliente: true,
+          cliente: {
+            tipo_entidad: true,
+          },
           empresa: true,
           establecimiento: true,
           tipo_moneda: true,
           forma_pago: true,
           usuario: true,
+          invoices_details: {
+            tipAfeIgv: true,
+            unidad: true,
+          },
         },
         where: {
           empresa: {
@@ -1180,6 +1804,186 @@ export class InvoiceService {
       const prevPage = page > 1;
       const totalPage = Math.ceil(countInvoices / _take);
 
+      const items = invoices.map(async (invoice) => {
+        const ruc = invoice.empresa.ruc;
+        const tipoDoc = invoice.tipo_doc.codigo;
+        const nomDoc = invoice.tipo_doc.tipo_documento;
+        const serie = invoice.serie;
+        const correlativo = invoice.correlativo;
+        const establecimiento = `${invoice.establecimiento.codigo}`;
+
+        let pathDirFirma = '';
+        let pathDirCDR = '';
+        let pathStaticFirma = '';
+        let pathStaticCDR = '';
+
+        //null(no enviado), 1(enviado con ticket), 2(anulacion aceptado), 3(anulacion rechazada)
+        if (invoice.estado_anulacion === 2) {
+          const anulacion = await this.anulacionRepository.findOneBy({
+            invoice: { id: invoice.id },
+          });
+
+          if (anulacion) {
+            const fechaAnulacion = dayjs(anulacion.fecha_comunicacion).format(
+              'YYYYMMDD',
+            );
+            const correlativoAnulacion = anulacion.numero;
+            const fileName = `${ruc}-RA-${fechaAnulacion}-${correlativoAnulacion}`;
+
+            const rutaFirma = `${ruc}/${establecimiento}/${nomDoc}/BAJA/FIRMA/${fileName}.xml`;
+            const rutaCDR = `${ruc}/${establecimiento}/${nomDoc}/BAJA/RPTA/R-${fileName}.zip`;
+            pathDirFirma = path.join(
+              process.cwd(),
+              `uploads/files/${rutaFirma}`,
+            );
+
+            pathDirCDR = path.join(process.cwd(), `uploads/files/${rutaCDR}`);
+
+            pathStaticFirma = `${urlStatic}/${rutaFirma}`;
+            pathStaticCDR = `${urlStatic}/${rutaCDR}`;
+          }
+        }
+        //0(creado), 1(enviando), 2(aceptado), 3(rechazado)
+        else if (
+          invoice.estado_operacion === 0 ||
+          invoice.estado_operacion === 2 ||
+          invoice.estado_operacion === 3
+        ) {
+          const fileName = `${ruc}-${tipoDoc}-${serie}-${correlativo}`;
+          const rutaFirma = `${ruc}/${establecimiento}/${nomDoc}/FIRMA/${fileName}.xml`;
+          const rutaCDR = `${ruc}/${establecimiento}/${nomDoc}/RPTA/R-${fileName}.zip`;
+          pathDirFirma = path.join(process.cwd(), `uploads/files/${rutaFirma}`);
+
+          pathDirCDR = path.join(process.cwd(), `uploads/files/${rutaCDR}`);
+
+          pathStaticFirma = `${urlStatic}/${rutaFirma}`;
+          pathStaticCDR = `${urlStatic}/${rutaCDR}`;
+        } else {
+        }
+
+        const {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          UBLVersionID,
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          CustomizationID,
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          createdAt,
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          fecha_emision,
+          ...rest
+        } = invoice;
+
+        //dayjs(invoice.createdAt).format('DD-MM-YYYY·HH:mm:ss',)
+
+        return {
+          ...rest,
+          cliente: invoice.cliente
+            ? {
+                id: invoice.cliente.id,
+                entidad: rest.cliente.entidad,
+                nombre_comercial: invoice.cliente.nombre_comercial,
+                numero_documento: invoice.cliente.numero_documento,
+                estado: invoice.cliente.estado,
+                direccion: invoice.cliente.direccion,
+                tipo_entidad: invoice.cliente.tipo_entidad.codigo,
+              }
+            : null,
+          empresa: {
+            id: invoice.empresa.id,
+            ruc: invoice.empresa.ruc,
+            razon_social: invoice.empresa.razon_social,
+            nombre_comercial: invoice.empresa.nombre_comercial,
+            estado: invoice.empresa.estado,
+            modo: invoice.empresa.modo === 0 ? 'BETA' : 'PRODUCCION',
+          },
+          establecimiento: {
+            id: invoice.establecimiento.id,
+            codigo: invoice.establecimiento.codigo,
+            denominacion: invoice.establecimiento.denominacion,
+            estado: invoice.establecimiento.estado,
+          },
+          status: [0, 2, 3].includes(invoice.estado_operacion),
+          xml: !fs.existsSync(pathDirFirma) ? '#' : `${pathStaticFirma}`,
+          cdr: !fs.existsSync(pathDirCDR) ? '#' : `${pathStaticCDR}`,
+          pdfA4: `${urlStatic}/${ruc}/${establecimiento}/${nomDoc}/PDF/A4/${'test'}.pdf`,
+          usuario: invoice.usuario.nombres + ' ' + invoice.usuario.apellidos,
+          moneda: invoice.tipo_moneda,
+          fecha_registro: invoice.createdAt,
+          fecha_emision: invoice.fecha_emision,
+          productos: invoice.invoices_details.map((item, i) => {
+            if (item.mtoValorGratuito) {
+              const igvUnitario =
+                (item.mtoValorGratuito * item.porcentajeIgv) / 100;
+              const precioUnitarioGratuito =
+                item.mtoValorGratuito + igvUnitario;
+              const mtoValorVenta = item.mtoValorGratuito * item.cantidad;
+              const igvTotal = igvUnitario * item.cantidad;
+
+              const itemObj = {
+                posicionTabla: i,
+                uuid: uuidv4(),
+                cantidad: item.cantidad,
+                codigo: item.codigo,
+                descripcion: item.producto,
+                //igv: Number(igvTotal).toFixed(2),
+                //igvUnitario: Number(igvUnitario).toFixed(2),
+                //mtoBaseIgv: Number(mtoValorVenta).toFixed(2),
+                //mtoPrecioUnitario: Number(0).toFixed(3),
+                //mtoTotalItem: Number(0).toFixed(2),
+                //mtoValorGratuito: Number(item.mtoValorGratuito).toFixed(3),
+                mtoValorUnitario: item.mtoValorUnitario,
+                //mtoValorVenta: Number(mtoValorVenta).toFixed(2),
+                porcentajeIgv: Number(item.porcentajeIgv),
+                tipAfeIgv: item.tipAfeIgv.codigo,
+                //totalImpuestos: Number(igvTotal).toFixed(2),
+                unidad: item.unidad.codigo,
+              };
+
+              //gravadas gratuitas
+              if (
+                ['11', '12', '13', '14', '15', '16', '17'].includes(
+                  item.tipAfeIgv.codigo,
+                )
+              ) {
+                itemObj['mtoPrecioUnitarioGratuito'] = Number(
+                  precioUnitarioGratuito,
+                ).toFixed(3);
+              }
+
+              return itemObj;
+            } else {
+              const igvUnitario =
+                (item.mtoValorUnitario * item.porcentajeIgv) / 100;
+              const igvTotal = igvUnitario * item.cantidad;
+
+              const precioUnitario = item.mtoValorUnitario + igvUnitario;
+              const mtoValorVenta = item.mtoValorUnitario * item.cantidad;
+
+              const mtoTotalItem = precioUnitario * item.cantidad;
+
+              return {
+                posicionTabla: i,
+                uuid: uuidv4(),
+                cantidad: item.cantidad,
+                codigo: item.codigo,
+                descripcion: item.producto,
+                //igv: Number(igvTotal).toFixed(2),
+                //igvUnitario: Number(igvUnitario).toFixed(2),
+                //mtoBaseIgv: Number(mtoValorVenta).toFixed(2),
+                //mtoPrecioUnitario: Number(precioUnitario).toFixed(3),
+                //mtoTotalItem: Number(mtoTotalItem).toFixed(2),
+                mtoValorUnitario: item.mtoValorUnitario,
+                //mtoValorVenta: Number(mtoValorVenta).toFixed(2),
+                porcentajeIgv: Number(item.porcentajeIgv),
+                tipAfeIgv: item.tipAfeIgv.codigo,
+                //totalImpuestos: Number(igvTotal).toFixed(2),
+                unidad: item.unidad.codigo,
+              };
+            }
+          }),
+        };
+      });
+
       return {
         statusCode: 'success',
         total: countInvoices,
@@ -1187,80 +1991,7 @@ export class InvoiceService {
         nextPage: nextPage,
         prevPage: prevPage,
         totalPage: totalPage,
-        items: invoices.map((invoice) => {
-          const ruc = invoice.empresa.ruc;
-          const tipoDoc = invoice.tipo_doc.codigo;
-          const nomDoc = invoice.tipo_doc.tipo_documento;
-          const serie = invoice.serie;
-          const correlativo = invoice.correlativo;
-          const fileName = `${ruc}-${tipoDoc}-${serie}-${correlativo}`;
-          const establecimiento = `${invoice.establecimiento.codigo}`;
-
-          const pathDirFirma = path.join(
-            process.cwd(),
-            `uploads/files/${ruc}/${establecimiento}/${nomDoc}/FIRMA/${fileName}.xml`,
-          );
-
-          const pathDirCDR = path.join(
-            process.cwd(),
-            `uploads/files/${ruc}/${establecimiento}/${nomDoc}/RPTA/R-${fileName}.zip`,
-          );
-
-          const {
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            UBLVersionID,
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            CustomizationID,
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            createdAt,
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            fecha_emision,
-            ...rest
-          } = invoice;
-
-          return {
-            ...rest,
-            cliente: invoice.cliente
-              ? {
-                  id: invoice.cliente.id,
-                  entidad: rest.cliente.entidad,
-                  nombre_comercial: invoice.cliente.nombre_comercial,
-                  numero_documento: invoice.cliente.numero_documento,
-                  estado: invoice.cliente.estado,
-                }
-              : null,
-            empresa: {
-              id: invoice.empresa.id,
-              ruc: invoice.empresa.ruc,
-              razon_social: invoice.empresa.razon_social,
-              nombre_comercial: invoice.empresa.nombre_comercial,
-              estado: invoice.empresa.estado,
-              modo: invoice.empresa.modo === 0 ? 'BETA' : 'PRODUCCION',
-            },
-            establecimiento: {
-              id: invoice.establecimiento.id,
-              codigo: invoice.establecimiento.codigo,
-              denominacion: invoice.establecimiento.denominacion,
-              estado: invoice.establecimiento.estado,
-            },
-            status: [0, 2, 3].includes(invoice.estado_operacion),
-            xml: !fs.existsSync(pathDirFirma)
-              ? '#'
-              : `${urlStatic}/${ruc}/${establecimiento}/${nomDoc}/FIRMA/${fileName}.xml`,
-            cdr: !fs.existsSync(pathDirCDR)
-              ? '#'
-              : `${urlStatic}/${ruc}/${establecimiento}/${nomDoc}/RPTA/R-${fileName}.zip`,
-            pdfA4: `${urlStatic}/${ruc}/${establecimiento}/${nomDoc}/PDF/A4/${fileName}.pdf`,
-            usuario: invoice.usuario.nombres + ' ' + invoice.usuario.apellidos,
-            moneda: invoice.tipo_moneda,
-            fecha_registro: dayjs(invoice.createdAt).format(
-              'DD-MM-YYYY·HH:mm:ss',
-            ),
-            fecha_emision: dayjs(invoice.fecha_emision).format(
-              'DD-MM-YYYY·HH:mm:ss',
-            ),
-          };
-        }),
+        items: await Promise.all(items),
       };
     } catch (e) {
       throw new HttpException(
@@ -1298,114 +2029,6 @@ export class InvoiceService {
     } catch (e) {
       throw new HttpException(
         'Error al buscar los cpes listado InvoiceService.getInvoicesToNotify',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-  }
-
-  //SOCKET
-  async finAllInvoices(
-    idEmpresa: number,
-    idEstablecimiento: number,
-    page: number,
-    pageSize: number,
-  ) {
-    const _take = pageSize || 10;
-    const _skip = (page - 1) * _take;
-
-    try {
-      const invoices = await this.invoiceRepository.find({
-        take: _take,
-        skip: _skip,
-        relations: {
-          tipo_doc: true,
-          cliente: true,
-          empresa: true,
-          establecimiento: true,
-          tipo_moneda: true,
-          forma_pago: true,
-          usuario: true,
-        },
-        where: {
-          empresa: {
-            id: idEmpresa,
-          },
-          establecimiento: {
-            id: idEstablecimiento,
-          },
-        },
-        order: {
-          createdAt: 'DESC',
-        },
-      });
-
-      const countInvoices = await this.invoiceRepository.count({
-        where: {
-          empresa: {
-            id: idEmpresa,
-          },
-          establecimiento: {
-            id: idEstablecimiento,
-          },
-        },
-      });
-
-      const urlStatic = this.configService.get<string>('URL_FILES_STATIC');
-      const nextPage = countInvoices > _take * page;
-      const prevPage = page > 1;
-      const totalPage = Math.ceil(countInvoices / _take);
-
-      return {
-        statusCode: 'success',
-        data: invoices.map((invoice) => {
-          const { CustomizationID, UBLVersionID, ...rest } = invoice;
-          const ruc = invoice.empresa.ruc;
-          const tipoDoc = invoice.tipo_doc.codigo;
-          const nomDoc = invoice.tipo_doc.tipo_documento;
-          const serie = invoice.serie;
-          const correlativo = invoice.correlativo;
-          const fileName = `${ruc}-${tipoDoc}-${serie}-${correlativo}`;
-          const establecimiento = `${invoice.establecimiento.codigo}`;
-          return {
-            ...rest,
-            // empresa: {
-            //   id: invoice.empresa.id,
-            //   ruc: invoice.empresa.ruc,
-            //   razon_social: invoice.empresa.razon_social,
-            //   nombre_comercial: invoice.empresa.nombre_comercial,
-            //   estado: invoice.empresa.estado,
-            //   modo: invoice.empresa.modo,
-            // },
-            establecimiento: {
-              id: invoice.establecimiento.id,
-              codigo: invoice.establecimiento.codigo,
-              denominacion: invoice.establecimiento.denominacion,
-              estado: invoice.establecimiento.estado,
-            },
-            status: [0, 2, 3].includes(invoice.estado_operacion),
-            xmlSigned: `${urlStatic}/${ruc}/${establecimiento}/${nomDoc}/FIRMA/${fileName}.xml`,
-            pdfA4: `${urlStatic}/${ruc}/${establecimiento}/${nomDoc}/PDF/A4/${fileName}.pdf`,
-            cdr: `${urlStatic}/${ruc}/${establecimiento}/${nomDoc}/RPTA/R-${fileName}.zip`,
-            xml: `${urlStatic}/${ruc}/${establecimiento}/${nomDoc}/XML/${fileName}.xml`,
-            usuario: invoice.usuario.nombres + ' ' + invoice.usuario.apellidos,
-            moneda: invoice.tipo_moneda,
-            fecha_registro: dayjs(invoice.createdAt).format(
-              'DD-MM-YYYY·HH:mm:ss',
-            ),
-            fecha_emision: dayjs(invoice.fecha_emision).format(
-              'DD-MM-YYYY·HH:mm:ss',
-            ),
-          };
-        }),
-        total: countInvoices,
-        currentPage: page,
-        nextPage: nextPage,
-        prevPage: prevPage,
-        totalPage: totalPage,
-      };
-    } catch (e) {
-      throw new HttpException(
-        'Error al buscar los cpes',
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -1625,6 +2248,7 @@ export class InvoiceService {
         );
 
         acc.mtoImpVenta = acc.subTotal;
+
         return acc;
       },
       {
@@ -1691,26 +2315,53 @@ export class InvoiceService {
     return mapOperaciones;
   }
 
-  formatListInvoices(invoice: InvoiceEntity) {
+  formatListInvoices(
+    invoice: InvoiceEntity,
+    fileName?: string,
+    todosProductos?: InvoiceDetailsEntity[],
+  ) {
     //formateamos result
     const urlStatic = this.configService.get<string>('URL_FILES_STATIC');
-    const rucAux = invoice.empresa.ruc;
-    const tipoDocAux = invoice.tipo_doc.codigo;
-    const nomDocAux = invoice.tipo_doc.tipo_documento;
-    const serieAux = invoice.serie;
-    const correlativoAux = invoice.correlativo;
-    const fileNameAux = `${rucAux}-${tipoDocAux}-${serieAux}-${correlativoAux}`;
-    const establecimientoAux = `${invoice.establecimiento.codigo}`;
+    const ruc = invoice.empresa.ruc;
+    const tipoDoc = invoice.tipo_doc.codigo;
+    const nomDoc = invoice.tipo_doc.tipo_documento;
+    const serie = invoice.serie;
+    const correlativo = invoice.correlativo;
+    const establecimiento = `${invoice.establecimiento.codigo}`;
 
-    const pathDirFirma = path.join(
-      process.cwd(),
-      `uploads/files/${rucAux}/${establecimientoAux}/${nomDocAux}/FIRMA/${fileNameAux}.xml`,
-    );
+    let pathDirFirma = '';
+    let pathDirCDR = '';
+    let pathStaticFirma = '';
+    let pathStaticCDR = '';
 
-    const pathDirCDR = path.join(
-      process.cwd(),
-      `uploads/files/${rucAux}/${establecimientoAux}/${nomDocAux}/RPTA/R-${fileNameAux}.zip`,
-    );
+    //null(no enviado), 1(enviado con ticket), 2(anulacion aceptado), 3(anulacion rechazada)
+    if (invoice.estado_anulacion === 2) {
+      const rutaFirma = `${ruc}/${establecimiento}/${nomDoc}/BAJA/FIRMA/${fileName}.xml`;
+      const rutaCDR = `${ruc}/${establecimiento}/${nomDoc}/BAJA/RPTA/R-${fileName}.zip`;
+      pathDirFirma = path.join(process.cwd(), `uploads/files/${rutaFirma}`);
+
+      pathDirCDR = path.join(process.cwd(), `uploads/files/${rutaCDR}`);
+
+      pathStaticFirma = `${urlStatic}/${rutaFirma}`;
+      pathStaticCDR = `${urlStatic}/${rutaCDR}`;
+    }
+    //0(creado), 1(enviando), 2(aceptado), 3(rechazado)
+    else if (
+      invoice.estado_operacion === 0 ||
+      invoice.estado_operacion === 2 ||
+      invoice.estado_operacion === 3
+    ) {
+      const fileNameAux = `${ruc}-${tipoDoc}-${serie}-${correlativo}`;
+      const rutaFirma = `${ruc}/${establecimiento}/${nomDoc}/FIRMA/${fileNameAux}.xml`;
+      const rutaCDR = `${ruc}/${establecimiento}/${nomDoc}/RPTA/R-${fileNameAux}.zip`;
+      pathDirFirma = path.join(process.cwd(), `uploads/files/${rutaFirma}`);
+
+      pathDirCDR = path.join(process.cwd(), `uploads/files/${rutaCDR}`);
+
+      pathStaticFirma = `${urlStatic}/${rutaFirma}`;
+      pathStaticCDR = `${urlStatic}/${rutaCDR}`;
+    } else {
+    }
 
     const {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -1724,6 +2375,7 @@ export class InvoiceService {
       ...rest
     } = invoice;
 
+    console.log(todosProductos);
     return {
       ...rest,
       cliente: invoice.cliente
@@ -1733,6 +2385,8 @@ export class InvoiceService {
             nombre_comercial: invoice.cliente.nombre_comercial,
             numero_documento: invoice.cliente.numero_documento,
             estado: invoice.cliente.estado,
+            direccion: invoice.cliente.direccion,
+            tipo_entidad: invoice.cliente.tipo_entidad.codigo,
           }
         : null,
       empresa: {
@@ -1750,17 +2404,35 @@ export class InvoiceService {
         estado: invoice.establecimiento.estado,
       },
       status: [0, 2, 3].includes(invoice.estado_operacion),
-      xml: !fs.existsSync(pathDirFirma)
-        ? '#'
-        : `${urlStatic}/${rucAux}/${establecimientoAux}/${nomDocAux}/FIRMA/${fileNameAux}.xml`,
-      cdr: !fs.existsSync(pathDirCDR)
-        ? '#'
-        : `${urlStatic}/${rucAux}/${establecimientoAux}/${nomDocAux}/RPTA/R-${fileNameAux}.zip`,
-      pdfA4: `${urlStatic}/${rucAux}/${establecimientoAux}/${nomDocAux}/PDF/A4/${fileNameAux}.pdf`,
+      xml: !fs.existsSync(pathDirFirma) ? '#' : `${pathStaticFirma}`,
+      cdr: !fs.existsSync(pathDirCDR) ? '#' : `${pathStaticCDR}`,
+      pdfA4: `${urlStatic}/${ruc}/${establecimiento}/${nomDoc}/PDF/A4/${'test'}.pdf`,
       usuario: invoice.usuario.nombres + ' ' + invoice.usuario.apellidos,
       moneda: invoice.tipo_moneda,
-      fecha_registro: dayjs(invoice.createdAt).format('DD-MM-YYYY·HH:mm:ss'),
-      fecha_emision: dayjs(invoice.fecha_emision).format('DD-MM-YYYY·HH:mm:ss'),
+      fecha_registro: invoice.createdAt,
+      fecha_emision: invoice.fecha_emision,
+      productos: todosProductos.map((item) => {
+        const igvUnitario = item.mtoValorUnitario * item.porcentajeIgv;
+        const precioUnitario = item.mtoValorUnitario + igvUnitario;
+        return {
+          cantidad: item.cantidad,
+          codigo: item.codigo,
+          descripcion: item.producto,
+          igv: Number(igvUnitario * item.cantidad).toFixed(2),
+          igvUnitario: Number(igvUnitario).toFixed(2),
+          mtoBaseIgv: Number(item.mtoValorUnitario * item.cantidad).toFixed(2),
+          mtoPrecioUnitario: Number(precioUnitario).toFixed(3),
+          mtoTotalItem: Number(precioUnitario * item.cantidad).toFixed(2),
+          mtoValorUnitario: Number(item.mtoValorUnitario).toFixed(3),
+          mtoValorVenta: Number(item.mtoValorUnitario * item.cantidad).toFixed(
+            2,
+          ),
+          porcentajeIgv: Number(item.porcentajeIgv),
+          tipAfeIgv: item.tipAfeIgv.codigo,
+          totalImpuestos: Number(igvUnitario * item.cantidad).toFixed(2),
+          unidad: item.unidad.codigo,
+        };
+      }),
     };
   }
 }

@@ -23,6 +23,7 @@ import { JwtStrategy } from 'src/lib/strategies/jwt.strategies';
 import { AuthModule } from 'src/auth/auth.module';
 import { ResourcesUsersModule } from 'src/resources-users/resources-users.module';
 import { InvoiceDetailsEntity } from './entities/invoice_details.entity';
+import { AnulacionEntity } from 'src/anulaciones/entities/anulacion.entity';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { InvoiceDetailsEntity } from './entities/invoice_details.entity';
       UserEntity,
       SeriesEntity,
       InvoiceDetailsEntity,
+      AnulacionEntity,
     ]),
     EmpresaModule,
     EstablecimientoModule,

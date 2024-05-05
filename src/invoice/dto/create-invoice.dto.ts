@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsInt,
   IsNotEmpty,
   IsNumber,
@@ -147,4 +148,8 @@ export class CreateInvoiceDto {
 
   @IsOptional()
   observaciones?: any[];
+
+  @IsBoolean({ message: 'El borrador debe ser de tipo booleano' })
+  @IsOptional()
+  borrador?: boolean;
 }
