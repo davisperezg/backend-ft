@@ -25,6 +25,27 @@ export const quitarCerosIzquierda = (valor: string) => {
   return valor.replace(/^0+/, '');
 };
 
+export const round = (num: number, decimales = 2) => {
+  const signo = num >= 0 ? 1 : -1;
+  num = num * signo;
+  if (decimales === 0) return signo * Math.round(num);
+  const numAux = num.toString().split('e');
+  num = Math.round(
+    +(numAux[0] + 'e' + (numAux[1] ? +numAux[1] + decimales : decimales)),
+  );
+  const num2Aux = num.toString().split('e');
+  return (
+    signo *
+    Number(
+      num2Aux[0] + 'e' + (num2Aux[1] ? +num2Aux[1] - decimales : -decimales),
+    )
+  );
+};
+
+export const fixed = (num: number, decimales = 2) => {
+  return num.toFixed(decimales);
+};
+
 export const parseFloatDecimal = (valor: number, decimales: number) => {
   return Math.round(valor * decimales) / decimales;
 };
@@ -34,430 +55,138 @@ export const convertirDecimales = (valor: string, decimales: number) => {
   return parseFloat(valorNumber.toFixed(decimales));
 };
 
-export const centavosFormatter = new Intl.NumberFormat('en-US', {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
+export const numeroALetras = (num: number) => {
+  const Unidades = (num: number) => {
+    const aLetras: { [key: number]: string } = {
+      1: 'UNO',
+      2: 'DOS',
+      3: 'TRES',
+      4: 'CUATRO',
+      5: 'CINCO',
+      6: 'SEIS',
+      7: 'SIETE',
+      8: 'OCHO',
+      9: 'NUEVE',
+    };
 
-/**
- * Función para convertir un número a letras, con centavos (ideal para representar dinero). Fuente: https://gist.github.com/alfchee/e563340276f89b22042a
- *
- * @param {float} cantidad - La cantidad a convertir en letras.
- * @param {string} moneda - Moneda opcional para desplegarse en el texto si es que se especifica una. Ej: "PESOS", "DÓLARES"
- *
- * NumeroALetras
- * The MIT License (MIT)
- *
- * Copyright (c) 2015 Luis Alfredo Chee
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- *
- * @author Rodolfo Carmona
- * @contributor Jean (jpbadoino@gmail.com)
- *
- */
-export const decimalesSimples = (value: string) => {
-  return centavosFormatter.format(parseFloat(value));
+    return aLetras[num] || '';
+  }; // Unidades()
+
+  const Decenas = (num: number) => {
+    const decena = Math.floor(num / 10);
+    const unidad = num - decena * 10;
+
+    const aLetras: { [key: number]: string } = {
+      1: (() => {
+        const aLetra: { [key: number]: string } = {
+          0: 'DIEZ',
+          1: 'ONCE',
+          2: 'DOCE',
+          3: 'TRECE',
+          4: 'CATORCE',
+          5: 'QUINCE',
+        };
+        return aLetra[unidad] || 'DIECI' + Unidades(unidad);
+      })(),
+      2: unidad == 0 ? '' : 'VEINTI' + Unidades(unidad),
+      3: DecenasY('TREINTA', unidad),
+      4: DecenasY('CUARENTA', unidad),
+      5: DecenasY('CINCUENTA', unidad),
+      6: DecenasY('SESENTA', unidad),
+      7: DecenasY('SETENTA', unidad),
+      8: DecenasY('OCHENTA', unidad),
+      9: DecenasY('NOVENTA', unidad),
+      0: Unidades(unidad),
+    };
+
+    return aLetras[decena] || '';
+  }; //Decenas()
+
+  const DecenasY = (strSin: string, numUnidades: number) => {
+    if (numUnidades > 0) return strSin + ' Y ' + Unidades(numUnidades);
+    return strSin;
+  }; //DecenasY()
+
+  const Centenas = (num: number) => {
+    const centenas = Math.floor(num / 100);
+    const decenas = num - centenas * 100;
+
+    const aLetras: { [key: number]: string } = {
+      1: decenas > 0 ? 'CIENTO ' + Decenas(decenas) : 'CIEN',
+      2: 'DOSCIENTOS ' + Decenas(decenas),
+      3: 'TRESCIENTOS ' + Decenas(decenas),
+      4: 'CUATROCIENTOS ' + Decenas(decenas),
+      5: 'QUINIENTOS ' + Decenas(decenas),
+      6: 'SEISCIENTOS ' + Decenas(decenas),
+      7: 'SETECIENTOS ' + Decenas(decenas),
+      8: 'OCHOCIENTOS ' + Decenas(decenas),
+      9: 'NOVECIENTOS ' + Decenas(decenas),
+    };
+
+    return aLetras[centenas] || Decenas(decenas);
+  }; //Centenas()
+
+  const Seccion = (
+    num: number,
+    divisor: number,
+    strSingular: string,
+    strPlural: string,
+  ) => {
+    const cientos = Math.floor(num / divisor);
+    const resto = num - cientos * divisor;
+
+    let letras = '';
+
+    if (cientos > 0)
+      if (cientos > 1) letras = Centenas(cientos) + ' ' + strPlural;
+      else letras = strSingular;
+
+    if (resto > 0) letras += '';
+
+    return letras;
+  }; //Seccion()
+
+  const Miles = (num: number) => {
+    const divisor = 1000;
+    const cientos = Math.floor(num / divisor);
+    const resto = num - cientos * divisor;
+
+    const strMiles = Seccion(num, divisor, 'UN MIL', 'MIL');
+    const strCentenas = Centenas(resto);
+
+    if (strMiles == '') return strCentenas;
+    return strMiles + ' ' + strCentenas;
+  }; //Miles()
+
+  const Millones = (num: number) => {
+    const divisor = 1000000;
+    const cientos = Math.floor(num / divisor);
+    const resto = num - cientos * divisor;
+
+    const strMillones = Seccion(num, divisor, 'UN MILLON DE', 'MILLONES DE');
+    const strMiles = Miles(resto);
+    console.log('resto', resto, strMillones, strMiles);
+    if (strMillones == '') return strMiles;
+    return strMillones + ' ' + strMiles;
+  }; //Millones()
+
+  const data = {
+    numero: num,
+    enteros: Math.floor(num),
+    decimales: Math.round(num * 100) - Math.floor(num) * 100,
+    letrasDecimales: '',
+  };
+
+  const deciamles =
+    data.decimales < 10 ? `0${data.decimales}` : `${data.decimales}`;
+  //if (data.decimales > 0) data.letrasDecimales = Millones(data.decimales);
+  if (data.decimales > 0) data.letrasDecimales = deciamles;
+
+  if (data.enteros == 0) return 'CERO CON ' + `${deciamles}/100 SOLES`;
+  if (data.enteros == 1)
+    return Millones(data.enteros) + ' CON ' + `${deciamles}/100 SOLES`;
+  else
+    return (
+      Millones(data.enteros) + ' CON ' + `${data.letrasDecimales}/100 SOLES`
+    );
 };
-
-export const numeroALetras = (cantidad: string | number, moneda: string) => {
-  let numero: string | number = 0;
-  cantidad = filterNum(String(cantidad));
-  cantidad = Number(parseFloat(cantidad));
-
-  if (String(cantidad) == '0.00' || String(cantidad) == '0') {
-    return 'CERO CON 00/100' + ' ' + moneda;
-  } else {
-    const cantidadConCentavosExplicitos = centavosFormatter
-      .format(parseFloat(String(cantidad)))
-      .toString()
-      .split('.');
-    const ent = cantidad.toString().split('.');
-    const arreglo = separar_split(ent[0]);
-    const longitud = arreglo.length;
-
-    switch (longitud) {
-      case 1:
-        numero = unidades(Number(arreglo[0]));
-        break;
-      case 2:
-        numero = decenas(Number(arreglo[0]), Number(arreglo[1]));
-        break;
-      case 3:
-        numero = centenas(
-          Number(arreglo[0]),
-          Number(arreglo[1]),
-          Number(arreglo[2]),
-        );
-        break;
-      case 4:
-        numero = unidadesdemillar(
-          Number(arreglo[0]),
-          Number(arreglo[1]),
-          Number(arreglo[2]),
-          Number(arreglo[3]),
-        );
-        break;
-      case 5:
-        numero = decenasdemillar(
-          Number(arreglo[0]),
-          Number(arreglo[1]),
-          Number(arreglo[2]),
-          Number(arreglo[3]),
-          Number(arreglo[4]),
-        );
-        break;
-      case 6:
-        numero = centenasdemillar(
-          Number(arreglo[0]),
-          Number(arreglo[1]),
-          Number(arreglo[2]),
-          Number(arreglo[3]),
-          Number(arreglo[4]),
-          Number(arreglo[5]),
-        );
-        break;
-      case 7:
-        numero = unidadesdemillon(
-          Number(arreglo[0]),
-          Number(arreglo[1]),
-          Number(arreglo[2]),
-          Number(arreglo[3]),
-          Number(arreglo[4]),
-          Number(arreglo[5]),
-          Number(arreglo[6]),
-        );
-        break;
-      case 8:
-        numero = decenasdemillon(
-          Number(arreglo[0]),
-          Number(arreglo[1]),
-          Number(arreglo[2]),
-          Number(arreglo[3]),
-          Number(arreglo[4]),
-          Number(arreglo[5]),
-          Number(arreglo[6]),
-          Number(arreglo[7]),
-        );
-        break;
-      case 9:
-        numero = centenasdemillon(
-          Number(arreglo[0]),
-          Number(arreglo[1]),
-          Number(arreglo[2]),
-          Number(arreglo[3]),
-          Number(arreglo[4]),
-          Number(arreglo[5]),
-          Number(arreglo[6]),
-          Number(arreglo[7]),
-          Number(arreglo[8]),
-        );
-        break;
-      default:
-        numero =
-          '______________________________________________________________________';
-        break;
-    }
-
-    cantidadConCentavosExplicitos[1] = isNaN(
-      Number(cantidadConCentavosExplicitos[1]),
-    )
-      ? '00'
-      : cantidadConCentavosExplicitos[1];
-
-    if (String(cantidad) == '1000000' && numero == 'UN MILLÓN MIL ') {
-      numero = 'UN MILLÓN ';
-    }
-
-    const divisibleEntreUnMillon = parseInt(String(cantidad)) % 1000000;
-
-    if (divisibleEntreUnMillon == 0) {
-      numero = numero.replace('MILLONES MIL', 'MILLONES');
-    }
-
-    if (moneda) {
-      if (String(cantidad) == '1000000' && numero == 'UN MILLÓN ') {
-        numero = 'UN MILLÓN DE';
-      }
-      if (divisibleEntreUnMillon == 0 && parseInt(String(cantidad)) > 1000000) {
-        numero = numero.replace('MILLONES', 'MILLONES DE');
-      }
-
-      return (
-        numero +
-        ' CON ' +
-        cantidadConCentavosExplicitos[1] +
-        '/100' +
-        ' ' +
-        moneda
-      );
-    } else {
-      return numero + ' CON ' + cantidadConCentavosExplicitos[1] + '/100';
-    }
-  }
-};
-
-const filterNum = (str: string) => {
-  const numericalChar = new Set([
-    '.',
-    '0',
-    '1',
-    '2',
-    '3',
-    '4',
-    '5',
-    '6',
-    '7',
-    '8',
-    '9',
-  ]);
-  str = str
-    .split('')
-    .filter((char) => numericalChar.has(char))
-    .join('');
-  return str;
-};
-
-function unidades(unidad: number) {
-  const unidades = [
-    'UN ',
-    'DOS ',
-    'TRES ',
-    'CUATRO ',
-    'CINCO ',
-    'SEIS ',
-    'SIETE ',
-    'OCHO ',
-    'NUEVE ',
-  ];
-
-  return unidades[unidad - 1];
-}
-
-function decenas(decena: number, unidad: number) {
-  const diez = [
-    'ONCE ',
-    'DOCE ',
-    'TRECE ',
-    'CATORCE ',
-    'QUINCE',
-    'DIECISEIS ',
-    'DIECISIETE ',
-    'DIECIOCHO ',
-    'DIECINUEVE ',
-  ];
-
-  const decenas = [
-    'DIEZ ',
-    'VEINTE',
-    'TREINTA',
-    'CUARENTA',
-    'CINCUENTA',
-    'SESENTA',
-    'SETENTA',
-    'OCHENTA',
-    'NOVENTA',
-  ];
-
-  if (decena == 0 && unidad == 0) {
-    return '';
-  }
-
-  if (decena == 0 && unidad > 0) {
-    return unidades(unidad);
-  }
-
-  if (decena == 1) {
-    if (unidad == 0) {
-      return decenas[decena - 1];
-    } else {
-      return diez[unidad - 1];
-    }
-  } else if (decena == 2) {
-    if (unidad == 0) {
-      return decenas[decena - 1];
-    } else if (unidad == 1) {
-      return 'VEINTI' + 'UNO ';
-    } else {
-      return 'VEINTI' + unidades(unidad);
-    }
-  } else {
-    if (unidad == 0) {
-      return decenas[decena - 1] + ' ';
-    }
-    if (unidad == 1) {
-      return decenas[decena - 1] + ' Y ' + 'UNO ';
-    }
-
-    return decenas[decena - 1] + ' Y ' + unidades(unidad);
-  }
-}
-
-function centenas(centena: number, decena: number, unidad: number) {
-  const centenas = [
-    'CIENTO ',
-    'DOSCIENTOS ',
-    'TRESCIENTOS ',
-    'CUATROCIENTOS ',
-    'QUINIENTOS ',
-    'SEISCIENTOS ',
-    'SETECIENTOS ',
-    'OCHOCIENTOS ',
-    'NOVECIENTOS ',
-  ];
-
-  if (centena == 0 && decena == 0 && unidad == 0) {
-    return '';
-  }
-  if (centena == 1 && decena == 0 && unidad == 0) {
-    return 'CIEN ';
-  }
-
-  if (centena == 0 && decena == 0 && unidad > 0) {
-    return unidades(unidad);
-  }
-
-  if (decena == 0 && unidad == 0) {
-    return centenas[centena - 1] + '';
-  }
-
-  if (decena == 0) {
-    const numero = centenas[centena - 1] + '' + decenas(decena, unidad);
-    return numero.replace(' Y ', ' ');
-  }
-  if (centena == 0) {
-    return decenas(decena, unidad);
-  }
-
-  return centenas[centena - 1] + '' + decenas(decena, unidad);
-}
-
-function unidadesdemillar(
-  unimill: number,
-  centena: number,
-  decena: number,
-  unidad: number,
-) {
-  let numero = unidades(unimill) + 'MIL ' + centenas(centena, decena, unidad);
-  numero = numero.replace('UN MIL ', 'MIL ');
-  if (unidad == 0) {
-    return numero.replace(' Y ', ' ');
-  } else {
-    return numero;
-  }
-}
-
-function decenasdemillar(
-  decemill: number,
-  unimill: number,
-  centena: number,
-  decena: number,
-  unidad: number,
-) {
-  const numero =
-    decenas(decemill, unimill) + 'MIL ' + centenas(centena, decena, unidad);
-  return numero;
-}
-
-function centenasdemillar(
-  centenamill: number,
-  decemill: number,
-  unimill: number,
-  centena: number,
-  decena: number,
-  unidad: number,
-) {
-  const numero =
-    centenas(centenamill, decemill, unimill) +
-    'MIL ' +
-    centenas(centena, decena, unidad);
-
-  return numero;
-}
-
-function unidadesdemillon(
-  unimillon: number,
-  centenamill: number,
-  decemill: number,
-  unimill: number,
-  centena: number,
-  decena: number,
-  unidad: number,
-) {
-  let numero =
-    unidades(unimillon) +
-    'MILLONES ' +
-    centenas(centenamill, decemill, unimill) +
-    'MIL ' +
-    centenas(centena, decena, unidad);
-  numero = numero.replace('UN MILLONES ', 'UN MILLÓN ');
-  if (unidad == 0) {
-    return numero.replace(' Y ', ' ');
-  } else {
-    return numero;
-  }
-}
-
-function decenasdemillon(
-  decemillon: number,
-  unimillon: number,
-  centenamill: number,
-  decemill: number,
-  unimill: number,
-  centena: number,
-  decena: number,
-  unidad: number,
-) {
-  const numero =
-    decenas(decemillon, unimillon) +
-    'MILLONES ' +
-    centenas(centenamill, decemill, unimill) +
-    'MIL ' +
-    centenas(centena, decena, unidad);
-  return numero;
-}
-
-function centenasdemillon(
-  centenamillon: number,
-  decemillon: number,
-  unimillon: number,
-  centenamill: number,
-  decemill: number,
-  unimill: number,
-  centena: number,
-  decena: number,
-  unidad: number,
-) {
-  const numero =
-    centenas(centenamillon, decemillon, unimillon) +
-    'MILLONES ' +
-    centenas(centenamill, decemill, unimill) +
-    'MIL ' +
-    centenas(centena, decena, unidad);
-
-  return numero;
-}
-
-function separar_split(texto: string) {
-  const contenido = [];
-  for (let i = 0; i < texto.length; i++) {
-    contenido[i] = texto.substr(i, 1);
-  }
-  return contenido;
-}

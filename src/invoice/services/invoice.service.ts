@@ -25,12 +25,7 @@ import { exec, execSync } from 'child_process';
 import { EmpresaService } from 'src/empresa/services/empresa.service';
 import { EstablecimientoService } from 'src/establecimiento/services/establecimiento.service';
 import { EmpresaEntity } from 'src/empresa/entities/empresa.entity';
-import {
-  completarConCeros,
-  convertirDecimales,
-  numeroALetras,
-  parseFloatDecimal,
-} from 'src/lib/functions';
+import { numeroALetras, round } from 'src/lib/functions';
 import { EstablecimientoEntity } from 'src/establecimiento/entities/establecimiento.entity';
 import { MonedasService } from 'src/monedas/services/monedas.service';
 import { FormaPagosService } from 'src/forma-pagos/services/forma-pagos.service';
@@ -411,6 +406,14 @@ export class InvoiceService {
             );
           }
 
+          // console.log(
+          //   typeof producto.mtoValorUnitario,
+          //   producto.mtoValorUnitario,
+          // );
+
+          const DECIMAL = 6;
+
+          //console.log(producto);
           //convertirDecimales(producto.mtoValorUnitario, 3)
           const item: InvoiceDetailsEntity = {
             unidad, // Unidad - Catalog. 03
@@ -418,24 +421,44 @@ export class InvoiceService {
             codigo: producto.codigo,
             cantidad: producto.cantidad,
             producto: producto.descripcion,
-            mtoValorUnitario: convertirDecimales(producto.mtoValorUnitario, 3),
+            mtoValorUnitario: round(producto.mtoValorUnitario, DECIMAL),
             porcentajeIgv: producto.porcentajeIgv,
           };
 
-          if (producto.mtoValorGratuito) {
-            item['mtoValorGratuito'] = convertirDecimales(
-              producto.mtoValorGratuito,
-              3,
+          const ALL_GRATUITAS = [
+            '11',
+            '12',
+            '13',
+            '14',
+            '15',
+            '16',
+            '17',
+            '21',
+            '31',
+            '32',
+            '33',
+            '34',
+            '35',
+            '36',
+            '37',
+          ];
+
+          if (ALL_GRATUITAS.includes(producto.tipAfeIgv)) {
+            item['mtoValorGratuito'] = round(
+              producto.mtoValorUnitario,
+              DECIMAL,
             );
+
+            item['mtoValorUnitario'] = 0;
           }
 
           return item;
         });
 
         const todosProductos = await Promise.all(productos);
-
+        console.log(todosProductos);
         const calcOperaciones = this.obtenerOperacionesInvoice(todosProductos);
-
+        console.log('calcOperaciones', calcOperaciones);
         //Obj para invoice
         const invoiceObj = this.invoiceRepository.create({
           tipo_operacion: invoice.tipo_operacion,
@@ -808,6 +831,7 @@ export class InvoiceService {
         };
       });
     } catch (e) {
+      console.log('error create', e);
       throw new HttpException(
         `Error al intentar crear CPE InvoiceService.create. ${
           e.response ?? e.message
@@ -969,10 +993,7 @@ export class InvoiceService {
       productos: todosProductos.reduce((acc, producto) => {
         //gravada onerosa
         if (producto.tipAfeIgv.codigo === '10') {
-          const mtoValorUnitario = parseFloatDecimal(
-            producto.mtoValorUnitario,
-            1000,
-          );
+          const mtoValorUnitario = round(producto.mtoValorUnitario);
           const mtoValorVenta = mtoValorUnitario * producto.cantidad;
           const mtoBaseIgv = mtoValorVenta;
           const porcentajeIgv = producto.porcentajeIgv;
@@ -989,13 +1010,13 @@ export class InvoiceService {
             producto: producto.producto,
             cantidad: producto.cantidad,
             mtoValorUnitario: mtoValorUnitario, //3decimales
-            mtoValorVenta: parseFloatDecimal(mtoValorVenta, 100),
-            mtoBaseIgv: parseFloatDecimal(mtoBaseIgv, 100),
+            mtoValorVenta: round(mtoValorVenta),
+            mtoBaseIgv: round(mtoBaseIgv),
             porcentajeIgv: porcentajeIgv,
-            igv: parseFloatDecimal(igv, 100),
+            igv: round(igv),
             tipAfeIgv: producto.tipAfeIgv.codigo,
-            totalImpuestos: parseFloatDecimal(totalImpuestos, 100),
-            mtoPrecioUnitario: parseFloatDecimal(mtoPrecioUnitario, 100),
+            totalImpuestos: round(totalImpuestos),
+            mtoPrecioUnitario: round(mtoPrecioUnitario),
           };
 
           acc.push(objProduct);
@@ -1003,10 +1024,7 @@ export class InvoiceService {
 
         //exonerada onerosa
         if (producto.tipAfeIgv.codigo === '20') {
-          const mtoValorUnitario = parseFloatDecimal(
-            producto.mtoValorUnitario,
-            1000,
-          );
+          const mtoValorUnitario = round(producto.mtoValorUnitario);
           const mtoValorVenta = mtoValorUnitario * producto.cantidad;
           const mtoBaseIgv = mtoValorVenta;
           const porcentajeIgv = producto.porcentajeIgv;
@@ -1023,13 +1041,13 @@ export class InvoiceService {
             producto: producto.producto,
             cantidad: producto.cantidad,
             mtoValorUnitario: mtoValorUnitario,
-            mtoValorVenta: parseFloatDecimal(mtoValorVenta, 100),
-            mtoBaseIgv: parseFloatDecimal(mtoBaseIgv, 100),
+            mtoValorVenta: round(mtoValorVenta),
+            mtoBaseIgv: round(mtoBaseIgv),
             porcentajeIgv: porcentajeIgv,
-            igv: parseFloatDecimal(igv, 100),
+            igv: round(igv),
             tipAfeIgv: producto.tipAfeIgv.codigo,
-            totalImpuestos: parseFloatDecimal(totalImpuestos, 100),
-            mtoPrecioUnitario: parseFloatDecimal(mtoPrecioUnitario, 100),
+            totalImpuestos: round(totalImpuestos),
+            mtoPrecioUnitario: round(mtoPrecioUnitario),
           };
 
           acc.push(objProduct);
@@ -1037,10 +1055,7 @@ export class InvoiceService {
 
         //inafecto onerosa
         if (producto.tipAfeIgv.codigo === '30') {
-          const mtoValorUnitario = parseFloatDecimal(
-            producto.mtoValorUnitario,
-            1000,
-          );
+          const mtoValorUnitario = round(producto.mtoValorUnitario);
           const mtoValorVenta = mtoValorUnitario * producto.cantidad;
           const mtoBaseIgv = mtoValorVenta;
           const porcentajeIgv = producto.porcentajeIgv;
@@ -1057,13 +1072,13 @@ export class InvoiceService {
             producto: producto.producto,
             cantidad: producto.cantidad,
             mtoValorUnitario: mtoValorUnitario,
-            mtoValorVenta: parseFloatDecimal(mtoValorVenta, 100),
-            mtoBaseIgv: parseFloatDecimal(mtoBaseIgv, 100),
+            mtoValorVenta: round(mtoValorVenta),
+            mtoBaseIgv: round(mtoBaseIgv),
             porcentajeIgv: porcentajeIgv,
-            igv: parseFloatDecimal(igv, 100),
+            igv: round(igv),
             tipAfeIgv: producto.tipAfeIgv.codigo,
-            totalImpuestos: parseFloatDecimal(totalImpuestos, 100),
-            mtoPrecioUnitario: parseFloatDecimal(mtoPrecioUnitario, 100),
+            totalImpuestos: round(totalImpuestos),
+            mtoPrecioUnitario: round(mtoPrecioUnitario),
           };
 
           acc.push(objProduct);
@@ -1071,10 +1086,7 @@ export class InvoiceService {
 
         //exportacion
         if (producto.tipAfeIgv.codigo === '40') {
-          const mtoValorUnitario = parseFloatDecimal(
-            producto.mtoValorUnitario,
-            1000,
-          );
+          const mtoValorUnitario = round(producto.mtoValorUnitario);
           const mtoValorVenta = mtoValorUnitario * producto.cantidad;
           const mtoBaseIgv = mtoValorVenta;
           const porcentajeIgv = producto.porcentajeIgv;
@@ -1092,13 +1104,13 @@ export class InvoiceService {
             producto: producto.producto,
             cantidad: producto.cantidad,
             mtoValorUnitario: mtoValorUnitario,
-            mtoValorVenta: parseFloatDecimal(mtoValorVenta, 100),
-            mtoBaseIgv: parseFloatDecimal(mtoBaseIgv, 100),
+            mtoValorVenta: round(mtoValorVenta),
+            mtoBaseIgv: round(mtoBaseIgv),
             porcentajeIgv: porcentajeIgv,
-            igv: parseFloatDecimal(igv, 100),
+            igv: round(igv),
             tipAfeIgv: producto.tipAfeIgv.codigo,
-            totalImpuestos: parseFloatDecimal(totalImpuestos, 100),
-            mtoPrecioUnitario: parseFloatDecimal(mtoPrecioUnitario, 100),
+            totalImpuestos: round(totalImpuestos),
+            mtoPrecioUnitario: round(mtoPrecioUnitario),
           };
 
           acc.push(objProduct);
@@ -1110,10 +1122,7 @@ export class InvoiceService {
             producto.tipAfeIgv.codigo,
           )
         ) {
-          const mtoValorGratuito = parseFloatDecimal(
-            producto.mtoValorGratuito,
-            1000,
-          );
+          const mtoValorGratuito = round(producto.mtoValorGratuito);
           const mtoValorVenta = mtoValorGratuito * producto.cantidad;
           const mtoBaseIgv = mtoValorVenta;
           const porcentajeIgv = producto.porcentajeIgv;
@@ -1130,12 +1139,12 @@ export class InvoiceService {
             cantidad: producto.cantidad,
             mtoValorUnitario: 0,
             mtoValorGratuito: mtoValorGratuito,
-            mtoValorVenta: parseFloatDecimal(mtoValorVenta, 100),
-            mtoBaseIgv: parseFloatDecimal(mtoBaseIgv, 100),
+            mtoValorVenta: round(mtoValorVenta),
+            mtoBaseIgv: round(mtoBaseIgv),
             porcentajeIgv: porcentajeIgv,
-            igv: parseFloatDecimal(igv, 100),
+            igv: round(igv),
             tipAfeIgv: producto.tipAfeIgv.codigo,
-            totalImpuestos: parseFloatDecimal(totalImpuestos, 100),
+            totalImpuestos: round(totalImpuestos),
             mtoPrecioUnitario: 0,
           };
 
@@ -1148,10 +1157,7 @@ export class InvoiceService {
             producto.tipAfeIgv.codigo,
           )
         ) {
-          const mtoValorGratuito = parseFloatDecimal(
-            producto.mtoValorGratuito,
-            1000,
-          );
+          const mtoValorGratuito = round(producto.mtoValorGratuito);
           const mtoValorVenta = mtoValorGratuito * producto.cantidad;
           const mtoBaseIgv = mtoValorVenta;
           const porcentajeIgv = producto.porcentajeIgv;
@@ -1168,12 +1174,12 @@ export class InvoiceService {
             cantidad: producto.cantidad,
             mtoValorUnitario: 0,
             mtoValorGratuito: mtoValorGratuito,
-            mtoValorVenta: parseFloatDecimal(mtoValorVenta, 100),
-            mtoBaseIgv: parseFloatDecimal(mtoBaseIgv, 100),
+            mtoValorVenta: round(mtoValorVenta),
+            mtoBaseIgv: round(mtoBaseIgv),
             porcentajeIgv: porcentajeIgv,
-            igv: parseFloatDecimal(igv, 100),
+            igv: round(igv),
             tipAfeIgv: producto.tipAfeIgv.codigo,
-            totalImpuestos: parseFloatDecimal(totalImpuestos, 100),
+            totalImpuestos: round(totalImpuestos),
             mtoPrecioUnitario: 0,
           };
 
@@ -1188,7 +1194,7 @@ export class InvoiceService {
       ValorVenta: calcOperaciones.valorVenta,
       SubTotal: calcOperaciones.subTotal,
       MtoImpVenta: calcOperaciones.mtoImpVenta,
-      LegendValue: numeroALetras(String(calcOperaciones.mtoImpVenta), 'SOLES'),
+      LegendValue: numeroALetras(calcOperaciones.mtoImpVenta),
       LegendCode: 1000, // Monto en letras - Catalog. 52
       MtoOperExoneradas: invoice.mto_operaciones_exoneradas,
       MtoOperInafectas: invoice.mto_operaciones_inafectas,
@@ -2125,15 +2131,13 @@ export class InvoiceService {
       (acc, producto) => {
         //gravadas
         if (producto.tipAfeIgv.codigo === '10') {
-          const igv = parseFloatDecimal(
+          const igv = round(
             ((producto.mtoValorUnitario * producto.porcentajeIgv) / 100) *
               producto.cantidad,
-            100,
           );
 
-          const opeGravadas = parseFloatDecimal(
+          const opeGravadas = round(
             producto.mtoValorUnitario * producto.cantidad,
-            100,
           );
 
           acc.mtoIGVGravadas += igv;
@@ -2142,15 +2146,13 @@ export class InvoiceService {
 
         //exonegaradas
         if (producto.tipAfeIgv.codigo === '20') {
-          const igv = parseFloatDecimal(
+          const igv = round(
             ((producto.mtoValorUnitario * producto.porcentajeIgv) / 100) *
               producto.cantidad,
-            100,
           );
 
-          const opeExoneradas = parseFloatDecimal(
+          const opeExoneradas = round(
             producto.mtoValorUnitario * producto.cantidad,
-            100,
           );
 
           acc.mtoOperExoneradas += opeExoneradas;
@@ -2159,15 +2161,13 @@ export class InvoiceService {
 
         //inafectas
         if (producto.tipAfeIgv.codigo === '30') {
-          const igv = parseFloatDecimal(
+          const igv = round(
             ((producto.mtoValorUnitario * producto.porcentajeIgv) / 100) *
               producto.cantidad,
-            100,
           );
 
-          const opeInafectas = parseFloatDecimal(
+          const opeInafectas = round(
             producto.mtoValorUnitario * producto.cantidad,
-            100,
           );
 
           acc.mtoOperInafectas += opeInafectas;
@@ -2176,15 +2176,13 @@ export class InvoiceService {
 
         //exportacion
         if (producto.tipAfeIgv.codigo === '40') {
-          const igv = parseFloatDecimal(
+          const igv = round(
             ((producto.mtoValorUnitario * producto.porcentajeIgv) / 100) *
               producto.cantidad,
-            100,
           );
 
-          const opeExportacion = parseFloatDecimal(
+          const opeExportacion = round(
             producto.mtoValorUnitario * producto.cantidad,
-            100,
           );
 
           acc.mtoOperExportacion += opeExportacion;
@@ -2209,15 +2207,13 @@ export class InvoiceService {
           producto.tipAfeIgv.codigo === '36' ||
           producto.tipAfeIgv.codigo === '37'
         ) {
-          const igv = parseFloatDecimal(
+          const igv = round(
             ((producto.mtoValorGratuito * producto.porcentajeIgv) / 100) *
               producto.cantidad,
-            100,
           );
 
-          const opeGratuitas = parseFloatDecimal(
+          const opeGratuitas = round(
             producto.mtoValorGratuito * producto.cantidad,
-            100,
           );
 
           acc.mtoOperGratuitas += opeGratuitas;
@@ -2242,10 +2238,7 @@ export class InvoiceService {
           acc.mtoOperInafectas +
           acc.mtoOperExportacion;
 
-        acc.subTotal = parseFloatDecimal(
-          acc.valorVenta + acc.totalImpuestos,
-          100,
-        );
+        acc.subTotal = round(acc.valorVenta + acc.totalImpuestos);
 
         acc.mtoImpVenta = acc.subTotal;
 

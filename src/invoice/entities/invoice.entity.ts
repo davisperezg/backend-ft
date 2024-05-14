@@ -102,7 +102,7 @@ export class InvoiceEntity {
   //crea una columna de tipo decimal(10,2)
   @Column({
     type: 'decimal',
-    precision: 10,
+    precision: 14,
     scale: 2,
     nullable: true,
     default: null,
@@ -112,7 +112,7 @@ export class InvoiceEntity {
 
   @Column({
     type: 'decimal',
-    precision: 10,
+    precision: 14,
     scale: 2,
     nullable: true,
     default: null,
@@ -122,7 +122,7 @@ export class InvoiceEntity {
 
   @Column({
     type: 'decimal',
-    precision: 10,
+    precision: 14,
     scale: 2,
     nullable: true,
     default: null,
@@ -132,7 +132,7 @@ export class InvoiceEntity {
 
   @Column({
     type: 'decimal',
-    precision: 10,
+    precision: 14,
     scale: 2,
     nullable: true,
     default: null,
@@ -142,7 +142,7 @@ export class InvoiceEntity {
 
   @Column({
     type: 'decimal',
-    precision: 10,
+    precision: 14,
     scale: 2,
     nullable: true,
     default: null,
@@ -152,7 +152,7 @@ export class InvoiceEntity {
 
   @Column({
     type: 'decimal',
-    precision: 10,
+    precision: 14,
     scale: 2,
     nullable: true,
     default: null,
@@ -162,7 +162,7 @@ export class InvoiceEntity {
 
   @Column({
     type: 'decimal',
-    precision: 10,
+    precision: 14,
     scale: 2,
     nullable: true,
     default: null,
