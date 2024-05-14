@@ -939,8 +939,6 @@ export class InvoiceGateway
       this.invoiceInProcess = false;
       release();
 
-      console.log(res);
-
       //Notificamos el nuevo nro de serie al cliente
       client.emit('server::getIdInvoice', {
         estado: 'success',

@@ -94,9 +94,9 @@ export class InvoiceDetailsEntity {
 
   @Column({
     type: 'decimal',
-    precision: 10,
-    scale: 3,
-    nullable: false,
+    precision: 22,
+    scale: 10,
+    nullable: true,
     default: null,
     transformer: new DecimalColumnTransformer(),
   })
@@ -104,8 +104,8 @@ export class InvoiceDetailsEntity {
 
   @Column({
     type: 'decimal',
-    precision: 10,
-    scale: 3,
+    precision: 22,
+    scale: 10,
     nullable: true,
     default: null,
     transformer: new DecimalColumnTransformer(),
