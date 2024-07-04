@@ -308,7 +308,7 @@ export class InvoiceGateway
   async handleConnection(client: Socket, createConexion = true) {
     //Si no existe token se desconecta
     const token = client.handshake.auth?.token?.split(' ')[1];
-    //const tokenx = client.handshake.headers.authorization?.split(' ')[1];
+    //const token = client.handshake.headers.authorization?.split(' ')[1];
 
     if (!token || token === 'null') {
       return client.disconnect();
@@ -944,9 +944,9 @@ export class InvoiceGateway
         estado: 'success',
         loading: false,
         numeroConCeros: completarConCeros(
-          String(Number(quitarCerosIzquierda(invoice.correlativo)) + 1),
+          String(Number(quitarCerosIzquierda(correlativo))),
         ),
-        numero: String(Number(quitarCerosIzquierda(invoice.correlativo)) + 1),
+        numero: String(Number(quitarCerosIzquierda(correlativo))),
       });
 
       //Si el codigo de respuesta es 0 quiere decir que es aceptado por sunat con exito

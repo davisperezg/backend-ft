@@ -24,6 +24,12 @@ export class CreateInvoiceDto {
   // @IsNotEmpty({ message: 'Por favor complete el nombre del archivo' })
   // fileName: string;
 
+  @IsInt({
+    message: 'El documento debe contener un valor entero y válido.',
+  })
+  @IsOptional()
+  id?: number;
+
   @MaxLength(11, { message: 'El ruc debe contener 11 dígitos.' })
   @MinLength(11, { message: 'El ruc debe contener 11 dígitos.' })
   @IsString({
