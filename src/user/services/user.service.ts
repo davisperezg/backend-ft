@@ -896,10 +896,10 @@ export class UserService {
           };
         });
 
-        user._doc.empresa = await Promise.all(empresas);
+        user._doc.empresas = await Promise.all(empresas);
         //user._doc.empresa.establecimientos = testseries.establecimientos;
       } else {
-        user._doc.empresa = null;
+        user._doc.empresas = null;
       }
 
       return user;

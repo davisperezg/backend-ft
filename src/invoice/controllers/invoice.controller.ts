@@ -28,22 +28,22 @@ import { CreateComuBajaDTO } from '../dto/create-comunicacion_baja';
 export class InvoiceController {
   constructor(private readonly invoiceService: InvoiceService) {}
 
-  @Post('bajadirecto')
-  async bajaDirecto(
-    @Res() res: Response,
-    @Body()
-    data: {
-      empresaId: number;
-      establecimientoId: number;
-    },
-  ) {
-    const { empresaId, establecimientoId } = data;
-    const response = await this.invoiceService.bajaAux(
-      empresaId,
-      establecimientoId,
-    );
-    return res.status(200).json(response);
-  }
+  // @Post('bajadirecto')
+  // async bajaDirecto(
+  //   @Res() res: Response,
+  //   @Body()
+  //   data: {
+  //     empresaId: number;
+  //     establecimientoId: number;
+  //   },
+  // ) {
+  //   const { empresaId, establecimientoId } = data;
+  //   const response = await this.invoiceService.bajaAux(
+  //     empresaId,
+  //     establecimientoId,
+  //   );
+  //   return res.status(200).json(response);
+  // }
 
   @Post()
   @UseGuards(PermissionGuard(Permission.CreateFacturas))

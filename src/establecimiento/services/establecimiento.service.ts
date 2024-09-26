@@ -122,13 +122,6 @@ export class EstablecimientoService {
       );
     }
 
-    if (!establecimiento.estado) {
-      throw new HttpException(
-        'El establecimiento está desactivado.',
-        HttpStatus.NOT_FOUND,
-      );
-    }
-
     return establecimiento;
   }
 

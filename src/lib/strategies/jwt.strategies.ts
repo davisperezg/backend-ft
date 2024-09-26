@@ -85,33 +85,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         role: {
           ...(userDocument.role as any)._doc,
         } as RoleDocument,
-        empresas: findUser.empresa
-          ? findUser.empresa.map((item) => {
-              return {
-                id: item.id,
-                ruc: item.ruc,
-                razon_social: item.razon_social,
-                nombre_comercial: item.nombre_comercial,
-                logo: item.logo,
-                web_service: item.web_service,
-                fieldname_cert: item.fieldname_cert,
-                cert: item.cert,
-                cert_password: item.cert_password,
-                modo: item.modo,
-                usu_secundario_user: item.usu_secundario_user,
-                usu_secundario_password: item.usu_secundario_password,
-                ose_enabled: item.ose_enabled,
-                usu_secundario_ose_user: item.usu_secundario_ose_user,
-                usu_secundario_ose_password: item.usu_secundario_ose_password,
-                domicilio_fiscal: item.domicilio_fiscal,
-                ubigeo: item.ubigeo,
-                urbanizacion: item.urbanizacion,
-                correo: item.correo,
-                telefono_movil_1: item.telefono_movil_1,
-                establecimientos: item.establecimientos,
-              };
-            })
-          : null,
       },
       token_of_front: {
         id: String(userDocument._id),
@@ -143,8 +116,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
             ),
         },
         estado_rol: userDocument.role.status,
-        empresas: findUser.empresa
-          ? findUser.empresa.map((item) => {
+        empresas: findUser.empresas
+          ? findUser.empresas.map((item) => {
               return {
                 id: item.id,
                 ruc: item.ruc,
@@ -162,6 +135,31 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
                 }),
               };
             })
+          : null,
+        empresaActual: findUser.empresas
+          ? findUser.empresas
+              .filter((empresa) => empresa.estado)
+              .map((empresa) => {
+                return {
+                  id: empresa.id,
+                  ruc: empresa.ruc,
+                  razon_social: empresa.razon_social,
+                  modo: empresa.modo === 0 ? 'DESARROLLO' : 'PRODUCCION',
+                  nombre_comercial: empresa.nombre_comercial,
+                  logo: empresa.logo,
+                  estado: empresa.estado,
+                  configuraciones: empresa.configsEmpresa,
+                  establecimiento: empresa.establecimientos
+                    .filter((establecimiento) => establecimiento.estado)
+                    .map((est) => {
+                      return {
+                        ...est,
+                        codigo:
+                          est.codigo === '0000' ? 'PRINCIPAL' : est.codigo,
+                      };
+                    })[0],
+                };
+              })[0]
           : null,
       },
     };

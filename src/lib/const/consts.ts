@@ -14,6 +14,50 @@ export const CATEGORIA_10 = 'Cliente';
 export const CATEGORIA_11 = 'Comprobantes Electrónicos';
 export const URL_STATIC = process.env.URL_FILES_STATIC;
 
+// Porcentajes de IGV disponibles
+export const PORCENTAJES_IGV_DISPONIBLES = [18, 0];
+
+// Porcentaje de IGV gravada onerosa
+export const PORCENTAJE_IGV_GRAVADA = 18;
+
+// Porcentaje de IGV gratuita
+export const PORCENTAJE_IGV_GRATUITA = 0;
+
+// Códigos de operaciones inafectas y gratuitas (0% IGV)
+export const CODIGOS_INAFECTAS_GRATUITAS = [
+  '31',
+  '32',
+  '33',
+  '34',
+  '35',
+  '36',
+  '37',
+  '21',
+]; //0%
+
+// Códigos de operaciones gravadas y gratuitas (18% IGV)
+export const CODIGOS_GRAVADAS_GRATUITAS = [
+  '11',
+  '12',
+  '13',
+  '14',
+  '15',
+  '16',
+  '17',
+]; //18%
+
+// Código de operación gravada onerosa (18% IGV)
+export const CODIGO_GRAVADA_ONEROSA = '10';
+
+// Código de operación exonerada onerosa (0% IGV)
+export const CODIGO_EXONERADA_ONEROSA = '20';
+
+// Código de operación inafecta onerosa (0% IGV)
+export const CODIGO_INAFECTA_ONEROSA = '30';
+
+// Código de operación exportacion (0% IGV)
+export const CODIGO_EXPORTACION = '40';
+
 export const RECURSOS_DEFECTOS = [
   // USERS
   {
