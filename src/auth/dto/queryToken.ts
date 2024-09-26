@@ -22,12 +22,27 @@ class QueryTokenUser {
   };
   estado_rol: boolean;
   empresas?: {
+    id: number;
     ruc: string;
     razon_social: string;
+    modo: string;
     nombre_comercial: string;
     logo: string;
+    estado: string;
+    configuraciones: any[];
     establecimientos: any[];
   }[];
+  empresaActual?: {
+    id: number;
+    ruc: string;
+    razon_social: string;
+    modo: string;
+    nombre_comercial: string;
+    logo: string;
+    estado: string;
+    configuraciones: any[];
+    establecimiento: any[];
+  };
 }
 
 export class QueryToken {

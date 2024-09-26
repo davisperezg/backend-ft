@@ -76,234 +76,234 @@ export class InvoiceGateway
   }
 
   //Se ejecutara esta tarea todos los dias a las 1am -> enviara todos cpes pendientes a sunat
-  @Cron('0 0,20,40,59 1 * * *')
-  async handleCron() {
-    this.logger.debug(
-      'INICIANDO ENVIO DE COMPROBANTES A SUNAT MEDIANTE CRON...',
-    );
-    try {
-      const establecimientos =
-        await this.establecimientoService.findAllEstablecimientos();
+  // @Cron('0 0,20,40,59 1 * * *')
+  // async handleCron() {
+  //   this.logger.debug(
+  //     'INICIANDO ENVIO DE COMPROBANTES A SUNAT MEDIANTE CRON...',
+  //   );
+  //   try {
+  //     const establecimientos =
+  //       await this.establecimientoService.findAllEstablecimientos();
 
-      const estMaped = establecimientos
-        .map((est) => {
-          if (est.estado && est.empresa.estado) {
-            return {
-              idEstablecimiento: est.id,
-              idEmpresa: est.empresa.id,
-              anexo: est.codigo,
-              empresa: est.empresa.ruc + ' - ' + est.empresa.razon_social,
-              estado: est.estado ? 'Activo' : 'Inactivo',
-              enviar_inmediatamente_a_sunat: est.configsEstablecimiento.some(
-                (config) => config.enviar_inmediatamente_a_sunat,
-              ),
-            };
-          }
-        })
-        .filter(Boolean);
+  //     const estMaped = establecimientos
+  //       .map((est) => {
+  //         if (est.estado && est.empresa.estado) {
+  //           return {
+  //             idEstablecimiento: est.id,
+  //             idEmpresa: est.empresa.id,
+  //             anexo: est.codigo,
+  //             empresa: est.empresa.ruc + ' - ' + est.empresa.razon_social,
+  //             estado: est.estado ? 'Activo' : 'Inactivo',
+  //             enviar_inmediatamente_a_sunat: est.configsEstablecimiento.some(
+  //               (config) => config.enviar_inmediatamente_a_sunat,
+  //             ),
+  //           };
+  //         }
+  //       })
+  //       .filter(Boolean);
 
-      for (let index = 0; index < estMaped.length; index++) {
-        const item = estMaped[index];
-        const idEmpresa = item.idEmpresa;
-        const idEstablecimiento = item.idEstablecimiento;
+  //     for (let index = 0; index < estMaped.length; index++) {
+  //       const item = estMaped[index];
+  //       const idEmpresa = item.idEmpresa;
+  //       const idEstablecimiento = item.idEstablecimiento;
 
-        if (item.enviar_inmediatamente_a_sunat) {
-          const invoices = await this.invoiceService.findAllInvoicesCron(
-            idEmpresa,
-            idEstablecimiento,
-          );
+  //       if (item.enviar_inmediatamente_a_sunat) {
+  //         const invoices = await this.invoiceService.findAllInvoicesCron(
+  //           idEmpresa,
+  //           idEstablecimiento,
+  //         );
 
-          for (let indexIvs = 0; indexIvs < invoices.length; indexIvs++) {
-            const invoice = invoices[indexIvs];
-            //Todos los cpes con estado 1 se enviaran a sunat para que actualicen a estado 2
-            switch (invoice.estado_operacion) {
-              case 1:
-                const ruc = invoice.empresa.ruc;
-                const tipoDoc = invoice.tipo_doc.codigo;
-                const serie = invoice.serie;
-                const correlativo = invoice.correlativo;
-                const fileName = `${ruc}-${tipoDoc}-${serie}-${correlativo}`;
-                //para enviar cada cpe buscamos y leermos el archivo xml firmado en la carpeta uploads
-                const pathDir = path.join(
-                  process.cwd(),
-                  `uploads/files/${ruc}/${invoice.establecimiento.codigo}/${invoice.tipo_doc.tipo_documento}/FIRMA/${fileName}.xml`,
-                );
+  //         for (let indexIvs = 0; indexIvs < invoices.length; indexIvs++) {
+  //           const invoice = invoices[indexIvs];
+  //           //Todos los cpes con estado 1 se enviaran a sunat para que actualicen a estado 2
+  //           switch (invoice.estado_operacion) {
+  //             case 1:
+  //               const ruc = invoice.empresa.ruc;
+  //               const tipoDoc = invoice.tipo_doc.codigo;
+  //               const serie = invoice.serie;
+  //               const correlativo = invoice.correlativo;
+  //               const fileName = `${ruc}-${tipoDoc}-${serie}-${correlativo}`;
+  //               //para enviar cada cpe buscamos y leermos el archivo xml firmado en la carpeta uploads
+  //               const pathDir = path.join(
+  //                 process.cwd(),
+  //                 `uploads/files/${ruc}/${invoice.establecimiento.codigo}/${invoice.tipo_doc.tipo_documento}/FIRMA/${fileName}.xml`,
+  //               );
 
-                //si no existe el xml firmado no procede a enviar sunat pero normalmente siempre debe existir un xml firmado
-                if (!fs.existsSync(pathDir)) break;
+  //               //si no existe el xml firmado no procede a enviar sunat pero normalmente siempre debe existir un xml firmado
+  //               if (!fs.existsSync(pathDir)) break;
 
-                try {
-                  const xmlSigned = fs.readFileSync(pathDir, 'utf8');
-                  const sunat = await this.invoiceService.enviarSunat(
-                    invoice.empresa.web_service,
-                    invoice.empresa.ose_enabled
-                      ? invoice.empresa.usu_secundario_ose_user
-                      : invoice.empresa.usu_secundario_user,
-                    invoice.empresa.ose_enabled
-                      ? invoice.empresa.usu_secundario_ose_password
-                      : invoice.empresa.usu_secundario_password,
-                    fileName,
-                    xmlSigned,
-                  );
+  //               try {
+  //                 const xmlSigned = fs.readFileSync(pathDir, 'utf8');
+  //                 const sunat = await this.invoiceService.enviarSunat(
+  //                   invoice.empresa.web_service,
+  //                   invoice.empresa.ose_enabled
+  //                     ? invoice.empresa.usu_secundario_ose_user
+  //                     : invoice.empresa.usu_secundario_user,
+  //                   invoice.empresa.ose_enabled
+  //                     ? invoice.empresa.usu_secundario_ose_password
+  //                     : invoice.empresa.usu_secundario_password,
+  //                   fileName,
+  //                   xmlSigned,
+  //                 );
 
-                  const {
-                    cdrZip,
-                    codigo_sunat,
-                    mensaje_sunat,
-                    observaciones_sunat,
-                  } = sunat.data;
+  //                 const {
+  //                   cdrZip,
+  //                   codigo_sunat,
+  //                   mensaje_sunat,
+  //                   observaciones_sunat,
+  //                 } = sunat;
 
-                  const observaciones_sunat_modified =
-                    (observaciones_sunat as []).length > 0
-                      ? observaciones_sunat.join('|')
-                      : null;
+  //                 const observaciones_sunat_modified =
+  //                   observaciones_sunat.length > 0
+  //                     ? observaciones_sunat.join('|')
+  //                     : null;
 
-                  //Decodificamos el CDR en base64 (LA RESPUESTA DE SUNAT)
-                  const CdrZip = Buffer.from(cdrZip, 'base64');
+  //                 //Decodificamos el CDR en base64 (LA RESPUESTA DE SUNAT)
+  //                 const CdrZip = Buffer.from(cdrZip, 'base64');
 
-                  //Guardamos el CDR en el servidor en el directorio del cliente
-                  this.invoiceService.guardarArchivo(
-                    invoice.empresa.ruc,
-                    `${invoice.establecimiento.codigo}/${invoice.tipo_doc.tipo_documento}/RPTA`,
-                    `R-${fileName}.zip`,
-                    CdrZip,
-                    true,
-                  );
+  //                 //Guardamos el CDR en el servidor en el directorio del cliente
+  //                 this.invoiceService.guardarArchivo(
+  //                   invoice.empresa.ruc,
+  //                   `${invoice.establecimiento.codigo}/${invoice.tipo_doc.tipo_documento}/RPTA`,
+  //                   `R-${fileName}.zip`,
+  //                   CdrZip,
+  //                   true,
+  //                 );
 
-                  if (codigo_sunat === 0) {
-                    const updated =
-                      await this.invoiceService.updateEstadoOperacion(
-                        invoice.id,
-                        2,
-                      ); //cambiamos a aceptado
+  //                 if (codigo_sunat === 0) {
+  //                   const updated =
+  //                     await this.invoiceService.updateEstadoOperacion(
+  //                       invoice.id,
+  //                       2,
+  //                     ); //cambiamos a aceptado
 
-                    invoice.estado_operacion = updated.estado_operacion;
+  //                   invoice.estado_operacion = updated.estado_operacion;
 
-                    await this.invoiceService.updateRptaSunat(
-                      invoice.id,
-                      codigo_sunat,
-                      mensaje_sunat,
-                      observaciones_sunat_modified,
-                    );
+  //                   await this.invoiceService.updateRptaSunat(
+  //                     invoice.id,
+  //                     codigo_sunat,
+  //                     mensaje_sunat,
+  //                     observaciones_sunat_modified,
+  //                   );
 
-                    this.logger.log(`ServerResponse - ${mensaje_sunat}.`);
+  //                   this.logger.log(`ServerResponse - ${mensaje_sunat}.`);
 
-                    this.server
-                      .to(
-                        `room_invoices_emp-${idEmpresa}_est-${idEstablecimiento}`,
-                      )
-                      .emit('server::notifyInvoice', {
-                        type: 'sunat.success',
-                        correlativo: invoice.correlativo,
-                        time: dayjs(new Date()).format('DD-MM-YYYY·HH:mm:ss'),
-                        message: `${mensaje_sunat}`,
-                      });
-                  } else if (codigo_sunat >= 2000 && codigo_sunat <= 3999) {
-                    const updated =
-                      await this.invoiceService.updateEstadoOperacion(
-                        invoice.id,
-                        3,
-                      ); //cambiamos a rechazado
+  //                   this.server
+  //                     .to(
+  //                       `room_invoices_emp-${idEmpresa}_est-${idEstablecimiento}`,
+  //                     )
+  //                     .emit('server::notifyInvoice', {
+  //                       type: 'sunat.success',
+  //                       correlativo: invoice.correlativo,
+  //                       time: dayjs(new Date()).format('DD-MM-YYYY·HH:mm:ss'),
+  //                       message: `${mensaje_sunat}`,
+  //                     });
+  //                 } else if (codigo_sunat >= 2000 && codigo_sunat <= 3999) {
+  //                   const updated =
+  //                     await this.invoiceService.updateEstadoOperacion(
+  //                       invoice.id,
+  //                       3,
+  //                     ); //cambiamos a rechazado
 
-                    await this.invoiceService.updateRptaSunat(
-                      invoice.id,
-                      codigo_sunat,
-                      mensaje_sunat,
-                      observaciones_sunat_modified,
-                    );
+  //                   await this.invoiceService.updateRptaSunat(
+  //                     invoice.id,
+  //                     codigo_sunat,
+  //                     mensaje_sunat,
+  //                     observaciones_sunat_modified,
+  //                   );
 
-                    invoice.estado_operacion = updated.estado_operacion;
+  //                   invoice.estado_operacion = updated.estado_operacion;
 
-                    this.logger.error(
-                      `ServerResponse ha enviado CPE ${invoice.correlativo} a SUNAT - ${codigo_sunat}:${mensaje_sunat}.`,
-                    );
+  //                   this.logger.error(
+  //                     `ServerResponse ha enviado CPE ${invoice.correlativo} a SUNAT - ${codigo_sunat}:${mensaje_sunat}.`,
+  //                   );
 
-                    this.server
-                      .to(
-                        `room_invoices_emp-${idEmpresa}_est-${idEstablecimiento}`,
-                      )
-                      .emit('server::notifyInvoice', {
-                        type: 'sunat.failed',
-                        correlativo: invoice.correlativo,
-                        time: dayjs(new Date()).format('DD-MM-YYYY·HH:mm:ss'),
-                        message: `El CPE#${invoice.correlativo} fue rechazado por SUNAT - ${codigo_sunat}:${mensaje_sunat}.`,
-                      });
-                  } else {
-                    this.logger.warn(
-                      `ServerResponse - Warning:${mensaje_sunat}.`,
-                    );
+  //                   this.server
+  //                     .to(
+  //                       `room_invoices_emp-${idEmpresa}_est-${idEstablecimiento}`,
+  //                     )
+  //                     .emit('server::notifyInvoice', {
+  //                       type: 'sunat.failed',
+  //                       correlativo: invoice.correlativo,
+  //                       time: dayjs(new Date()).format('DD-MM-YYYY·HH:mm:ss'),
+  //                       message: `El CPE#${invoice.correlativo} fue rechazado por SUNAT - ${codigo_sunat}:${mensaje_sunat}.`,
+  //                     });
+  //                 } else {
+  //                   this.logger.warn(
+  //                     `ServerResponse - Warning:${mensaje_sunat}.`,
+  //                   );
 
-                    this.server
-                      .to(
-                        `room_invoices_emp-${idEmpresa}_est-${idEstablecimiento}`,
-                      )
-                      .emit('server::notifyInvoice', {
-                        type: 'sunat.warn',
-                        correlativo: invoice.correlativo,
-                        time: dayjs(new Date()).format('DD-MM-YYYY·HH:mm:ss'),
-                        message: `El CPE#${invoice.correlativo}  -  Warning:${mensaje_sunat}.`,
-                      });
-                  }
+  //                   this.server
+  //                     .to(
+  //                       `room_invoices_emp-${idEmpresa}_est-${idEstablecimiento}`,
+  //                     )
+  //                     .emit('server::notifyInvoice', {
+  //                       type: 'sunat.warn',
+  //                       correlativo: invoice.correlativo,
+  //                       time: dayjs(new Date()).format('DD-MM-YYYY·HH:mm:ss'),
+  //                       message: `El CPE#${invoice.correlativo}  -  Warning:${mensaje_sunat}.`,
+  //                     });
+  //                 }
 
-                  //notificar al cliente con el eveneto
-                  this.server
-                    .to(
-                      `room_invoices_emp-${idEmpresa}_est-${idEstablecimiento}`,
-                    )
-                    .emit('server::listInvoices', invoices);
-                  break;
-                } catch (e) {
-                  console.log('aqui', e);
-                  const mensaje = e.message;
+  //                 //notificar al cliente con el eveneto
+  //                 this.server
+  //                   .to(
+  //                     `room_invoices_emp-${idEmpresa}_est-${idEstablecimiento}`,
+  //                   )
+  //                   .emit('server::listInvoices', invoices);
+  //                 break;
+  //               } catch (e) {
+  //                 console.log('aqui', e);
+  //                 const mensaje = e.message;
 
-                  this.logger.warn(
-                    `ServerResponse - ${idEmpresa}-${idEstablecimiento}#${fileName} - Warning:${mensaje}.`,
-                  );
+  //                 this.logger.warn(
+  //                   `ServerResponse - ${idEmpresa}-${idEstablecimiento}#${fileName} - Warning:${mensaje}.`,
+  //                 );
 
-                  this.server
-                    .to(
-                      `room_invoices_emp-${idEmpresa}_est-${idEstablecimiento}`,
-                    )
-                    .emit('server::notifyInvoice', {
-                      type: 'error',
-                      correlativo: invoice.correlativo,
-                      time: dayjs(new Date()).format('DD-MM-YYYY·HH:mm:ss'),
-                      message: mensaje,
-                    });
+  //                 this.server
+  //                   .to(
+  //                     `room_invoices_emp-${idEmpresa}_est-${idEstablecimiento}`,
+  //                   )
+  //                   .emit('server::notifyInvoice', {
+  //                     type: 'error',
+  //                     correlativo: invoice.correlativo,
+  //                     time: dayjs(new Date()).format('DD-MM-YYYY·HH:mm:ss'),
+  //                     message: mensaje,
+  //                   });
 
-                  //Esto no deberia de ocurrir pero si ocurre se debemos de actualizar estado
-                  //Buscaremos el codigo de error sunat 1033
-                  //1033 significa que el comprobante fue registrado previamente con otros datos
-                  const existCodigo = mensaje.match(/\[(\d+)\]/);
-                  const codigo = existCodigo && existCodigo[1];
-                  if (codigo === '1033' && invoice.estado_operacion === 1) {
-                    this.logger.log(
-                      'ENCONTRAMOS ERROR 1033 LO SOLUCIONAREMOS...',
-                    );
-                    //cambiamos de estado 1(enviando) a 2(enviado)
-                    await this.invoiceService.updateEstadoOperacion(
-                      invoice.id,
-                      2,
-                    ); //cambiamos a aceptado
-                  }
+  //                 //Esto no deberia de ocurrir pero si ocurre se debemos de actualizar estado
+  //                 //Buscaremos el codigo de error sunat 1033
+  //                 //1033 significa que el comprobante fue registrado previamente con otros datos
+  //                 const existCodigo = mensaje.match(/\[(\d+)\]/);
+  //                 const codigo = existCodigo && existCodigo[1];
+  //                 if (codigo === '1033' && invoice.estado_operacion === 1) {
+  //                   this.logger.log(
+  //                     'ENCONTRAMOS ERROR 1033 LO SOLUCIONAREMOS...',
+  //                   );
+  //                   //cambiamos de estado 1(enviando) a 2(enviado)
+  //                   await this.invoiceService.updateEstadoOperacion(
+  //                     invoice.id,
+  //                     2,
+  //                   ); //cambiamos a aceptado
+  //                 }
 
-                  if (codigo === '2109' && invoice.estado_operacion === 1) {
-                    this.logger.log(
-                      'ENCONTRAMOS ERROR 2109 LO SOLUCIONAREMOS...',
-                    );
-                  }
+  //                 if (codigo === '2109' && invoice.estado_operacion === 1) {
+  //                   this.logger.log(
+  //                     'ENCONTRAMOS ERROR 2109 LO SOLUCIONAREMOS...',
+  //                   );
+  //                 }
 
-                  continue;
-                }
-            }
-          }
-        }
-      }
-    } catch (e) {
-      this.logger.error('OCURRIO UN ERROR EN EL PROCESO DE CRON.', e.message);
-    }
-    this.logger.debug('PROCESO DE ENVIO A SUNAT MEDIANTE CRON A FINALIZADO.');
-  }
+  //                 continue;
+  //               }
+  //           }
+  //         }
+  //       }
+  //     }
+  //   } catch (e) {
+  //     this.logger.error('OCURRIO UN ERROR EN EL PROCESO DE CRON.', e.message);
+  //   }
+  //   this.logger.debug('PROCESO DE ENVIO A SUNAT MEDIANTE CRON A FINALIZADO.');
+  // }
 
   async handleConnection(client: Socket, createConexion = true) {
     //Si no existe token se desconecta
@@ -882,7 +882,7 @@ export class InvoiceGateway
     const release = await this.mutex.acquire();
     if (!this.isAllowed(client.id)) {
       release();
-      this.logger.log(
+      this.logger.warn(
         `Cliente ${client.id} esta enviando mensajes muy rapido - ${client.handshake.headers['user-agent']}:${client.handshake.headers.host}:${client.handshake.address}`,
       );
       client.emit(
@@ -894,8 +894,9 @@ export class InvoiceGateway
 
     //Si esta en proceso y es otro usuairo se le notifica
     if (this.invoiceInProcess) {
+      this.invoiceInProcess = false;
       release();
-      this.logger.log(
+      this.logger.warn(
         `Cliente ${client.id} - Otro usuario esta creando un CPE. Esperando...`,
       );
       client.emit(
@@ -912,9 +913,19 @@ export class InvoiceGateway
       const user = (await this.handleConnection(client, false)) as QueryToken;
 
       //Validamos permiso de crear facturas
-      this.validarPermiso(client, user, Permission.CreateFacturas);
+      const existPermiso = await this.validarPermiso(
+        client,
+        user,
+        Permission.CreateFacturas,
+      );
 
       this.invoiceInProcess = true;
+
+      if (!existPermiso) {
+        this.invoiceInProcess = false;
+        release();
+        return;
+      }
 
       //Se crea el CPE y valida si la empresa y establecimiento pertecene al usuario
       const res = await this.invoiceService.createInvoice(
@@ -934,6 +945,10 @@ export class InvoiceGateway
         correlativo,
         documento,
         total,
+        xml,
+        cdr,
+        pdfA4,
+        correlativo_registrado,
       } = res;
 
       this.invoiceInProcess = false;
@@ -941,12 +956,30 @@ export class InvoiceGateway
 
       //Notificamos el nuevo nro de serie al cliente
       client.emit('server::getIdInvoice', {
+        invoice: invoice,
         estado: 'success',
         loading: false,
+        borrador: invoice.borrador,
+        total: total,
+        serie: serie,
+        documento: documento,
+        fileName: fileName,
         numeroConCeros: completarConCeros(
           String(Number(quitarCerosIzquierda(correlativo))),
         ),
         numero: String(Number(quitarCerosIzquierda(correlativo))),
+        correlativo_registrado: String(
+          Number(quitarCerosIzquierda(correlativo_registrado)),
+        ),
+        correlativo_registradoConCeros: correlativo_registrado,
+        enviada_sunat: invoice.estado_operacion,
+        aceptada_sunat: codigo_respuesta_sunat,
+        codigo_sunat: invoice.respuesta_sunat_codigo,
+        mensaje_sunat: invoice.respuesta_sunat_descripcion,
+        otros_sunat: invoice.observaciones_sunat,
+        xml: xml,
+        cdr: cdr,
+        pdfA4: pdfA4,
       });
 
       //Si el codigo de respuesta es 0 quiere decir que es aceptado por sunat con exito
@@ -965,8 +998,8 @@ export class InvoiceGateway
         console.log('excepcion');
       }
     } catch (e) {
-      release();
       this.invoiceInProcess = false;
+      release();
       //Errores como 1000-1999 se mostraran en el cliente
       this.exceptionHandler(client, e.message);
     }
@@ -1113,7 +1146,7 @@ export class InvoiceGateway
           { estado_anulacion: 1 },
         );
 
-        const _invoice = this.invoiceService.formatListInvoices(
+        const _invoice = await this.invoiceService.formatListInvoices(
           {
             ...invoice,
             estado_anulacion: 1,
@@ -1204,7 +1237,7 @@ export class InvoiceGateway
             { estado_anulacion: 2 },
           );
 
-          const _invoice = this.invoiceService.formatListInvoices(
+          const _invoice = await this.invoiceService.formatListInvoices(
             {
               ...invoice,
               estado_anulacion: 2,
@@ -1242,7 +1275,7 @@ export class InvoiceGateway
             { estado_anulacion: 3 },
           );
 
-          const _invoice = this.invoiceService.formatListInvoices(
+          const _invoice = await this.invoiceService.formatListInvoices(
             {
               ...invoice,
               estado_anulacion: 3,
@@ -1314,15 +1347,24 @@ export class InvoiceGateway
   }
 
   private validarPermiso(client: Socket, user: QueryToken, permiso: string) {
-    if (user) {
-      const { token_of_permisos } = user;
-      const findPermiso = token_of_permisos.some((item) => item === permiso);
-
-      if (!findPermiso) {
-        this.disconnect(client);
-        return;
+    return new Promise((resolve, reject) => {
+      try {
+        if (user) {
+          const { token_of_permisos } = user;
+          const findPermiso = token_of_permisos.some(
+            (item) => item === permiso,
+          );
+          if (!findPermiso) {
+            this.exceptionHandler(client, 'No tienes permisos suficientes');
+            resolve(false);
+          } else {
+            resolve(true);
+          }
+        }
+      } catch (e) {
+        reject(e);
       }
-    }
+    });
   }
 
   private getHeaders(client: Socket) {

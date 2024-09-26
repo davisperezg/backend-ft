@@ -317,6 +317,13 @@ export class SeriesService {
         establecimiento,
       );
 
+    if (!findEstablecimiento.estado) {
+      throw new HttpException(
+        'El establecimiento está desactivado.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
     if (!idsEstablecimientosEmpresa.includes(findEstablecimiento.id)) {
       throw new HttpException(
         'El establecimiento no pertece a la empresa.',
@@ -472,6 +479,13 @@ export class SeriesService {
       await this.establecimientoService.findEstablecimientoById(
         establecimiento,
       );
+
+    if (!findEstablecimiento.estado) {
+      throw new HttpException(
+        'El establecimiento está desactivado.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
 
     if (!idsEstablecimientosEmpresa.includes(findEstablecimiento.id)) {
       throw new HttpException(
