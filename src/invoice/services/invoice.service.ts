@@ -221,7 +221,7 @@ export class InvoiceService {
     //Validamos si la empresa emisora pertenece a las empresas asignadas al usuario
     const existEmpresa = empresas.find((emp) => emp.id === empresa.id);
 
-    if (!existEmpresa) {
+    if (!existEmpresa || !existEmpresa.estado) {
       throw new HttpException(
         'No puedes emitir facturas para esta empresa',
         HttpStatus.BAD_REQUEST,
@@ -243,7 +243,7 @@ export class InvoiceService {
 
     //Validamos si el establecimiento emisor pertenece a las empresas asignadas al usuario
     const existEstablecimiento = existEmpresa.establecimientos.find(
-      (est) => est.id === invoice.establecimiento,
+      (est) => est.id === establecimiento.id,
     );
 
     if (!existEstablecimiento) {
@@ -258,9 +258,9 @@ export class InvoiceService {
       (doc) => doc.codigo === invoice.tipo_documento,
     );
 
-    if (!tipDoc) {
+    if (!tipDoc || !tipDoc.estado) {
       throw new HttpException(
-        'No puedes emitir este tipo de documento',
+        'No puedes emitir este tipo de documento o se encuentra desactivado',
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -270,6 +270,13 @@ export class InvoiceService {
       (item: any) => item.serie === invoice.serie,
     );
 
+    if (!serie || !serie.estado) {
+      throw new HttpException(
+        'No puedes emitir este tipo de documento con esta serie o se encuentra desactivado',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    console.log('serie', serie);
     //No se puede emitir un cpe con un correlativo menor o mayor al actual
     // if (
     //   Number(invoice.numero) < Number(serie.numero) ||
