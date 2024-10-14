@@ -210,8 +210,6 @@ export class InvoiceService {
     const { tokenEntityFull, token_of_permisos } = user;
     const { empresas } = tokenEntityFull;
 
-    console.log(tokenEntityFull);
-
     //Validamos empresa emisora
     const empresa = (await this.empresaService.findOneEmpresaById(
       invoice.empresa,
@@ -276,7 +274,6 @@ export class InvoiceService {
         HttpStatus.BAD_REQUEST,
       );
     }
-    console.log('serie', serie);
     //No se puede emitir un cpe con un correlativo menor o mayor al actual
     // if (
     //   Number(invoice.numero) < Number(serie.numero) ||
@@ -300,7 +297,6 @@ export class InvoiceService {
     //son los mismos datos por lo tanto para seguir con la transaccion debemos
     //actualizar el correlativo de la serie
     if (existInvoice) {
-      console.log(invoice.serie, serie.numeroConCeros);
       throw new HttpException(
         'Ya existe un cpe con el mismo número de serie.',
         HttpStatus.BAD_REQUEST,
@@ -656,9 +652,7 @@ export class InvoiceService {
             `${usuario.username}: ha creado ${fileName} satisfactoriamente`,
           );
         }
-        console.log('llega y sale');
-        console.log(invoiceCreated);
-        console.log('llega y sale');
+
         //Formateamos el invoice simple para mostrar lo necesario
         const invoiceSimple = await this.formatListInvoices(
           {
@@ -724,11 +718,15 @@ export class InvoiceService {
               sunat = await this.enviarSunat(invoiceCreated, totales);
               const { fileName: fileNameAux } = sunat;
               fileName = fileNameAux;
-              console.log('filenmaeaux', fileNameAux);
             } catch (e) {
               //Si se presenta un error al enviar a sunat con codigos internos de misma sunat
               //se guardara el invoice con estado de operacion 1 para proximanente enviar a sunat
+              console.log(e.response, typeof e.response);
+              console.log('=====================================');
+              console.log(JSON.parse(JSON.stringify(e.response)));
+              console.log('=====================================');
               const code = Number(e.response.code);
+              console.log(code);
               if (
                 (code >= 100 && code <= 999) ||
                 e.response.code === 'HTTP' ||
@@ -763,6 +761,14 @@ export class InvoiceService {
                   numero: String(Number(serie.numero) + 1),
                 });
 
+                //Creamos el pdf formato A4
+                await this.getPdf(
+                  invoiceCreated.empresa.ruc,
+                  `${establecimiento.codigo}/${tipoDocumento.tipo_documento}/PDF/A4`,
+                  fileName,
+                  docDefinitionA4,
+                );
+
                 return {
                   invoice: invoiceSimple,
                   fileName: fileName,
@@ -774,16 +780,39 @@ export class InvoiceService {
                     : String(Number(serie.numero) + 1),
                   correlativo_registrado: invoiceCreated.correlativo,
                   total: `${tipoMoneda.simbolo} ${totales.mtoImpVenta}`,
+                  xml: invoiceSimple.xml,
+                  cdr: invoiceSimple.cdr,
+                  pdfA4: invoiceSimple.pdfA4,
                 };
               } else {
-                //Errores al conectar con el servicio sunat o sunat respondera con eres del 1000-1999
+                //Rollback a los documentos xml ya creados y guardados
+                const pathDirXML = path.join(
+                  process.cwd(),
+                  `uploads/files/${invoiceCreated.empresa.ruc}/${invoiceCreated.establecimiento.codigo}/${invoiceCreated.tipo_doc.tipo_documento}/XML/${fileName}.xml`,
+                );
+
+                const pathDirXMLSigned = path.join(
+                  process.cwd(),
+                  `uploads/files/${invoiceCreated.empresa.ruc}/${invoiceCreated.establecimiento.codigo}/${invoiceCreated.tipo_doc.tipo_documento}/FIRMA/${fileName}.xml`,
+                );
+
+                if (fs.existsSync(pathDirXML)) {
+                  console.log('Eliminamos xml');
+                  fs.unlinkSync(pathDirXML);
+                }
+
+                if (fs.existsSync(pathDirXMLSigned)) {
+                  console.log('Eliminamos xml firmado');
+                  fs.unlinkSync(pathDirXMLSigned);
+                }
+
+                // Errores al conectar con el servicio sunat o sunat respondera con eres del 1000-1999
                 throw new HttpException(e.message, HttpStatus.BAD_REQUEST);
               }
             }
 
             //Si hay conexion y repuesta de sunat
             const { codigo_sunat, mensaje_sunat, observaciones_sunat } = sunat;
-            console.log(sunat);
 
             codigo_respuesta_sunat = codigo_sunat;
 
@@ -875,7 +904,7 @@ export class InvoiceService {
                 .to(`room_invoices_emp-${empresa.id}_est-${establecimiento.id}`)
                 .emit('server::newInvoice', _invoice);
             } else {
-              //probablemente no entre aca
+              //probablemente no entre aca code: 0100 a 1999
               this.logger.warn(
                 `${usuario.username}: warning-${mensaje_sunat}.`,
               );
@@ -1099,7 +1128,7 @@ export class InvoiceService {
     );
   }
 
-  private async getPdf(
+  async getPdf(
     ruc: string,
     ruta: string,
     nombreArchivo: string,
@@ -1131,7 +1160,6 @@ export class InvoiceService {
         const stream = fs.createWriteStream(`${pathDir}/${nombreArchivo}.pdf`);
 
         if (!existDir) {
-          console.log('Directorio pdf creado');
           fs.mkdirSync(pathDir, { recursive: true });
         }
 
@@ -1471,17 +1499,13 @@ export class InvoiceService {
         dataApi,
       );
 
-      const { xml: xmlBuffer, fileName } = res.data;
-
-      console.log('METODO CREAR XML');
-      console.log('XMLBUFFER', xmlBuffer);
-      console.log('FILENAME', fileName);
+      const { xml: xmlBuffer, fileName, fileNameExtension } = res.data;
 
       //Guardamos el XML en el directorio del cliente
       this.guardarArchivo(
         invoice.empresa.ruc,
         `${invoice.establecimiento.codigo}/${invoice.tipo_doc.tipo_documento}/XML`,
-        fileName,
+        fileNameExtension,
         xmlBuffer,
         true,
       );
@@ -1489,6 +1513,7 @@ export class InvoiceService {
       return {
         xmlBuffer,
         fileName,
+        fileNameExtension,
       };
     } catch (e) {
       if (e.code === 'ECONNREFUSED') {
@@ -1510,7 +1535,7 @@ export class InvoiceService {
   private async firmar(
     xmlBuffer: string,
     certificado: string,
-    fileName: string,
+    fileNameExtension: string,
     invoice: InvoiceEntity,
   ): Promise<string> {
     try {
@@ -1525,7 +1550,7 @@ export class InvoiceService {
       this.guardarArchivo(
         invoice.empresa.ruc,
         `${invoice.establecimiento.codigo}/${invoice.tipo_doc.tipo_documento}/FIRMA`,
-        fileName,
+        fileNameExtension,
         xmlSignedBuffer,
         true,
       );
@@ -1552,39 +1577,69 @@ export class InvoiceService {
     invoice: InvoiceEntity,
     totales: QueryTotales,
   ): Promise<QuerySunat> {
-    //GENERAR XML
-    const xmlGenerado = await this.generarXML(invoice, totales);
+    try {
+      //GENERAR XML
+      const xmlGenerado = await this.generarXML(invoice, totales);
 
-    //VALIDAMOS CERTIFICADO DE LA EMPRESA PARA FIRMAR
-    const certificado = this.validarCertificado(invoice);
+      //VALIDAMOS CERTIFICADO DE LA EMPRESA PARA FIRMAR
+      const certificado = this.validarCertificado(invoice);
 
-    const { fileName, xmlBuffer } = xmlGenerado;
+      const { fileName, xmlBuffer, fileNameExtension } = xmlGenerado;
 
-    //FIRMAR XML
-    const xmlSigned = await this.firmar(
-      xmlBuffer,
-      certificado,
-      fileName,
-      invoice,
-    );
+      //FIRMAR XML
+      const xmlSigned = await this.firmar(
+        xmlBuffer,
+        certificado,
+        fileNameExtension,
+        invoice,
+      );
 
-    //ENVIAR SUNAT
-    const urWebService = invoice.empresa.web_service;
-    const isOSE = invoice.empresa.ose_enabled;
-    const userSecuOSE = invoice.empresa.usu_secundario_ose_user;
-    const passSecuOSE = invoice.empresa.usu_secundario_ose_password;
-    const userSecuSUNAT = invoice.empresa.usu_secundario_user;
-    const passSecuSUNAT = invoice.empresa.usu_secundario_password;
+      //ENVIAR SUNAT
+      const urlService = invoice.empresa.web_service;
+      const isOSE = invoice.empresa.ose_enabled;
+      const userSecuOSE = invoice.empresa.usu_secundario_ose_user;
+      const passSecuOSE = invoice.empresa.usu_secundario_ose_password;
+      const userSecuSUNAT = invoice.empresa.usu_secundario_user;
+      const passSecuSUNAT = invoice.empresa.usu_secundario_password;
 
+      const sunat = await this.enviarSolicitudSunat(
+        invoice,
+        urlService,
+        isOSE ? userSecuOSE : userSecuSUNAT,
+        isOSE ? passSecuOSE : passSecuSUNAT,
+        fileName,
+        xmlSigned,
+      );
+
+      return {
+        ...sunat,
+        fileName,
+      };
+    } catch (e) {
+      throw new HttpException(
+        `Error al enviar a sunat: InvoiceService.enviarSunat - ${e.message}`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  async enviarSolicitudSunat(
+    invoice: InvoiceEntity,
+    urlService: string,
+    usuario: string,
+    contrasenia: string,
+    fileName: string,
+    contentFile: string,
+  ) {
     try {
       const sunat = await axios.post(
         `${process.env.API_SERVICE_PHP}/sendSunat`,
         {
-          urlService: urWebService,
-          usuario: isOSE ? userSecuOSE : userSecuSUNAT,
-          contrasenia: isOSE ? passSecuOSE : passSecuSUNAT,
-          fileName: fileName,
-          contentFile: xmlSigned,
+          urlService,
+          usuario,
+          contrasenia,
+          fileName,
+          contentFile,
         },
       );
 
@@ -1603,12 +1658,8 @@ export class InvoiceService {
         true,
       );
 
-      return {
-        ...sunat.data,
-        fileName,
-      };
+      return sunat.data;
     } catch (e) {
-      console.log(e);
       if (e.code === 'ECONNREFUSED') {
         throw new HttpException(
           'Verifique el servidor de la API Greenter actualmente esta deshabilitado.',
@@ -1885,25 +1936,36 @@ export class InvoiceService {
   }
 
   //CRON SERVER
-  async findAllInvoicesCron(idEmpresa: number, idEstablecimiento: number) {
+  async findAllInvoicesCron(
+    idEmpresa: number,
+    idEstablecimiento: number,
+    operacion: number,
+  ) {
     try {
       return await this.invoiceRepository.find({
         relations: {
           tipo_doc: true,
-          cliente: true,
+          cliente: {
+            tipo_entidad: true,
+          },
           empresa: true,
           establecimiento: true,
           tipo_moneda: true,
           forma_pago: true,
           usuario: true,
+          invoices_details: {
+            tipAfeIgv: true,
+            unidad: true,
+          },
         },
         where: {
           empresa: {
-            id: idEmpresa,
+            id: Equal(idEmpresa),
           },
           establecimiento: {
-            id: idEstablecimiento,
+            id: Equal(idEstablecimiento),
           },
+          estado_operacion: Equal(operacion),
         },
       });
     } catch (e) {
@@ -1922,7 +1984,6 @@ export class InvoiceService {
     page: number,
     pageSize: number,
   ) {
-    console.log(page, pageSize);
     const _take = Number(pageSize);
     const _skip = (Number(page) - 1) * _take;
 
@@ -2202,7 +2263,6 @@ export class InvoiceService {
         items: await Promise.all(items),
       };
     } catch (e) {
-      console.log(e.message);
       throw new HttpException(
         'Error al buscar los cpes listado',
         HttpStatus.BAD_REQUEST,
@@ -2517,6 +2577,8 @@ export class InvoiceService {
     invoice: InvoiceEntity,
     fileName?: string,
   ): Promise<any> {
+    const DECIMAL = 6;
+
     return new Promise(async (resolve, reject) => {
       try {
         //formateamos result
@@ -2618,20 +2680,16 @@ export class InvoiceService {
               cantidad: item.cantidad,
               codigo: item.codigo,
               descripcion: item.producto,
-              igv: Number(igvUnitario * item.cantidad).toFixed(2),
-              igvUnitario: Number(igvUnitario).toFixed(2),
-              mtoBaseIgv: Number(item.mtoValorUnitario * item.cantidad).toFixed(
-                2,
-              ),
-              mtoPrecioUnitario: Number(precioUnitario).toFixed(3),
-              mtoTotalItem: Number(precioUnitario * item.cantidad).toFixed(2),
-              mtoValorUnitario: Number(item.mtoValorUnitario).toFixed(3),
-              mtoValorVenta: Number(
-                item.mtoValorUnitario * item.cantidad,
-              ).toFixed(2),
+              igv: round(igvUnitario * item.cantidad),
+              igvUnitario: round(igvUnitario),
+              mtoBaseIgv: round(item.mtoValorUnitario * item.cantidad),
+              mtoPrecioUnitario: round(precioUnitario, DECIMAL),
+              mtoTotalItem: round(precioUnitario * item.cantidad),
+              mtoValorUnitario: round(item.mtoValorUnitario, DECIMAL),
+              mtoValorVenta: round(item.mtoValorUnitario * item.cantidad),
               porcentajeIgv: Number(item.porcentajeIgv),
               tipAfeIgv: item.tipAfeIgv.codigo,
-              totalImpuestos: Number(igvUnitario * item.cantidad).toFixed(2),
+              totalImpuestos: round(igvUnitario * item.cantidad),
               unidad: item.unidad.codigo,
             };
           }),

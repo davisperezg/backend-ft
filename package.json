@@ -68,7 +68,8 @@
     "rxjs": "^7.8.0",
     "typeorm": "^0.3.12",
     "uuid": "^9.0.1",
-    "xml-crypto": "^3.1.0"
+    "xml-crypto": "^3.1.0",
+    "xml2js": "^0.6.2"
   },
   "devDependencies": {
     "@nestjs/cli": "^9.2.0",
