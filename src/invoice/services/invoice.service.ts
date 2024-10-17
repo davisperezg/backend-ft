@@ -821,6 +821,7 @@ export class InvoiceService {
                 ? observaciones_sunat.join('|')
                 : null;
 
+            // ACEPTADA
             if (codigo_sunat === 0) {
               //Cambiamos el estado de enviado a aceptado
               await entityManager.update(
@@ -862,7 +863,9 @@ export class InvoiceService {
               this.invoiceGateway.server
                 .to(`room_invoices_emp-${empresa.id}_est-${establecimiento.id}`)
                 .emit('server::newInvoice', _invoice);
-            } else if (codigo_sunat >= 2000 && codigo_sunat <= 3999) {
+            }
+            // RECHAZADA
+            else if (codigo_sunat >= 2000 && codigo_sunat <= 3999) {
               //Cambiamos el estado de enviado a rechazado
               await entityManager.update(
                 InvoiceEntity,
@@ -903,8 +906,9 @@ export class InvoiceService {
               this.invoiceGateway.server
                 .to(`room_invoices_emp-${empresa.id}_est-${establecimiento.id}`)
                 .emit('server::newInvoice', _invoice);
-            } else {
-              //probablemente no entre aca code: 0100 a 1999
+            }
+            // CDR inválido - EXCEPCION 0100 a 1999
+            else {
               this.logger.warn(
                 `${usuario.username}: warning-${mensaje_sunat}.`,
               );

@@ -61,6 +61,7 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AnulacionesModule } from './anulaciones/anulaciones.module';
+import { CodesReturnSunatModule } from './codes-return-sunat/codes-return-sunat.module';
 
 @Module({
   imports: [
@@ -151,6 +152,7 @@ import { AnulacionesModule } from './anulaciones/anulaciones.module';
     ConfiguracionesModule,
     ConnectionModule,
     AnulacionesModule,
+    CodesReturnSunatModule,
   ],
   controllers: [AppController],
   providers: [
