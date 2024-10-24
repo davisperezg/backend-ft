@@ -67,6 +67,7 @@ import { uid } from 'rand-token';
 import { v4 as uuidv4 } from 'uuid';
 import { QueryTotales } from '../dto/query-totales';
 import { QuerySunat } from '../dto/query-res_sunat';
+import { CodesReturnSunatService } from 'src/codes-return-sunat/services/codes-return-sunat.service';
 
 @Injectable()
 export class InvoiceService {
@@ -97,6 +98,7 @@ export class InvoiceService {
     @InjectRepository(AnulacionEntity)
     private anulacionRepository: Repository<AnulacionEntity>,
     private readonly invoiceGateway: InvoiceGateway,
+    private codeReturnSunatService: CodesReturnSunatService,
   ) {
     dayjs.extend(utc);
     dayjs.extend(timezone);
@@ -721,10 +723,7 @@ export class InvoiceService {
             } catch (e) {
               //Si se presenta un error al enviar a sunat con codigos internos de misma sunat
               //se guardara el invoice con estado de operacion 1 para proximanente enviar a sunat
-              console.log(e.response, typeof e.response);
-              console.log('=====================================');
-              console.log(JSON.parse(JSON.stringify(e.response)));
-              console.log('=====================================');
+              console.log(e.response);
               const code = Number(e.response.code);
               console.log(code);
               if (
@@ -797,13 +796,11 @@ export class InvoiceService {
                 );
 
                 if (fs.existsSync(pathDirXML)) {
-                  console.log('Eliminamos xml');
-                  fs.unlinkSync(pathDirXML);
+                  //fs.unlinkSync(pathDirXML);
                 }
 
                 if (fs.existsSync(pathDirXMLSigned)) {
-                  console.log('Eliminamos xml firmado');
-                  fs.unlinkSync(pathDirXMLSigned);
+                  //fs.unlinkSync(pathDirXMLSigned);
                 }
 
                 // Errores al conectar con el servicio sunat o sunat respondera con eres del 1000-1999
@@ -989,13 +986,7 @@ export class InvoiceService {
         };
       });
     } catch (e) {
-      console.log(e);
-      throw new HttpException(
-        `Error al intentar crear CPE InvoiceService.create. ${
-          e.response ?? e.message
-        }`,
-        HttpStatus.BAD_REQUEST,
-      );
+      throw new HttpException(e.response ?? e.message, HttpStatus.BAD_REQUEST);
     }
 
     return result;
@@ -1621,7 +1612,7 @@ export class InvoiceService {
       };
     } catch (e) {
       throw new HttpException(
-        `Error al enviar a sunat: InvoiceService.enviarSunat - ${e.message}`,
+        `Error en InvoiceService.enviarSunat - ${e.message}`,
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -1675,9 +1666,9 @@ export class InvoiceService {
         {
           sendSunat: true,
           code: e.response.data?.error?.code,
-          message: `Error de comunicación con el servicio: sunat.enviarSunat - [${
-            e.response.data?.error?.code
-          }]:${e.response.data?.error?.message ?? 'Internal'}`,
+          message: `[${e.response.data?.error?.code}]:${
+            e.response.data?.error?.message ?? 'Internal'
+          }`,
         },
         HttpStatus.BAD_GATEWAY,
       );
