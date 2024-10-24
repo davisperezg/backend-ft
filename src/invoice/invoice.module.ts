@@ -24,6 +24,7 @@ import { AuthModule } from 'src/auth/auth.module';
 import { ResourcesUsersModule } from 'src/resources-users/resources-users.module';
 import { InvoiceDetailsEntity } from './entities/invoice_details.entity';
 import { AnulacionEntity } from 'src/anulaciones/entities/anulacion.entity';
+import { CodesReturnSunatModule } from 'src/codes-return-sunat/codes-return-sunat.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { AnulacionEntity } from 'src/anulaciones/entities/anulacion.entity';
     ConnectionModule,
     AuthModule,
     ResourcesUsersModule,
+    CodesReturnSunatModule,
   ],
   controllers: [InvoiceController],
   providers: [InvoiceService, InvoiceGateway, JwtStrategy],
