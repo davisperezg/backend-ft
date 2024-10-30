@@ -656,9 +656,27 @@ export class EmpresaService {
       );
     }
 
+    //Al actualizar el estado de la empresa tambien debe actualizar el estado del establecimiento 0000
+    const establecimientos = await this.establecimientoRepository.find({
+      where: {
+        empresa: {
+          id: Equal(findEmpresa.id),
+        },
+      },
+    });
+
     if (tokenEntityFull.role.name === ROL_PRINCIPAL) {
       try {
         await this.empresaRepository.update(idEmpresa, { estado: false });
+
+        // Desactivamos establecimientos
+        for (let index = 0; index < establecimientos.length; index++) {
+          const establecimiento = establecimientos[index];
+          await this.establecimientoRepository.update(establecimiento.id, {
+            estado: false,
+          });
+        }
+
         estado = true;
       } catch (e) {
         throw new HttpException(
@@ -678,6 +696,15 @@ export class EmpresaService {
         ) {
           try {
             await this.empresaRepository.update(idEmpresa, { estado: false });
+
+            // Desactivamos establecimientos
+            for (let index = 0; index < establecimientos.length; index++) {
+              const establecimiento = establecimientos[index];
+              await this.establecimientoRepository.update(establecimiento.id, {
+                estado: false,
+              });
+            }
+
             estado = true;
           } catch (e) {
             throw new HttpException(
@@ -719,9 +746,27 @@ export class EmpresaService {
       );
     }
 
+    //Al actualizar el estado de la empresa tambien debe actualizar el estado del establecimiento 0000
+    const establecimientos = await this.establecimientoRepository.find({
+      where: {
+        empresa: {
+          id: Equal(findEmpresa.id),
+        },
+      },
+    });
+
     if (tokenEntityFull.role.name === ROL_PRINCIPAL) {
       try {
         await this.empresaRepository.update(idEmpresa, { estado: true });
+
+        // Activamos establecimientos
+        for (let index = 0; index < establecimientos.length; index++) {
+          const establecimiento = establecimientos[index];
+          await this.establecimientoRepository.update(establecimiento.id, {
+            estado: true,
+          });
+        }
+
         estado = true;
       } catch (e) {
         throw new HttpException(
@@ -741,6 +786,15 @@ export class EmpresaService {
         ) {
           try {
             await this.empresaRepository.update(idEmpresa, { estado: true });
+
+            // Activamos establecimientos
+            for (let index = 0; index < establecimientos.length; index++) {
+              const establecimiento = establecimientos[index];
+              await this.establecimientoRepository.update(establecimiento.id, {
+                estado: true,
+              });
+            }
+
             estado = true;
           } catch (e) {
             throw new HttpException(
