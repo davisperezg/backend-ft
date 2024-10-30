@@ -6,7 +6,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Repository, Equal } from 'typeorm';
 import { EmpresaEntity } from '../entities/empresa.entity';
 import * as fs from 'fs';
 import path from 'path';
@@ -296,6 +296,7 @@ export class EmpresaService {
             body.files.certificado,
           );
 
+          //Preparamos merge para actualizar empresa
           this.empresaRepository.merge(empresa, {
             ...body.data,
             logo: body.files?.logo
@@ -321,8 +322,38 @@ export class EmpresaService {
                 ? body.data.establecimientos
                 : empresa.establecimientos,
           });
-
           const newEmpresa = await entityManager.save(EmpresaEntity, empresa);
+
+          //Al actualizar los datos de la empresa tambien debe actualizar los datos del establecimiento 0000
+          const establecimientoDefault =
+            await this.establecimientoRepository.findOne({
+              where: {
+                empresa: {
+                  id: Equal(newEmpresa.id),
+                },
+                codigo: '0000',
+              },
+            });
+          // Obtener el texto después del último guion
+          const lastPart = newEmpresa.domicilio_fiscal.split('-').pop().trim();
+          // Dividir la última parte en tres palabras
+          const [distrito, provincia, departamento] = lastPart.split(' ');
+          await entityManager.update(
+            EstablecimientoEntity,
+            {
+              id: Equal(establecimientoDefault.id),
+            },
+            {
+              ...establecimientoDefault,
+              denominacion: newEmpresa.razon_social,
+              departamento: departamento,
+              provincia: provincia,
+              distrito: distrito,
+              direccion: newEmpresa.domicilio_fiscal,
+              ubigeo: newEmpresa.ubigeo,
+              logo: newEmpresa.logo,
+            },
+          );
 
           /**
            * Al modificar el logo principal se actualizara el directorio principal,

@@ -35,4 +35,16 @@ export class AuthController {
     );
     return res.status(HttpStatus.OK).json(apiExt);
   }
+
+  @Get('/ext/sunat/ruc/:nroRuc')
+  async API_SUNAT_findRuc(@Res() res, @Param('nroRuc') nroRuc: string) {
+    const apiExt = await this.authService.findRuc(nroRuc);
+    return res.status(HttpStatus.OK).json(apiExt);
+  }
+
+  @Get('/ext/sunat/dni/:nroDni')
+  async API_SUNAT_findDni(@Res() res, @Param('nroDni') nroDni: string) {
+    const apiExt = await this.authService.findDni(nroDni);
+    return res.status(HttpStatus.OK).json(apiExt);
+  }
 }

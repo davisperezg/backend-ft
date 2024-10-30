@@ -140,6 +140,56 @@ export class AuthService {
     }
   }
 
+  async findRuc(nroRuc: string) {
+    try {
+      const result = await axios.get(
+        `https://ww1.sunat.gob.pe/ol-ti-itfisdenreg/itfisdenreg.htm?accion=obtenerDatosRuc&nroRuc=${nroRuc}`,
+        {
+          headers: {
+            Accept: 'application/json',
+          },
+        },
+      );
+
+      console.log(result);
+
+      return result.data;
+    } catch (e) {
+      console.log(e);
+      if (e.message) throw new HttpException(e.message, HttpStatus.NOT_FOUND);
+
+      throw new HttpException(
+        'Ha ocurrido un error al intentar buscar a la entidad. Verifique la conexión a internet o comuniquese con el administrador del sistema e intente ingresar la información de la entidad manualmente.',
+        HttpStatus.FOUND,
+      );
+    }
+  }
+
+  async findDni(nroDni: string) {
+    try {
+      const result = await axios.get(
+        `https://ww1.sunat.gob.pe/ol-ti-itfisdenreg/itfisdenreg.htm?accion=obtenerDatosDni&numDocumento=${nroDni}`,
+        {
+          headers: {
+            Accept: 'application/json',
+          },
+        },
+      );
+
+      console.log(result);
+
+      return result.data;
+    } catch (e) {
+      console.log(e);
+      if (e.message) throw new HttpException(e.message, HttpStatus.NOT_FOUND);
+
+      throw new HttpException(
+        'Ha ocurrido un error al intentar buscar a la entidad. Verifique la conexión a internet o comuniquese con el administrador del sistema e intente ingresar la información de la entidad manualmente.',
+        HttpStatus.FOUND,
+      );
+    }
+  }
+
   verifyJwt(jwt: string): Promise<any> {
     return this.jwt.verifyAsync(jwt);
   }
