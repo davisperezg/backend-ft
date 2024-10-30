@@ -68,7 +68,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { QueryTotales } from '../dto/query-totales';
 import { QuerySunat } from '../dto/query-res_sunat';
 import { CodesReturnSunatService } from 'src/codes-return-sunat/services/codes-return-sunat.service';
-
+import os from 'os';
 @Injectable()
 export class InvoiceService {
   private logger = new Logger('InvoiceService');
@@ -1182,6 +1182,201 @@ export class InvoiceService {
     }
   }
 
+  validXsdUblInvoice2_1(rutaXML: string) {
+    const xsd = path.join(
+      process.cwd(),
+      'uploads/utils/sunat_archivos/sfs/VALI/commons/xsd/2.1/maindoc/UBL-Invoice-2.1.xsd',
+    );
+
+    try {
+      const command = `xmllint --schema ${xsd} ${rutaXML} --noout`;
+      execSync(command, { encoding: 'utf-8', stdio: 'pipe' });
+
+      return {
+        isValid: true,
+        errors: [],
+      };
+    } catch (e) {
+      // Captura y procesa el error
+      const errorMessage = String(e.stderr); // Mensaje de error
+      const errorLines = errorMessage.split('\n').filter(Boolean); // Divide en líneas no vacías
+
+      // Crear el array de errores
+      const errorArray = errorLines.map((line) => {
+        if (line.includes('fails to validate')) {
+          // Extrae el nombre del archivo con expresión regular
+          const fileName = line.match(/([^\\\/]+\.xml)/)?.[0];
+          return fileName ? `${fileName} fails to validate` : line;
+        }
+
+        return line;
+      });
+
+      //console.log(JSON.stringify({ errors: errorJSON }, null, 2));
+
+      return {
+        isValid: false,
+        errors: errorArray,
+      };
+    }
+  }
+
+  async validXslExprRegFactura2_0_1(
+    rutaXML: string,
+    nombreXML: string,
+  ): Promise<{
+    isValid: boolean;
+    errors: {
+      code: string;
+      message: string;
+      type: string;
+    }[];
+  }> {
+    // Definir rutas de archivos
+    const rutaSaxon = path.join(
+      process.cwd(),
+      'uploads/utils/saxon/saxon-he-12.4.jar',
+    );
+    const rutaXSL = path.join(
+      process.cwd(),
+      'uploads/utils/sunat_archivos/sfs/VALI/commons/xsl/validation/2.X/ValidaExprRegFactura-2.0.1.xsl',
+    );
+
+    // Construir el comando
+    const command = `java -jar ${rutaSaxon} -s:${rutaXML} -xsl:${rutaXSL} nombreArchivoEnviado=${nombreXML}`;
+    const result = {
+      isValid: true,
+      errors: [],
+    };
+
+    // Directorio donde se guardan los archivos Excel
+    const excelDirectoryMigrations = path.join(
+      process.cwd(),
+      `uploads/utils/migraciones`,
+    );
+
+    //Buscar archivo excel mas reciente
+    const latestFileMigrations =
+      this.codeReturnSunatService.findLatestExcelFile(excelDirectoryMigrations);
+
+    const codesMigrations = this.codeReturnSunatService.getCodesMigrations(
+      latestFileMigrations,
+      true,
+    );
+
+    // Convertir el array de strings en un array de objetos
+    const objCodesMigrations = codesMigrations.map((item) => {
+      const [code, migra] = item.split(':');
+      return { code, migra };
+    });
+
+    let typeReturn = '';
+
+    return new Promise((resolve) => {
+      exec(command + ' 2>&1', (error, stdout, stderr) => {
+        const output = stdout + stderr;
+        // Filtrar y procesar la salida
+        output.split('\n').forEach((line) => {
+          if (
+            line.includes('Error at xsl:message') ||
+            line.includes('Processing terminated by xsl:message')
+          ) {
+            return; // Ignorar estas líneas
+          }
+          if (line.toLowerCase().includes('error')) {
+            // Buscar el código después de "errorCode"
+            const codeMatch = line.match(/errorCode\s*(\d+)/);
+
+            const validCodeWithMigrations = objCodesMigrations.find(
+              (item) => item.code === codeMatch[1],
+            );
+
+            const code = codeMatch
+              ? validCodeWithMigrations
+                ? validCodeWithMigrations.migra
+                : codeMatch[1]
+              : '---';
+
+            // Del 0100 al 999 Excepciones propias de SUNAT
+            if (Number(code) >= 100 && Number(code) <= 999) {
+              typeReturn = 'ERROR_EXCEPCION';
+            }
+            // Del 1000 al 1999 Excepciones (formatos y estructura)propias del contribuyente
+            else if (Number(code) >= 1000 && Number(code) <= 1999) {
+              typeReturn = 'ERROR_CONTRIBUYENTE';
+            }
+            // Del 2000 al 3999 Errores que generan rechazo
+            else if (Number(code) >= 2000 && Number(code) <= 3999) {
+              typeReturn = 'RECHAZO';
+            }
+            // Del 4000 en adelante Observaciones
+            else if (Number(code) >= 4000) {
+              typeReturn = 'OBSERV';
+            } else {
+              typeReturn = 'INTERNAL_ERROR';
+            }
+
+            result.errors.push({
+              code,
+              message: line,
+              type: typeReturn,
+            });
+          }
+        });
+
+        if (result.errors.length > 0) {
+          const allErrorsAreObservations = result.errors.every(
+            (error) => error.type === 'OBSERV',
+          );
+          result.isValid = allErrorsAreObservations;
+        }
+
+        // Devolver el resultado como JSON
+        resolve(result);
+      });
+    });
+
+    // try {
+    //   const output = execSync(command + ' 2>&1', {
+    //     encoding: 'utf-8',
+    //     stdio: 'pipe',
+    //   });
+    //   console.log('output', output);
+    //   exec
+    //   result.type = 'OBSERV';
+    //   // Filtrar y procesar la salida
+    //   output.split('\n').forEach((line) => {
+    //     if (line.toLowerCase().includes('error')) {
+    //       console.log("line", line)
+    //       result.errors.push(line);
+    //     }
+    //   });
+
+    //   if (result.errors.length > 0) {
+    //     result.isValid = false;
+    //   }
+    // } catch (e) {
+    //   console.error('Error en ejecución validXslExprRegFactura2_0_1:', e);
+    //   result.isValid = false;
+    //   result.type = 'EXCEPCION';
+    //   e.output.split('\n').filter(Boolean).forEach((line) => {
+    //     if (
+    //       line.includes('Error at xsl:message') ||
+    //       line.includes('Processing terminated by xsl:message')
+    //     ) {
+    //       return; // Ignorar estas líneas
+    //     }
+
+    //     if (line.toLowerCase().includes('error')) {
+    //       result.errors.push(line);
+    //     }
+    //   });
+    // }
+
+    // // Devolver el resultado como JSON
+    // return result;
+  }
+
   private async generarXML(invoice: InvoiceEntity, totales: QueryTotales) {
     //Si el producto tiene id validamos producto
 
@@ -1418,7 +1613,7 @@ export class InvoiceService {
 
         return acc;
       }, []),
-      MtoOperGravadas: invoice.mto_operaciones_gravadas,
+      MtoOperGravadas: invoice.mto_operaciones_gravadas * 20,
       MtoIGV: invoice.mto_igv,
       TotalImpuestos: totales.totalImpuestos,
       ValorVenta: totales.valorVenta,
@@ -1497,13 +1692,13 @@ export class InvoiceService {
       const { xml: xmlBuffer, fileName, fileNameExtension } = res.data;
 
       //Guardamos el XML en el directorio del cliente
-      this.guardarArchivo(
-        invoice.empresa.ruc,
-        `${invoice.establecimiento.codigo}/${invoice.tipo_doc.tipo_documento}/XML`,
-        fileNameExtension,
-        xmlBuffer,
-        true,
-      );
+      // const rutaxml = this.guardarArchivo(
+      //   invoice.empresa.ruc,
+      //   `${invoice.establecimiento.codigo}/${invoice.tipo_doc.tipo_documento}/XML`,
+      //   fileNameExtension,
+      //   xmlBuffer,
+      //   true,
+      // );
 
       return {
         xmlBuffer,
@@ -1572,6 +1767,7 @@ export class InvoiceService {
     invoice: InvoiceEntity,
     totales: QueryTotales,
   ): Promise<QuerySunat> {
+    let tempXmlPath = '';
     try {
       //GENERAR XML
       const xmlGenerado = await this.generarXML(invoice, totales);
@@ -1588,6 +1784,35 @@ export class InvoiceService {
         fileNameExtension,
         invoice,
       );
+
+      // Guardamos el XML Firmado en un archivo temporal
+      tempXmlPath = path.join(os.tmpdir(), fileNameExtension);
+      fs.writeFileSync(tempXmlPath, xmlSigned);
+
+      // Validación de Esquema (XSD)
+      const resultXSD = this.validXsdUblInvoice2_1(tempXmlPath);
+
+      if (!resultXSD.isValid) {
+        throw new HttpException(
+          JSON.stringify(resultXSD.errors, null, 2),
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Validación de contenido (XSL)
+      const resultXSL = await this.validXslExprRegFactura2_0_1(
+        tempXmlPath,
+        fileNameExtension,
+      );
+
+      console.log(resultXSL);
+      if (!resultXSL.isValid) {
+        const xer = resultXSL.errors.filter((err) => err.type !== 'OBSERV');
+        throw new HttpException(
+          JSON.stringify(xer, null, 2),
+          HttpStatus.BAD_REQUEST,
+        );
+      }
 
       //ENVIAR SUNAT
       const urlService = invoice.empresa.web_service;
@@ -1615,6 +1840,9 @@ export class InvoiceService {
         `Error en InvoiceService.enviarSunat - ${e.message}`,
         HttpStatus.BAD_REQUEST,
       );
+    } finally {
+      // Limpia el archivo temporal después de la validación
+      //fs.unlinkSync(tempXmlPath);
     }
   }
 
