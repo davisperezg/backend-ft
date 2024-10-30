@@ -151,11 +151,8 @@ export class AuthService {
         },
       );
 
-      console.log(result);
-
       return result.data;
     } catch (e) {
-      console.log(e);
       if (e.message) throw new HttpException(e.message, HttpStatus.NOT_FOUND);
 
       throw new HttpException(
@@ -176,11 +173,8 @@ export class AuthService {
         },
       );
 
-      console.log(result);
-
       return result.data;
     } catch (e) {
-      console.log(e);
       if (e.message) throw new HttpException(e.message, HttpStatus.NOT_FOUND);
 
       throw new HttpException(

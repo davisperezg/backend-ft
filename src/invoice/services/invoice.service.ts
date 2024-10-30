@@ -1613,7 +1613,7 @@ export class InvoiceService {
 
         return acc;
       }, []),
-      MtoOperGravadas: invoice.mto_operaciones_gravadas * 20,
+      MtoOperGravadas: invoice.mto_operaciones_gravadas,
       MtoIGV: invoice.mto_igv,
       TotalImpuestos: totales.totalImpuestos,
       ValorVenta: totales.valorVenta,
@@ -1691,15 +1691,6 @@ export class InvoiceService {
 
       const { xml: xmlBuffer, fileName, fileNameExtension } = res.data;
 
-      //Guardamos el XML en el directorio del cliente
-      // const rutaxml = this.guardarArchivo(
-      //   invoice.empresa.ruc,
-      //   `${invoice.establecimiento.codigo}/${invoice.tipo_doc.tipo_documento}/XML`,
-      //   fileNameExtension,
-      //   xmlBuffer,
-      //   true,
-      // );
-
       return {
         xmlBuffer,
         fileName,
@@ -1735,15 +1726,6 @@ export class InvoiceService {
       });
 
       const xmlSignedBuffer = res.data;
-
-      //Guardamos el XML Firmado en el directorio del cliente
-      this.guardarArchivo(
-        invoice.empresa.ruc,
-        `${invoice.establecimiento.codigo}/${invoice.tipo_doc.tipo_documento}/FIRMA`,
-        fileNameExtension,
-        xmlSignedBuffer,
-        true,
-      );
 
       return xmlSignedBuffer;
     } catch (e) {
@@ -1807,12 +1789,32 @@ export class InvoiceService {
 
       console.log(resultXSL);
       if (!resultXSL.isValid) {
-        const xer = resultXSL.errors.filter((err) => err.type !== 'OBSERV');
+        const nonObservationErrors = resultXSL.errors.filter(
+          (err) => err.type !== 'OBSERV',
+        );
         throw new HttpException(
-          JSON.stringify(xer, null, 2),
+          JSON.stringify(nonObservationErrors, null, 2),
           HttpStatus.BAD_REQUEST,
         );
       }
+
+      //Guardamos el XML en el directorio del cliente
+      this.guardarArchivo(
+        invoice.empresa.ruc,
+        `${invoice.establecimiento.codigo}/${invoice.tipo_doc.tipo_documento}/XML`,
+        fileNameExtension,
+        xmlBuffer,
+        true,
+      );
+
+      //Guardamos el XML Firmado en el directorio del cliente
+      this.guardarArchivo(
+        invoice.empresa.ruc,
+        `${invoice.establecimiento.codigo}/${invoice.tipo_doc.tipo_documento}/FIRMA`,
+        fileNameExtension,
+        xmlSigned,
+        true,
+      );
 
       //ENVIAR SUNAT
       const urlService = invoice.empresa.web_service;
@@ -1842,7 +1844,7 @@ export class InvoiceService {
       );
     } finally {
       // Limpia el archivo temporal después de la validación
-      //fs.unlinkSync(tempXmlPath);
+      fs.unlinkSync(tempXmlPath);
     }
   }
 
