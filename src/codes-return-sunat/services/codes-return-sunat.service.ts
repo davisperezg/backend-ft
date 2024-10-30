@@ -257,6 +257,21 @@ export class CodesReturnSunatService implements OnApplicationBootstrap {
               codigo_retorno: obs.codigo_retorno,
             });
           }
+
+          //Filtramos solo los codigos sin observaciones
+          const listadoNoObsoleto = listCodesReturnSunat.filter(
+            (existente) =>
+              codesMigrations.includes(existente.codigo_retorno) &&
+              existente.tipo_retorno !== 'OBSERV',
+          );
+
+          this.logger.warn(
+            `Lista que figura en obsoleto pero no es considerado para migracion: ${
+              listadoNoObsoleto.length
+            }: ${JSON.stringify(
+              listadoNoObsoleto.map((item) => item.codigo_retorno),
+            )}`,
+          );
         }
       }
     } else {
@@ -273,7 +288,7 @@ export class CodesReturnSunatService implements OnApplicationBootstrap {
   }
 
   // Función para buscar el archivo más reciente con el patrón de nombre
-  private findLatestExcelFile(directory: string): string | null {
+  findLatestExcelFile(directory: string): string | null {
     const files = fs
       .readdirSync(directory)
       .filter((file) => path.extname(file) === '.xlsx');
@@ -294,7 +309,10 @@ export class CodesReturnSunatService implements OnApplicationBootstrap {
     return path.join(directory, sortedFiles[0]);
   }
 
-  private getCodesMigrations(latestFileMigrations: string): string[] {
+  getCodesMigrations(
+    latestFileMigrations: string,
+    formatKey_Value?: boolean,
+  ): string[] {
     const fileBufferMigrations = fs.readFileSync(latestFileMigrations);
     const workbookMigrations = XLSX.read(fileBufferMigrations, {
       type: 'buffer',
@@ -319,9 +337,19 @@ export class CodesReturnSunatService implements OnApplicationBootstrap {
       worksheetMigrationsNotaDebito,
     ].map((worksheet) => XLSX.utils.sheet_to_json(worksheet));
 
-    const combinedArray = jsonDataMigrations.flatMap((data) =>
-      data.map((item) => Object.values(item)[1]),
-    );
+    let combinedArray: string[] = [];
+
+    if (formatKey_Value) {
+      combinedArray = jsonDataMigrations.flatMap((data) =>
+        data.map((item) => {
+          return `${Object.values(item)[1]}:${Object.values(item)[3]}`;
+        }),
+      );
+    } else {
+      combinedArray = jsonDataMigrations.flatMap((data) =>
+        data.map((item) => Object.values(item)[1]),
+      );
+    }
 
     // Crear un Set para eliminar duplicados y convertirlo de nuevo en un array
     return [...new Set(combinedArray)];
