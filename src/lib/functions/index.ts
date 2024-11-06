@@ -165,7 +165,7 @@ export const numeroALetras = (num: number) => {
 
     const strMillones = Seccion(num, divisor, 'UN MILLON DE', 'MILLONES DE');
     const strMiles = Miles(resto);
-    console.log('resto', resto, strMillones, strMiles);
+
     if (strMillones == '') return strMiles;
     return strMillones + ' ' + strMiles;
   }; //Millones()

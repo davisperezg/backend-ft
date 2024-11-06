@@ -334,7 +334,7 @@ export class InvoiceService {
     let result: {
       invoice: InvoiceEntity;
       fileName: string;
-      codigo_respuesta_sunat: null | number;
+      codigo_respuesta_sunat: null | string;
       documento: string;
       serie: string;
       total: string;
@@ -519,7 +519,7 @@ export class InvoiceService {
         //Objeto invoice creado
         let invoiceCreated = this.invoiceRepository.create(newInvoice);
 
-        let codigo_respuesta_sunat = null;
+        let codigo_respuesta_sunat: string | null = null;
         let _invoice = null;
         let fileName = `${empresa.ruc}-${invoiceCreated.tipo_doc.codigo}-${invoiceCreated.serie}-${invoiceCreated.correlativo}`;
 
@@ -716,102 +716,14 @@ export class InvoiceService {
             //Enviamos a sunat
             let sunat: QuerySunat = null;
 
-            try {
-              sunat = await this.enviarSunat(invoiceCreated, totales);
-              const { fileName: fileNameAux } = sunat;
-              fileName = fileNameAux;
-            } catch (e) {
-              //Si se presenta un error al enviar a sunat con codigos internos de misma sunat
-              //se guardara el invoice con estado de operacion 1 para proximanente enviar a sunat
-              console.log(e.response);
-              const code = Number(e.response.code);
-              console.log(code);
-              if (
-                (code >= 100 && code <= 999) ||
-                e.response.code === 'HTTP' ||
-                e.response.code === 'http'
-              ) {
-                const message = e.response.message;
-
-                //Notificamos al servidor que estamos recibiendo intermitencia de sunat
-                this.logger.warn(
-                  `Hoy, ${dayjs()}, se presenta intermitencia en los servidores de la SUNAT - [${code}]:${message}`,
-                );
-
-                //Notificamos al servidor que estamos recibiendo intermitencia del usuario por parte de sunat
-                this.logger.warn(
-                  `${usuario.username}:${fileName} SUNAT tiene problemas el archivo sera enviado pronto...`,
-                );
-
-                this.invoiceGateway.server
-                  .to(
-                    `room_invoices_emp-${empresa.id}_est-${establecimiento.id}`,
-                  )
-                  .emit('server::notifyInvoice', {
-                    type: 'sunat.success',
-                    correlativo: invoiceCreated.correlativo,
-                    time: dayjs(new Date()).format('DD-MM-YYYY·HH:mm:ss'),
-                    message: `Comprobante ${fileName} ha sido creado.`,
-                  });
-
-                //Actualizamos serie
-                await entityManager.save(SeriesEntity, {
-                  ...serie,
-                  numero: String(Number(serie.numero) + 1),
-                });
-
-                //Creamos el pdf formato A4
-                await this.getPdf(
-                  invoiceCreated.empresa.ruc,
-                  `${establecimiento.codigo}/${tipoDocumento.tipo_documento}/PDF/A4`,
-                  fileName,
-                  docDefinitionA4,
-                );
-
-                return {
-                  invoice: invoiceSimple,
-                  fileName: fileName,
-                  codigo_respuesta_sunat: code,
-                  documento: `${tipoDocumento.tipo_documento.toUpperCase()} ELECTRÓNICA`,
-                  serie: invoiceCreated.serie,
-                  correlativo: existInvoice
-                    ? String(Number(serie.numero))
-                    : String(Number(serie.numero) + 1),
-                  correlativo_registrado: invoiceCreated.correlativo,
-                  total: `${tipoMoneda.simbolo} ${totales.mtoImpVenta}`,
-                  xml: invoiceSimple.xml,
-                  cdr: invoiceSimple.cdr,
-                  pdfA4: invoiceSimple.pdfA4,
-                };
-              } else {
-                //Rollback a los documentos xml ya creados y guardados
-                const pathDirXML = path.join(
-                  process.cwd(),
-                  `uploads/files/${invoiceCreated.empresa.ruc}/${invoiceCreated.establecimiento.codigo}/${invoiceCreated.tipo_doc.tipo_documento}/XML/${fileName}.xml`,
-                );
-
-                const pathDirXMLSigned = path.join(
-                  process.cwd(),
-                  `uploads/files/${invoiceCreated.empresa.ruc}/${invoiceCreated.establecimiento.codigo}/${invoiceCreated.tipo_doc.tipo_documento}/FIRMA/${fileName}.xml`,
-                );
-
-                if (fs.existsSync(pathDirXML)) {
-                  //fs.unlinkSync(pathDirXML);
-                }
-
-                if (fs.existsSync(pathDirXMLSigned)) {
-                  //fs.unlinkSync(pathDirXMLSigned);
-                }
-
-                // Errores al conectar con el servicio sunat o sunat respondera con eres del 1000-1999
-                throw new HttpException(e.message, HttpStatus.BAD_REQUEST);
-              }
-            }
+            sunat = await this.enviarSunat(invoiceCreated, totales);
+            const { fileName: fileNameAux } = sunat;
+            fileName = fileNameAux;
 
             //Si hay conexion y repuesta de sunat
             const { codigo_sunat, mensaje_sunat, observaciones_sunat } = sunat;
 
-            codigo_respuesta_sunat = codigo_sunat;
+            codigo_respuesta_sunat = codigo_sunat.toString();
 
             const observaciones_sunat_modified =
               observaciones_sunat.length > 0
@@ -904,20 +816,42 @@ export class InvoiceService {
                 .to(`room_invoices_emp-${empresa.id}_est-${establecimiento.id}`)
                 .emit('server::newInvoice', _invoice);
             }
-            // CDR inválido - EXCEPCION 0100 a 1999
+            // CDR inválido - EXCEPCION 0100 a 1999 corregir y volver a enviar cpe
             else {
+              await entityManager.update(
+                InvoiceEntity,
+                { id: invoiceCreated.id },
+                {
+                  estado_operacion: 1,
+                  respuesta_sunat_codigo: codigo_respuesta_sunat,
+                  respuesta_sunat_descripcion: mensaje_sunat,
+                  observaciones_sunat: observaciones_sunat_modified,
+                },
+              );
+
+              _invoice = await this.formatListInvoices(
+                {
+                  ...invoiceCreated,
+                  estado_operacion: 1,
+                  respuesta_sunat_codigo: codigo_respuesta_sunat,
+                  respuesta_sunat_descripcion: mensaje_sunat,
+                  observaciones_sunat: observaciones_sunat_modified,
+                },
+                null,
+              );
+
               this.logger.warn(
                 `${usuario.username}: warning-${mensaje_sunat}.`,
               );
 
-              this.invoiceGateway.server
-                .to(`room_invoices_emp-${empresa.id}_est-${establecimiento.id}`)
-                .emit('server::notifyInvoice', {
-                  type: 'sunat.warn',
-                  correlativo: invoiceCreated.correlativo,
-                  time: dayjs(new Date()).format('DD-MM-YYYY·HH:mm:ss'),
-                  message: `El CPE#${invoiceCreated.correlativo}  -  Warning:${mensaje_sunat}.`,
-                });
+              // this.invoiceGateway.server
+              //   .to(`room_invoices_emp-${empresa.id}_est-${establecimiento.id}`)
+              //   .emit('server::notifyInvoice', {
+              //     type: 'sunat.warn',
+              //     correlativo: invoiceCreated.correlativo,
+              //     time: dayjs(new Date()).format('DD-MM-YYYY·HH:mm:ss'),
+              //     message: `El CPE#${invoiceCreated.correlativo}  -  Warning:${mensaje_sunat}.`,
+              //   });
             }
           } else {
             //Si no envia a sunat directamente
@@ -928,6 +862,8 @@ export class InvoiceService {
               },
               null,
             );
+
+            await this.validarInvoice(invoiceCreated, totales);
 
             //Notificamos al servidor que se ha creado un CPE pero no se ha enviado a sunat
             this.logger.log(
@@ -1745,6 +1681,56 @@ export class InvoiceService {
     }
   }
 
+  async validarInvoice(invoice: InvoiceEntity, totales: QueryTotales) {
+    let tempXmlPath = '';
+
+    try {
+      const xmlGenerado = await this.generarXML(invoice, totales);
+      const { xmlBuffer, fileNameExtension } = xmlGenerado;
+      tempXmlPath = path.join(os.tmpdir(), fileNameExtension);
+      fs.writeFileSync(tempXmlPath, xmlBuffer);
+
+      // Validación de Esquema (XSD)
+      const resultXSD = this.validXsdUblInvoice2_1(tempXmlPath);
+      if (!resultXSD.isValid) {
+        const extensionContentErrors = resultXSD.errors.filter(
+          (error) =>
+            !error.includes('ExtensionContent') &&
+            !error.includes('fails to validate'),
+        );
+        if (extensionContentErrors.length > 0) {
+          throw new HttpException(
+            JSON.stringify(extensionContentErrors, null, 2),
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+      }
+
+      // Validación de contenido (XSL)
+      const resultXSL = await this.validXslExprRegFactura2_0_1(
+        tempXmlPath,
+        fileNameExtension,
+      );
+      if (!resultXSL.isValid) {
+        const nonObservationErrors = resultXSL.errors.filter(
+          (err) => err.type !== 'OBSERV',
+        );
+        throw new HttpException(
+          JSON.stringify(nonObservationErrors, null, 2),
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    } catch (e) {
+      throw new HttpException(
+        `Error en InvoiceService.validarInvoice - ${e.message}`,
+        HttpStatus.BAD_REQUEST,
+      );
+    } finally {
+      // Limpia el archivo temporal después de la validación
+      fs.unlinkSync(tempXmlPath);
+    }
+  }
+
   async enviarSunat(
     invoice: InvoiceEntity,
     totales: QueryTotales,
@@ -1787,7 +1773,6 @@ export class InvoiceService {
         fileNameExtension,
       );
 
-      console.log(resultXSL);
       if (!resultXSL.isValid) {
         const nonObservationErrors = resultXSL.errors.filter(
           (err) => err.type !== 'OBSERV',

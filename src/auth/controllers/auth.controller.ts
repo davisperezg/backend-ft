@@ -1,7 +1,15 @@
-import { Body, Controller, HttpStatus, Post, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpStatus,
+  Post,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { Get } from '@nestjs/common/decorators';
 import { Param } from '@nestjs/common/decorators/http/route-params.decorator';
 import { AuthService } from '../services/auth.service';
+import { AntiSpamGuard } from 'src/lib/guards/anti-spam.guard';
 
 @Controller('api/v1/auth')
 export class AuthController {
@@ -24,6 +32,7 @@ export class AuthController {
   }
 
   @Get('/ext/:tipDocumento/:nroDocumento')
+  @UseGuards(AntiSpamGuard)
   async API_findPersona(
     @Res() res,
     @Param('tipDocumento') tipDocumento: string,
@@ -37,12 +46,14 @@ export class AuthController {
   }
 
   @Get('/ext/sunat/ruc/:nroRuc')
+  @UseGuards(AntiSpamGuard)
   async API_SUNAT_findRuc(@Res() res, @Param('nroRuc') nroRuc: string) {
     const apiExt = await this.authService.findRuc(nroRuc);
     return res.status(HttpStatus.OK).json(apiExt);
   }
 
   @Get('/ext/sunat/dni/:nroDni')
+  @UseGuards(AntiSpamGuard)
   async API_SUNAT_findDni(@Res() res, @Param('nroDni') nroDni: string) {
     const apiExt = await this.authService.findDni(nroDni);
     return res.status(HttpStatus.OK).json(apiExt);
