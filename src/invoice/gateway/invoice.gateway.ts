@@ -79,7 +79,7 @@ export class InvoiceGateway
 
   //Se ejecutara esta tarea todos los dias a las 1am -> enviara todos cpes pendientes a sunat
   //@Cron('0 0,20,40,59 1 * * *')
-  @Cron('30 * * * * *')
+  @Cron('* * * * *')
   async handleCron() {
     this.logger.debug(
       'INICIANDO ENVIO DE COMPROBANTES A SUNAT MEDIANTE CRON...',
@@ -1164,6 +1164,17 @@ export class InvoiceGateway
       this.invoiceInProcess = false;
       release();
 
+      const crs = Number(codigo_respuesta_sunat);
+      const estadoSunat = codigo_respuesta_sunat //si envia sunat
+        ? crs === 0 //aceptada
+          ? 'ACEPTADA'
+          : crs >= 2000 && crs <= 3999 //rechazada
+          ? 'RECHAZADA'
+          : crs >= 100 && crs <= 1999 //excepcion
+          ? 'EXCEPCION'
+          : 'ERROR' //obs u otro codigo
+        : null; //devuelve nul si es borrador
+
       //Notificamos el nuevo nro de serie al cliente
       client.emit('server::getIdInvoice', {
         invoice: invoice,
@@ -1183,7 +1194,7 @@ export class InvoiceGateway
         ),
         correlativo_registradoConCeros: correlativo_registrado,
         enviada_sunat: invoice.estado_operacion,
-        aceptada_sunat: codigo_respuesta_sunat,
+        aceptada_sunat: estadoSunat,
         codigo_sunat: invoice.respuesta_sunat_codigo,
         mensaje_sunat: invoice.respuesta_sunat_descripcion,
         otros_sunat: invoice.observaciones_sunat,
@@ -1191,22 +1202,6 @@ export class InvoiceGateway
         cdr: cdr,
         pdfA4: pdfA4,
       });
-
-      //Si el codigo de respuesta es 0 quiere decir que es aceptado por sunat con exito
-      if (codigo_respuesta_sunat === 0) {
-        client.emit('server::toast', '');
-      }
-      //Estos errones generan rechazo de sunat, los cpe se registraran pero notificaremos al cliente que se rechazo
-      //lo cual en un comprobante invalido
-      else if (
-        codigo_respuesta_sunat >= 2000 &&
-        codigo_respuesta_sunat <= 3999
-      ) {
-        console.log('rechazado');
-      } else {
-        //Errores de sunat 0100-999 se mostraran como exito y luego seran enviados hasta que sunat los acepte
-        console.log('excepcion');
-      }
     } catch (e) {
       this.invoiceInProcess = false;
       release();
