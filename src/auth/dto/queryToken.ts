@@ -25,6 +25,7 @@ class QueryTokenUser {
     id: number;
     ruc: string;
     razon_social: string;
+    domicilio_fiscal: string;
     modo: string;
     nombre_comercial: string;
     logo: string;
@@ -36,6 +37,7 @@ class QueryTokenUser {
     id: number;
     ruc: string;
     razon_social: string;
+    domicilio_fiscal: string;
     modo: string;
     nombre_comercial: string;
     logo: string;

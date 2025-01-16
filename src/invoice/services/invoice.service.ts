@@ -1683,7 +1683,7 @@ export class InvoiceService {
 
   async validarInvoice(invoice: InvoiceEntity, totales: QueryTotales) {
     let tempXmlPath = '';
-
+    let tempError = '';
     try {
       const xmlGenerado = await this.generarXML(invoice, totales);
       const { xmlBuffer, fileNameExtension } = xmlGenerado;
@@ -1721,11 +1721,15 @@ export class InvoiceService {
         );
       }
     } catch (e) {
+      tempError = e.message;
       throw new HttpException(
         `Error en InvoiceService.validarInvoice - ${e.message}`,
         HttpStatus.BAD_REQUEST,
       );
     } finally {
+      if (!tempXmlPath) {
+        throw new HttpException(tempError, HttpStatus.BAD_REQUEST);
+      }
       // Limpia el archivo temporal después de la validación
       fs.unlinkSync(tempXmlPath);
     }
@@ -1736,6 +1740,7 @@ export class InvoiceService {
     totales: QueryTotales,
   ): Promise<QuerySunat> {
     let tempXmlPath = '';
+    let tempError = '';
     try {
       //GENERAR XML
       const xmlGenerado = await this.generarXML(invoice, totales);
@@ -1823,11 +1828,15 @@ export class InvoiceService {
         fileName,
       };
     } catch (e) {
+      tempError = e.message;
       throw new HttpException(
         `Error en InvoiceService.enviarSunat - ${e.message}`,
         HttpStatus.BAD_REQUEST,
       );
     } finally {
+      if (!tempXmlPath) {
+        throw new HttpException(tempError, HttpStatus.BAD_REQUEST);
+      }
       // Limpia el archivo temporal después de la validación
       fs.unlinkSync(tempXmlPath);
     }
@@ -2192,11 +2201,11 @@ export class InvoiceService {
     idEmpresa: number,
     idEstablecimiento: number,
     page: number,
-    pageSize: number,
+    limit: number,
   ) {
-    const _take = Number(pageSize);
-    const _skip = (Number(page) - 1) * _take;
-
+    const pageSize = Number(limit);
+    const pageIndex = Number(page);
+    const offset = pageIndex * pageSize;
     const empresasAsignadas = user.tokenEntityFull.empresas;
 
     //validamos la existencia de la empresa
@@ -2235,8 +2244,8 @@ export class InvoiceService {
 
     try {
       const invoices = await this.invoiceRepository.find({
-        take: _take,
-        skip: _skip,
+        take: pageSize,
+        skip: offset,
         relations: {
           tipo_doc: true,
           cliente: {
@@ -2277,9 +2286,11 @@ export class InvoiceService {
       });
 
       const urlStatic = this.configService.get<string>('URL_FILES_STATIC');
-      const nextPage = countInvoices > _take * page;
-      const prevPage = page > 1;
-      const totalPage = Math.ceil(countInvoices / _take);
+      const pageCount = Math.ceil(Number(countInvoices) / Number(pageSize));
+      const rowCount = countInvoices;
+      // const nextPage = countInvoices > _take * page;
+      // const prevPage = page > 1;
+      // const totalPage = Math.ceil(countInvoices / _take);
 
       const items = invoices.map(async (invoice) => {
         const ruc = invoice.empresa.ruc;
@@ -2465,11 +2476,13 @@ export class InvoiceService {
 
       return {
         statusCode: 'success',
-        total: countInvoices,
-        currentPage: Number(page),
-        nextPage: nextPage,
-        prevPage: prevPage,
-        totalPage: totalPage,
+        pageSize: Number(pageSize),
+        pageCount,
+        rowCount,
+        // currentPage: Number(page),
+        // nextPage: nextPage,
+        // prevPage: prevPage,
+        // totalPage: totalPage,
         items: await Promise.all(items),
       };
     } catch (e) {

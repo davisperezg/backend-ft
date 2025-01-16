@@ -34,6 +34,7 @@ import { EmpresaService } from 'src/empresa/services/empresa.service';
 import { UsersEmpresaEntity } from 'src/users_empresa/entities/users_empresa.entity';
 import { Types, Connection } from 'mongoose';
 import { SeriesService } from 'src/series/services/series.service';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class UserService {
@@ -50,6 +51,7 @@ export class UserService {
     private userRepository: Repository<UserEntity>,
     private readonly roleService: RoleService,
     private readonly seriesService: SeriesService,
+    private readonly configService: ConfigService,
     private dataSource: DataSource,
     @Inject(forwardRef(() => EmpresaService))
     private empresaService: EmpresaService,
@@ -829,6 +831,8 @@ export class UserService {
 
   //find user by id
   async findUserById(id: string): Promise<any> {
+    const URL_BASE_STATIC = this.configService.get<string>('URL_BASE_STATIC');
+
     try {
       const user: any = await this.userModel.findById(id).populate([
         {
@@ -892,7 +896,19 @@ export class UserService {
           );
           return {
             ...emp,
-            establecimientos: testseries.establecimientos,
+            logo:
+              emp.logo === 'logo_default.png'
+                ? `${URL_BASE_STATIC}/default/logo_default.png`
+                : `${URL_BASE_STATIC}/${emp.ruc}/IMAGES/LOGO/${emp.logo}`,
+            establecimientos: testseries.establecimientos.map((est) => {
+              return {
+                ...est,
+                logo:
+                  est.logo === 'logo_default.png'
+                    ? `${URL_BASE_STATIC}/default/logo_default.png`
+                    : `${URL_BASE_STATIC}/${emp.ruc}/IMAGES/LOGO/establecimientos/${est.codigo}/IMAGES/LOGO/${est.logo}`,
+              };
+            }),
           };
         });
 

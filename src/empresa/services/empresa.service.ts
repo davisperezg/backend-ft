@@ -334,8 +334,10 @@ export class EmpresaService {
                 codigo: '0000',
               },
             });
+
           // Obtener el texto después del último guion
           const lastPart = newEmpresa.domicilio_fiscal.split('-').pop().trim();
+
           // Dividir la última parte en tres palabras
           const [distrito, provincia, departamento] = lastPart.split(' ');
           await entityManager.update(
@@ -361,8 +363,12 @@ export class EmpresaService {
            * la sucursal 0000.
            */
           if (body.files.logo) {
-            await this.establecimientoRepository.update(
+            await entityManager.update(
+              EstablecimientoEntity,
               {
+                empresa: {
+                  id: Equal(newEmpresa.id),
+                },
                 codigo: '0000',
               },
               { logo: newEmpresa.logo },
@@ -540,6 +546,7 @@ export class EmpresaService {
 
       return result;
     } catch (e) {
+      console.log(e);
       throw new HttpException(
         `Error al intentar actualizar empresa EmpresaService.update. ${e.response}`,
         HttpStatus.BAD_REQUEST,

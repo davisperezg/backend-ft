@@ -74,14 +74,15 @@ export class InvoiceController {
     @Query('empresa') empresa: number,
     @Query('establecimiento') establecimiento: number,
     @Query('page') page: number,
-    @Query('pageSize') pageSize: number,
+    @Query('limit') limit: number,
   ) {
+    console.log('NUEVA CONSULTA GENERADA!');
     return await this.invoiceService.listInvoices(
       user,
       empresa,
       establecimiento,
       page,
-      pageSize,
+      limit,
     );
   }
 

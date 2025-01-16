@@ -117,18 +117,11 @@ export class ResourceService {
     return resourcesByCategory;
   }
 
-  async findAllToCRUD(): Promise<Resource[] | any[]> {
-    const resources = await this.resourceModel
-      .find()
-      .populate({
-        path: 'group_resource',
-      })
-      .sort([['group_resource.name', 'ascending']]);
-
-    return resources;
+  async findAllToCRUD(): Promise<Resource[]> {
+    return await this.resourceModel.find().populate({ path: 'group_resource' });
   }
 
-  async findOne(id: string): Promise<Resource | any[]> {
+  async findActiveResourceById(id: string): Promise<Resource> {
     const resource = await this.resourceModel.findOne({
       _id: id,
       status: true,
@@ -136,11 +129,7 @@ export class ResourceService {
 
     if (!resource) {
       throw new HttpException(
-        {
-          status: HttpStatus.BAD_REQUEST,
-          type: 'BAD_REQUEST',
-          message: 'El permiso no existe o está inactivo.',
-        },
+        'El permiso no existe o está inactivo.',
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -176,23 +165,22 @@ export class ResourceService {
     const { name, key } = bodyRole;
 
     //buscar el nombre que esta siendo modificado y que no coincida con uno registrado
-    const findResource = await this.resourceModel.findById(id);
-    const findNameRep = await this.resourceModel.findOne({ name });
-    if (findNameRep && findNameRep.name !== findResource.name) {
+    const resource = await this.findActiveResourceById(id);
+    const resourceByName = await this.resourceModel.findOne({ name });
+    if (resourceByName && resourceByName.name !== resource.name) {
       throw new HttpException('El nombre ya existe.', HttpStatus.BAD_REQUEST);
     }
 
     //buscar el key que esta siendo modificado y que no coincida con uno registrado
-    const findKeyRep = await this.resourceModel.findOne({ key });
-    const lowerKey = findKeyRep && findKeyRep.key.toLowerCase().trim();
-    if (findKeyRep && lowerKey !== findResource.key.toLowerCase().trim()) {
+    const resourceByKey = await this.resourceModel.findOne({ key });
+    const lowerKey = resourceByKey && resourceByKey.key.toLowerCase().trim();
+    if (resourceByKey && lowerKey !== resource.key.toLowerCase().trim()) {
       throw new HttpException('El key ya existe.', HttpStatus.BAD_REQUEST);
     }
 
-    const update = await this.resourceModel.findByIdAndUpdate(id, bodyRole, {
+    return await this.resourceModel.findByIdAndUpdate(id, bodyRole, {
       new: true,
     });
-    return update;
   }
 
   async findResourceByKey(key: string[]): Promise<ResourceDocument[]> {
@@ -211,6 +199,14 @@ export class ResourceService {
 
   async delete(id: string) {
     let result = false;
+
+    const resource = await this.resourceModel.findById(id);
+
+    if (!resource.status)
+      throw new HttpException(
+        'El permiso ya ha sido desactivado.',
+        HttpStatus.BAD_REQUEST,
+      );
 
     try {
       await this.resourceModel.findByIdAndUpdate(
@@ -234,6 +230,14 @@ export class ResourceService {
 
   async restore(id: string) {
     let result = false;
+
+    const resource = await this.resourceModel.findById(id);
+
+    if (resource.status)
+      throw new HttpException(
+        'El permiso ya está activo.',
+        HttpStatus.BAD_REQUEST,
+      );
 
     try {
       await this.resourceModel.findByIdAndUpdate(
