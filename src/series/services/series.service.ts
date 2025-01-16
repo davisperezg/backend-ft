@@ -206,6 +206,11 @@ export class SeriesService {
                 denominacion: curr.denominacion,
                 estado: curr.estado,
                 configuraciones: curr.configsEstablecimiento,
+                departamento: curr.departamento,
+                provincia: curr.provincia,
+                distrito: curr.distrito,
+                direccion: curr.direccion,
+                logo: curr.logo,
                 documentos: curr.series.reduce((result, item) => {
                   const id = item.documento.id;
                   const estado = item.documento.estado;
@@ -259,6 +264,11 @@ export class SeriesService {
               denominacion: curr.denominacion,
               estado: curr.estado,
               configuraciones: curr.configsEstablecimiento,
+              departamento: curr.departamento,
+              provincia: curr.provincia,
+              distrito: curr.distrito,
+              direccion: curr.direccion,
+              logo: curr.logo,
               documentos: [],
             },
           ];

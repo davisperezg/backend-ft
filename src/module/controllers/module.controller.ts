@@ -49,7 +49,7 @@ export class ModuleController {
   @Get('/find/:id')
   @UseGuards(PermissionGuard(Permission.GetOneModules))
   getModule(@Param('id') id: string) {
-    return this.moduleService.findOne(id);
+    return this.moduleService.findActiveModuleById(id);
   }
 
   // Add Module(POST): http://localhost:3000/api/v1/modules

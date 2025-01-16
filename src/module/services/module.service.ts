@@ -177,7 +177,7 @@ export class ModuleService {
     const { menu, name } = bodyModule;
     const { tokenEntityFull } = user;
 
-    const findModulesForbidden = await this.findOne(id);
+    const findModulesForbidden = await this.findActiveModuleById(id);
     if (
       tokenEntityFull.role.name !== ROL_PRINCIPAL &&
       String(findModulesForbidden.creator).toLowerCase() !==
@@ -239,17 +239,16 @@ export class ModuleService {
   async delete(id: string, user: QueryToken): Promise<boolean> {
     let result = false;
     const { tokenEntityFull } = user;
+    const module = await this.moduleModel.findById(id);
 
-    //el modulo as-principal no se puede eliminar
-    const findModuleForbidden = await this.moduleModel.findById(id);
-
-    if (findModuleForbidden.status === false)
+    if (!module.status)
       throw new HttpException(
         'El modulo ya ha sido desactivado.',
         HttpStatus.BAD_REQUEST,
       );
 
-    if (findModuleForbidden.name === MOD_PRINCIPAL) {
+    //el modulo as-principal no se puede eliminar
+    if (module.name === MOD_PRINCIPAL) {
       throw new HttpException('Permiso denegado.', HttpStatus.CONFLICT);
     }
 
@@ -274,15 +273,15 @@ export class ModuleService {
   async restore(id: string, user: QueryToken): Promise<boolean> {
     let result = false;
     const { tokenEntityFull } = user;
-    const findModule = await this.findOne(id);
+    const module = await this.moduleModel.findById(id);
 
-    if (findModule.status === true)
+    if (module.status)
       throw new HttpException(
         'El modulo ya está activo.',
         HttpStatus.BAD_REQUEST,
       );
 
-    if (findModule.name === MOD_PRINCIPAL)
+    if (module.name === MOD_PRINCIPAL)
       throw new HttpException('Permiso denegado.', HttpStatus.BAD_REQUEST);
 
     try {
@@ -302,28 +301,21 @@ export class ModuleService {
     return result;
   }
 
-  async findOne(id: string): Promise<Module> {
-    try {
-      const module = await this.moduleModel
-        .findOne({ _id: id, status: true })
-        .populate({
-          path: 'menu',
-        });
+  async findActiveModuleById(id: string): Promise<Module> {
+    const module = await this.moduleModel
+      .findOne({ _id: id, status: true })
+      .populate({
+        path: 'menu',
+      });
 
-      if (!module) {
-        throw new HttpException(
-          'El modulo no existe o está inactivo.',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-
-      return module;
-    } catch (e) {
+    if (!module) {
       throw new HttpException(
-        'Ocurrio un error al intentar buscar modulo.',
-        HttpStatus.INTERNAL_SERVER_ERROR,
+        'El modulo no existe o está inactivo.',
+        HttpStatus.BAD_REQUEST,
       );
     }
+
+    return module;
   }
 
   async findModulesIds(ids: string[]): Promise<ModuleDocument[]> {
