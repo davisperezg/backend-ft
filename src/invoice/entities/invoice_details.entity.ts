@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { InvoiceEntity } from './invoice.entity';
 import { DecimalColumnTransformer } from 'src/lib/helpers/decimal_format';
+import { ProductEntity } from 'src/product/entities/product.entity';
 
 @Entity({ name: 'invoices_details' })
 export class InvoiceDetailsEntity {
@@ -32,10 +33,17 @@ export class InvoiceDetailsEntity {
   })
   codigo?: string;
 
+  @ManyToOne(() => ProductEntity, (product) => product.invoices_details, {
+    nullable: false,
+  })
+  @JoinColumn({ name: 'product_id' })
+  producto: ProductEntity;
+
   @Column({
+    type: 'text',
     nullable: true,
   })
-  producto?: string;
+  descripcion?: string;
   //finsolo permite generar fact
 
   //   @Column({
