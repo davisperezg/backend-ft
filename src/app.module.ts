@@ -62,6 +62,7 @@ import { join } from 'path';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AnulacionesModule } from './anulaciones/anulaciones.module';
 import { CodesReturnSunatModule } from './codes-return-sunat/codes-return-sunat.module';
+import { ProductModule } from './product/product.module';
 
 @Module({
   imports: [
@@ -153,6 +154,7 @@ import { CodesReturnSunatModule } from './codes-return-sunat/codes-return-sunat.
     ConnectionModule,
     AnulacionesModule,
     CodesReturnSunatModule,
+    ProductModule,
   ],
   controllers: [AppController],
   providers: [
