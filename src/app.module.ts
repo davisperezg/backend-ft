@@ -63,6 +63,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { AnulacionesModule } from './anulaciones/anulaciones.module';
 import { CodesReturnSunatModule } from './codes-return-sunat/codes-return-sunat.module';
 import { ProductModule } from './product/product.module';
+import { PresentationModule } from './presentation/presentation.module';
 
 @Module({
   imports: [
@@ -155,6 +156,7 @@ import { ProductModule } from './product/product.module';
     AnulacionesModule,
     CodesReturnSunatModule,
     ProductModule,
+    PresentationModule,
   ],
   controllers: [AppController],
   providers: [

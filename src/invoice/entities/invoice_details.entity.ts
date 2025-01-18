@@ -10,6 +10,7 @@ import {
 import { InvoiceEntity } from './invoice.entity';
 import { DecimalColumnTransformer } from 'src/lib/helpers/decimal_format';
 import { ProductEntity } from 'src/product/entities/product.entity';
+import { PresentationEntity } from 'src/presentation/entities/presentation.entity';
 
 @Entity({ name: 'invoices_details' })
 export class InvoiceDetailsEntity {
@@ -34,10 +35,20 @@ export class InvoiceDetailsEntity {
   codigo?: string;
 
   @ManyToOne(() => ProductEntity, (product) => product.invoices_details, {
-    nullable: false,
+    nullable: true,
   })
   @JoinColumn({ name: 'product_id' })
-  producto: ProductEntity;
+  producto?: ProductEntity;
+
+  @ManyToOne(
+    () => PresentationEntity,
+    (presentation) => presentation.invoices_details,
+    {
+      nullable: true,
+    },
+  )
+  @JoinColumn({ name: 'presentation_id' })
+  presentation?: PresentationEntity;
 
   @Column({
     type: 'text',

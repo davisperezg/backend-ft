@@ -443,7 +443,7 @@ export class InvoiceService {
             tipAfeIgv, // Gravado Op. Onerosa - Catalog. 07
             codigo: producto.codigo,
             cantidad: producto.cantidad,
-            producto: producto.descripcion,
+            descripcion: producto.descripcion,
             mtoValorUnitario: round(producto.mtoValorUnitario, DECIMAL),
             porcentajeIgv: producto.porcentajeIgv,
           };

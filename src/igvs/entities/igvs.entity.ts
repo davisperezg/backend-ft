@@ -1,4 +1,5 @@
 import { InvoiceDetailsEntity } from 'src/invoice/entities/invoice_details.entity';
+import { ProductEntity } from 'src/product/entities/product.entity';
 import { Entity, Column, PrimaryGeneratedColumn, OneToMany } from 'typeorm';
 
 @Entity({ name: 'tipo_igvs' })
@@ -31,4 +32,7 @@ export class IGVEntity {
 
   @OneToMany(() => InvoiceDetailsEntity, (detail) => detail.tipAfeIgv)
   invoices_details?: InvoiceDetailsEntity[];
+
+  @OneToMany(() => ProductEntity, (product) => product.tipAfeIgv)
+  products?: ProductEntity[];
 }

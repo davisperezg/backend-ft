@@ -1,7 +1,6 @@
-import { IGVEntity } from 'src/igvs/entities/igvs.entity';
 import { InvoiceDetailsEntity } from 'src/invoice/entities/invoice_details.entity';
 import { DecimalColumnTransformer } from 'src/lib/helpers/decimal_format';
-import { PresentationEntity } from 'src/presentation/entities/presentation.entity';
+import { ProductEntity } from 'src/product/entities/product.entity';
 import { UnidadEntity } from 'src/unidades/entities/unidades.entity';
 import {
   Column,
@@ -13,39 +12,26 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 
-@Entity({ name: 'products' })
-export class ProductEntity {
+@Entity({ name: 'presentations' })
+export class PresentationEntity {
   @PrimaryGeneratedColumn()
   id?: number;
 
   @Column({
     type: 'varchar',
-    length: 50,
-    nullable: true,
-  })
-  codigo?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 185,
+    length: 150,
   })
   nombre: string;
 
   @Column({
-    type: 'text',
-    nullable: true,
-  })
-  descripcion?: string;
-
-  @Column({
     type: 'decimal',
-    precision: 22,
-    scale: 10,
-    nullable: false,
+    precision: 10,
+    scale: 2,
     default: 0,
+    nullable: false,
     transformer: new DecimalColumnTransformer(),
   })
-  mtoValorUnitario: number;
+  quantity: number;
 
   @Column({
     type: 'decimal',
@@ -65,7 +51,7 @@ export class ProductEntity {
     nullable: false,
     transformer: new DecimalColumnTransformer(),
   })
-  min_stock: number;
+  unit_price: number;
 
   @Column({
     type: 'decimal',
@@ -75,7 +61,7 @@ export class ProductEntity {
     nullable: false,
     transformer: new DecimalColumnTransformer(),
   })
-  purchase_price: number;
+  sales_price: number;
 
   @Column({
     type: 'decimal',
@@ -85,17 +71,7 @@ export class ProductEntity {
     nullable: false,
     transformer: new DecimalColumnTransformer(),
   })
-  max_profit: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 10,
-    scale: 2,
-    default: 0,
-    nullable: false,
-    transformer: new DecimalColumnTransformer(),
-  })
-  min_profit: number;
+  min_price: number;
 
   @Column({ default: true })
   estado?: boolean;
@@ -106,21 +82,18 @@ export class ProductEntity {
   @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   updatedAt?: Date;
 
-  @OneToMany(() => InvoiceDetailsEntity, (detail) => detail.producto)
-  invoices_details?: InvoiceDetailsEntity[];
-
-  @ManyToOne(() => IGVEntity, (igv) => igv.products, {
-    nullable: false,
-  })
-  @JoinColumn({ name: 'tipo_igv_id' })
-  tipAfeIgv: IGVEntity;
-
   @ManyToOne(() => UnidadEntity, (unidad) => unidad.products, {
     nullable: false,
   })
   @JoinColumn({ name: 'unidad_id' })
   unidad: UnidadEntity;
 
-  @OneToMany(() => PresentationEntity, (presentation) => presentation.product)
-  presentations?: PresentationEntity[];
+  @ManyToOne(() => ProductEntity, (product) => product.presentations, {
+    nullable: false,
+  })
+  @JoinColumn({ name: 'product_id' })
+  product: ProductEntity;
+
+  @OneToMany(() => InvoiceDetailsEntity, (detail) => detail.presentation)
+  invoices_details?: InvoiceDetailsEntity[];
 }
