@@ -5,6 +5,7 @@ import {
   OneToMany,
   BeforeInsert,
   BeforeUpdate,
+  CreateDateColumn,
 } from 'typeorm';
 import { EmpresaEntity } from '../../empresa/entities/empresa.entity';
 import { UsersEmpresaEntity } from 'src/users_empresa/entities/users_empresa.entity';
@@ -56,4 +57,10 @@ export class UserEntity {
     this.email = this.email.toLowerCase();
     this.username = this.username.toLowerCase();
   }
+
+  @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  createdAt?: Date;
+
+  @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  updatedAt?: Date;
 }

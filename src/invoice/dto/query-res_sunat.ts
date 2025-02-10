@@ -1,7 +1,12 @@
 export class QuerySunat {
-  cdrZip: string;
-  codigo_sunat: number;
+  success?: boolean;
+  sunat_code_int: number;
+  sunat_code: string;
+  estado_sunat?: string;
   mensaje_sunat: string;
-  observaciones_sunat: string[];
+  cdrZip?: string;
+  observaciones_sunat?: string[];
   fileName: string;
+  xmlSigned?: string;
+  xmlUnsigned?: string;
 }

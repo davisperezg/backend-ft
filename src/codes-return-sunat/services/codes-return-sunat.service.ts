@@ -176,7 +176,7 @@ export class CodesReturnSunatService implements OnApplicationBootstrap {
       //Si hay nuevos elementos filtramos con el xml obs para obtener solo los nuevos codigos
       if (NEW_ELEMENTOS_XML_CODES_RETURN_MAP.length > 0) {
         this.logger.debug(
-          `Recibimos nuevos codigos procedemos a filtrar: ${
+          `Recibimos nuevos CódigosRetorno procedemos a filtrar: ${
             NEW_ELEMENTOS_XML_CODES_RETURN_MAP.length
           }:${JSON.stringify(
             NEW_ELEMENTOS_XML_CODES_RETURN_MAP.map(
@@ -189,7 +189,7 @@ export class CodesReturnSunatService implements OnApplicationBootstrap {
         if (latestFileMigrations) {
           const codesMigrations = this.getCodesMigrations(latestFileMigrations);
           this.logger.verbose(
-            `Existe un listado de observaciones que migran a errores: ${
+            `Existe un Listado de OBSERV que migran a ERRORES: ${
               codesMigrations.length
             }:${JSON.stringify(codesMigrations)}`,
           );
@@ -214,8 +214,22 @@ export class CodesReturnSunatService implements OnApplicationBootstrap {
 
             await this.codeReturnRepository.insert(new_codes_return_sunat);
           } else {
+            const COD_DIF = codesMigrations.filter(
+              (code) =>
+                !NEW_ELEMENTOS_XML_CODES_RETURN_MAP.map(
+                  (item) => item.codigo_retorno,
+                ).includes(code),
+            );
             this.logger.log(
-              'No se encontró ningún código de retorno de SUNAT nuevo para procesar.',
+              'Analizamos los archivos y los CódigosRetorno recibidos NO esta en la base de datos sin embargo estos CódigosRetorno forman parte del Listado de OBSERV que migran a ERRORES la cual ya estan ACTUALIZADOS en la base de datos con un nuevo Codigo de Retorno. Los valores nuevos actualizados los podras encontrar en el archivo Listado de OBSERV que migran a ERRORES.xlsx',
+            );
+            this.logger.log(
+              `Los siguientes valores que pertenecen al Listado de OBSERV que migran a ERRORES no pueden ser actualizados a su nuevo valor porque su valor actual es el mismo ${
+                COD_DIF.length
+              }:${JSON.stringify(COD_DIF)}`,
+            );
+            this.logger.log(
+              'Resumen: No se encontró ningún código de retorno de SUNAT nuevo para procesar.',
             );
           }
         } else {

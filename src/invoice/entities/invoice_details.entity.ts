@@ -121,16 +121,6 @@ export class InvoiceDetailsEntity {
   })
   mtoValorUnitario: number;
 
-  @Column({
-    type: 'decimal',
-    precision: 22,
-    scale: 10,
-    nullable: true,
-    default: null,
-    transformer: new DecimalColumnTransformer(),
-  })
-  mtoValorGratuito?: number;
-
   //   @Column({
   //     type: 'decimal',
   //     precision: 10,

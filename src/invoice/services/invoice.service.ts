@@ -69,6 +69,9 @@ import { QueryTotales } from '../dto/query-totales';
 import { QuerySunat } from '../dto/query-res_sunat';
 import { CodesReturnSunatService } from 'src/codes-return-sunat/services/codes-return-sunat.service';
 import os from 'os';
+import { QueryInvoiceList } from '../dto/query-invoice-list';
+import { QueryInvoice } from '../dto/query-invoice';
+import { QueryDetailsInvoice } from '../dto/query-detail-invoice-list';
 @Injectable()
 export class InvoiceService {
   private logger = new Logger('InvoiceService');
@@ -295,6 +298,8 @@ export class InvoiceService {
       establecimiento.id,
     );
 
+    console.log(existInvoice);
+
     //Si ya existe una invoice es porque el correlativo, empresa y establecimiento
     //son los mismos datos por lo tanto para seguir con la transaccion debemos
     //actualizar el correlativo de la serie
@@ -335,6 +340,7 @@ export class InvoiceService {
       invoice: InvoiceEntity;
       fileName: string;
       codigo_respuesta_sunat: null | string;
+      codigo_respuesta_sunat_int: null | number;
       documento: string;
       serie: string;
       total: string;
@@ -395,16 +401,16 @@ export class InvoiceService {
         }
 
         //Validamos la existencia de los tipos de productos, unidad, etc...
-        const validProductos = invoice.productos.map(async (producto) => {
+        const validDetails = invoice.details.map(async (detail) => {
           const unidad = await this.unidadService.findUnidadByCodigo(
-            producto.unidad,
+            detail.unidad,
           );
           const tipAfeIgv = await this.tipoIgvService.findTipIgvByCodigo(
-            producto.tipAfeIgv,
+            detail.tipAfeIgv,
           );
 
           //Si el cliente ingresa un porcentaje invalido a sus producto alterando el igv se mostrara error
-          if (!PORCENTAJES_IGV_DISPONIBLES.includes(producto.porcentajeIgv)) {
+          if (!PORCENTAJES_IGV_DISPONIBLES.includes(detail.porcentajeIgv)) {
             throw new HttpException(
               'El porcentaje de IGV no es válido',
               HttpStatus.BAD_REQUEST,
@@ -413,7 +419,7 @@ export class InvoiceService {
 
           // Gravada onerosa y gravadas gratuita solo reciben 18%
           if (
-            producto.porcentajeIgv !== PORCENTAJE_IGV_GRAVADA &&
+            detail.porcentajeIgv !== PORCENTAJE_IGV_GRAVADA &&
             (tipAfeIgv.codigo === CODIGO_GRAVADA_ONEROSA || //10 - gravada onerosa
               CODIGOS_GRAVADAS_GRATUITAS.includes(tipAfeIgv.codigo)) //gravadas gratuitas
           ) {
@@ -425,7 +431,7 @@ export class InvoiceService {
 
           // Exonerada onerosa, inafecta, exportacion e inafectas gratuitas solo reciben 0%
           if (
-            producto.porcentajeIgv !== PORCENTAJE_IGV_GRATUITA && //0%
+            detail.porcentajeIgv !== PORCENTAJE_IGV_GRATUITA && //0%
             (tipAfeIgv.codigo === CODIGO_EXONERADA_ONEROSA || //exonerada onerosa
               tipAfeIgv.codigo === CODIGO_INAFECTA_ONEROSA || //inafecta onerosa
               tipAfeIgv.codigo === CODIGO_EXPORTACION || //exportacion
@@ -438,38 +444,21 @@ export class InvoiceService {
           }
 
           const item: InvoiceDetailsEntity = {
-            id: producto.id,
+            id: detail.id,
             unidad, // Unidad - Catalog. 03
             tipAfeIgv, // Gravado Op. Onerosa - Catalog. 07
-            codigo: producto.codigo,
-            cantidad: producto.cantidad,
-            descripcion: producto.descripcion,
-            mtoValorUnitario: round(producto.mtoValorUnitario, DECIMAL),
-            porcentajeIgv: producto.porcentajeIgv,
+            codigo: detail.codigo,
+            cantidad: detail.cantidad,
+            descripcion: detail.descripcion,
+            mtoValorUnitario: round(detail.mtoValorUnitario, DECIMAL),
+            porcentajeIgv: detail.porcentajeIgv,
           };
-
-          //11,12,13,14,15,16,17,21,31,32,33,34,35,36,37
-          const CODIGOS_GRAVADAS_INAFECTAS_GRATUITAS = [
-            ...CODIGOS_GRAVADAS_GRATUITAS,
-            ...CODIGOS_INAFECTAS_GRATUITAS,
-          ];
-
-          if (
-            CODIGOS_GRAVADAS_INAFECTAS_GRATUITAS.includes(producto.tipAfeIgv)
-          ) {
-            item['mtoValorGratuito'] = round(
-              producto.mtoValorUnitario,
-              DECIMAL,
-            );
-
-            item['mtoValorUnitario'] = 0;
-          }
 
           return item;
         });
-        const productos = await Promise.all(validProductos);
+        const details = await Promise.all(validDetails);
         //Calculamos los totales del invoice y obtendran solo 2 decimales
-        const totales = this.obtenerTotalesInvoices(productos);
+        const totales = this.obtenerTotalesInvoices(details);
 
         //BUSCAREMOS EL INVOICE PARA SABER SI EXSITE O NO, SI EXISTE ACTUALIZAMOS BORRADOR DE LO CONTRARIO CREAMOS
         const existInvoice = await this.findOneInvoiceById(invoice.id);
@@ -513,13 +502,18 @@ export class InvoiceService {
           entidad_documento: existPermisoRegCliente ? null : invoice.ruc,
           entidad_direccion: existPermisoRegCliente ? null : invoice.direccion,
           borrador: invoice.borrador,
-          invoices_details: productos,
+          invoices_details: details,
+          observaciones_invoice:
+            invoice.observaciones.length > 0
+              ? invoice.observaciones.join('|')
+              : null,
         };
 
         //Objeto invoice creado
         let invoiceCreated = this.invoiceRepository.create(newInvoice);
 
         let codigo_respuesta_sunat: string | null = null;
+        let codigo_respuesta_sunat_int: number | null = null;
         let _invoice = null;
         let fileName = `${empresa.ruc}-${invoiceCreated.tipo_doc.codigo}-${invoiceCreated.serie}-${invoiceCreated.correlativo}`;
 
@@ -567,8 +561,8 @@ export class InvoiceService {
           );
 
           //Validamos que ningun producto que se este modificando no sea de otro cpe
-          for (let index = 0; index < productos.length; index++) {
-            const product = productos[index];
+          for (let index = 0; index < details.length; index++) {
+            const product = details[index];
 
             if (product.id) {
               const findProduct = await this.invoiceDetailsRepository.findOne({
@@ -591,7 +585,7 @@ export class InvoiceService {
 
           // Crear un mapa para los nuevos productos
           const newProductsMap = new Map(
-            productos.map((product) => [product.id, product]),
+            details.map((product) => [product.id, product]),
           );
 
           // Iterar sobre los productos actuales para ver cuáles eliminar
@@ -606,7 +600,7 @@ export class InvoiceService {
           }
 
           // Iterar sobre los nuevos productos para ver cuáles agregar o actualizar
-          for (const newProduct of productos) {
+          for (const newProduct of details) {
             if (currentProductsMap.has(newProduct.id)) {
               // Si el producto nuevo ya existe, actualizarlo
               await entityManager.update(
@@ -639,8 +633,8 @@ export class InvoiceService {
           );
 
           //Recorremos los productos para crear el detalle del invoice
-          for (let index = 0; index < productos.length; index++) {
-            const producto = productos[index];
+          for (let index = 0; index < details.length; index++) {
+            const producto = details[index];
             //Creamos el detalle del invoice
             const objDetail = this.invoiceDetailsRepository.create({
               ...producto,
@@ -717,107 +711,26 @@ export class InvoiceService {
             let sunat: QuerySunat = null;
 
             sunat = await this.enviarSunat(invoiceCreated, totales);
-            const { fileName: fileNameAux } = sunat;
+            const { fileName: fileNameAux, xmlSigned, xmlUnsigned } = sunat;
             fileName = fileNameAux;
 
             //Si hay conexion y repuesta de sunat
-            const { codigo_sunat, mensaje_sunat, observaciones_sunat } = sunat;
+            const {
+              sunat_code_int,
+              sunat_code,
+              mensaje_sunat,
+              observaciones_sunat,
+            } = sunat;
 
-            codigo_respuesta_sunat = codigo_sunat.toString();
+            codigo_respuesta_sunat = sunat_code;
+            codigo_respuesta_sunat_int = sunat_code_int;
 
             const observaciones_sunat_modified =
-              observaciones_sunat.length > 0
+              observaciones_sunat && observaciones_sunat.length > 0
                 ? observaciones_sunat.join('|')
                 : null;
 
-            // ACEPTADA
-            if (codigo_sunat === 0) {
-              //Cambiamos el estado de enviado a aceptado
-              await entityManager.update(
-                InvoiceEntity,
-                { id: invoiceCreated.id },
-                {
-                  estado_operacion: 2,
-                  respuesta_sunat_codigo: codigo_respuesta_sunat,
-                  respuesta_sunat_descripcion: mensaje_sunat,
-                  observaciones_sunat: observaciones_sunat_modified,
-                },
-              );
-
-              _invoice = await this.formatListInvoices(
-                {
-                  ...invoiceCreated,
-                  estado_operacion: 2,
-                  respuesta_sunat_codigo: codigo_respuesta_sunat,
-                  respuesta_sunat_descripcion: mensaje_sunat,
-                  observaciones_sunat: observaciones_sunat_modified,
-                },
-                null,
-              );
-
-              //Notificamos al server que se acepto a sunat
-              this.logger.log(`${usuario.username}: ${mensaje_sunat}`);
-
-              //Notificamos a los clientes que se acepto a sunat
-              this.invoiceGateway.server
-                .to(`room_invoices_emp-${empresa.id}_est-${establecimiento.id}`)
-                .emit('server::notifyInvoice', {
-                  type: 'sunat.success',
-                  correlativo: invoiceCreated.correlativo,
-                  time: dayjs(new Date()).format('DD-MM-YYYY·HH:mm:ss'),
-                  message: `${mensaje_sunat}`,
-                });
-
-              //Notificamos al cliente que se acepto a sunat
-              this.invoiceGateway.server
-                .to(`room_invoices_emp-${empresa.id}_est-${establecimiento.id}`)
-                .emit('server::newInvoice', _invoice);
-            }
-            // RECHAZADA
-            else if (codigo_sunat >= 2000 && codigo_sunat <= 3999) {
-              //Cambiamos el estado de enviado a rechazado
-              await entityManager.update(
-                InvoiceEntity,
-                { id: invoiceCreated.id },
-                {
-                  estado_operacion: 3,
-                  respuesta_sunat_codigo: codigo_respuesta_sunat,
-                  respuesta_sunat_descripcion: mensaje_sunat,
-                  observaciones_sunat: observaciones_sunat_modified,
-                },
-              );
-
-              _invoice = await this.formatListInvoices(
-                {
-                  ...invoiceCreated,
-                  estado_operacion: 3,
-                  respuesta_sunat_codigo: codigo_respuesta_sunat,
-                  respuesta_sunat_descripcion: mensaje_sunat,
-                  observaciones_sunat: observaciones_sunat_modified,
-                },
-                null,
-              );
-
-              //Notificamos a los clientes que sunat rechazo el cpe
-              this.logger.error(
-                `${usuario.username}:${fileName} fue rechazado por SUNAT - ${codigo_sunat}:${mensaje_sunat}.`,
-              );
-
-              this.invoiceGateway.server
-                .to(`room_invoices_emp-${empresa.id}_est-${establecimiento.id}`)
-                .emit('server::notifyInvoice', {
-                  type: 'sunat.failed',
-                  correlativo: invoiceCreated.correlativo,
-                  time: dayjs(new Date()).format('DD-MM-YYYY·HH:mm:ss'),
-                  message: `${fileName} fue rechazado por SUNAT - ${codigo_sunat}:${mensaje_sunat}.`,
-                });
-
-              this.invoiceGateway.server
-                .to(`room_invoices_emp-${empresa.id}_est-${establecimiento.id}`)
-                .emit('server::newInvoice', _invoice);
-            }
-            // CDR inválido - EXCEPCION 0100 a 1999 corregir y volver a enviar cpe
-            else {
+            if (codigo_respuesta_sunat === 'HTTP') {
               await entityManager.update(
                 InvoiceEntity,
                 { id: invoiceCreated.id },
@@ -843,18 +756,223 @@ export class InvoiceService {
               this.logger.warn(
                 `${usuario.username}: warning-${mensaje_sunat}.`,
               );
+            } else {
+              // ACEPTADA
+              if (sunat_code_int === 0) {
+                //Cambiamos el estado de enviado a aceptado
+                await entityManager.update(
+                  InvoiceEntity,
+                  { id: invoiceCreated.id },
+                  {
+                    estado_operacion: 2,
+                    respuesta_sunat_codigo: codigo_respuesta_sunat,
+                    respuesta_sunat_descripcion: mensaje_sunat,
+                    observaciones_sunat: observaciones_sunat_modified,
+                  },
+                );
 
-              // this.invoiceGateway.server
-              //   .to(`room_invoices_emp-${empresa.id}_est-${establecimiento.id}`)
-              //   .emit('server::notifyInvoice', {
-              //     type: 'sunat.warn',
-              //     correlativo: invoiceCreated.correlativo,
-              //     time: dayjs(new Date()).format('DD-MM-YYYY·HH:mm:ss'),
-              //     message: `El CPE#${invoiceCreated.correlativo}  -  Warning:${mensaje_sunat}.`,
-              //   });
+                _invoice = await this.formatListInvoices(
+                  {
+                    ...invoiceCreated,
+                    estado_operacion: 2,
+                    respuesta_sunat_codigo: codigo_respuesta_sunat,
+                    respuesta_sunat_descripcion: mensaje_sunat,
+                    observaciones_sunat: observaciones_sunat_modified,
+                  },
+                  null,
+                );
+
+                //Notificamos al server que se acepto a sunat
+                this.logger.log(`${usuario.username}: ${mensaje_sunat}`);
+
+                //Notificamos a los clientes que se acepto a sunat
+                this.invoiceGateway.server
+                  .to(
+                    `room_invoices_emp-${empresa.id}_est-${establecimiento.id}`,
+                  )
+                  .emit('server::notifyInvoice', {
+                    type: 'sunat.success',
+                    correlativo: invoiceCreated.correlativo,
+                    time: dayjs(new Date()).format('DD-MM-YYYY·HH:mm:ss'),
+                    message: `${mensaje_sunat}`,
+                  });
+
+                //Notificamos al cliente que se acepto a sunat
+                this.invoiceGateway.server
+                  .to(
+                    `room_invoices_emp-${empresa.id}_est-${establecimiento.id}`,
+                  )
+                  .emit('server::newInvoice', _invoice);
+              }
+              // RECHAZADA
+              else if (sunat_code_int >= 2000 && sunat_code_int <= 3999) {
+                //Cambiamos el estado de enviado a rechazado
+                await entityManager.update(
+                  InvoiceEntity,
+                  { id: invoiceCreated.id },
+                  {
+                    estado_operacion: 3,
+                    respuesta_sunat_codigo: codigo_respuesta_sunat,
+                    respuesta_sunat_descripcion: mensaje_sunat,
+                    observaciones_sunat: observaciones_sunat_modified,
+                  },
+                );
+
+                _invoice = await this.formatListInvoices(
+                  {
+                    ...invoiceCreated,
+                    estado_operacion: 3,
+                    respuesta_sunat_codigo: codigo_respuesta_sunat,
+                    respuesta_sunat_descripcion: mensaje_sunat,
+                    observaciones_sunat: observaciones_sunat_modified,
+                  },
+                  null,
+                );
+
+                //Notificamos a los clientes que sunat rechazo el cpe
+                this.logger.error(
+                  `${usuario.username}:${fileName} fue rechazado por SUNAT - ${sunat_code_int}:${mensaje_sunat}.`,
+                );
+
+                this.invoiceGateway.server
+                  .to(
+                    `room_invoices_emp-${empresa.id}_est-${establecimiento.id}`,
+                  )
+                  .emit('server::notifyInvoice', {
+                    type: 'sunat.failed',
+                    correlativo: invoiceCreated.correlativo,
+                    time: dayjs(new Date()).format('DD-MM-YYYY·HH:mm:ss'),
+                    message: `${fileName} fue rechazado por SUNAT - ${sunat_code_int}:${mensaje_sunat}.`,
+                  });
+
+                this.invoiceGateway.server
+                  .to(
+                    `room_invoices_emp-${empresa.id}_est-${establecimiento.id}`,
+                  )
+                  .emit('server::newInvoice', _invoice);
+              }
+              //EXCEPCION(error contribuyente)
+              else if (sunat_code_int >= 1000 && sunat_code_int <= 1999) {
+                await entityManager.update(
+                  InvoiceEntity,
+                  { id: invoiceCreated.id },
+                  {
+                    estado_operacion: 4,
+                    respuesta_sunat_codigo: codigo_respuesta_sunat,
+                    respuesta_sunat_descripcion: mensaje_sunat,
+                    observaciones_sunat: observaciones_sunat_modified,
+                  },
+                );
+
+                _invoice = await this.formatListInvoices(
+                  {
+                    ...invoiceCreated,
+                    estado_operacion: 4,
+                    respuesta_sunat_codigo: codigo_respuesta_sunat,
+                    respuesta_sunat_descripcion: mensaje_sunat,
+                    observaciones_sunat: observaciones_sunat_modified,
+                  },
+                  null,
+                );
+
+                //Notificamos a los clientes que sunat rechazo el cpe
+                this.logger.warn(
+                  `${usuario.username}:${fileName} excepcion por SUNAT - ${sunat_code_int}:${mensaje_sunat}.`,
+                );
+
+                this.invoiceGateway.server
+                  .to(
+                    `room_invoices_emp-${empresa.id}_est-${establecimiento.id}`,
+                  )
+                  .emit('server::notifyInvoice', {
+                    type: 'sunat.failed',
+                    correlativo: invoiceCreated.correlativo,
+                    time: dayjs(new Date()).format('DD-MM-YYYY·HH:mm:ss'),
+                    message: `${fileName} excepcion por SUNAT - ${sunat_code_int}:${mensaje_sunat}.`,
+                  });
+
+                this.invoiceGateway.server
+                  .to(
+                    `room_invoices_emp-${empresa.id}_est-${establecimiento.id}`,
+                  )
+                  .emit('server::newInvoice', _invoice);
+              }
+              //EXCEPCION 0100 al 999 corregir y volver a enviar cpe
+              else {
+                await entityManager.update(
+                  InvoiceEntity,
+                  { id: invoiceCreated.id },
+                  {
+                    estado_operacion: 1,
+                    respuesta_sunat_codigo: codigo_respuesta_sunat,
+                    respuesta_sunat_descripcion: mensaje_sunat,
+                    observaciones_sunat: observaciones_sunat_modified,
+                  },
+                );
+
+                _invoice = await this.formatListInvoices(
+                  {
+                    ...invoiceCreated,
+                    estado_operacion: 1,
+                    respuesta_sunat_codigo: codigo_respuesta_sunat,
+                    respuesta_sunat_descripcion: mensaje_sunat,
+                    observaciones_sunat: observaciones_sunat_modified,
+                  },
+                  null,
+                );
+
+                this.logger.warn(
+                  `${usuario.username}: warning-${mensaje_sunat}.`,
+                );
+
+                // this.invoiceGateway.server
+                //   .to(`room_invoices_emp-${empresa.id}_est-${establecimiento.id}`)
+                //   .emit('server::notifyInvoice', {
+                //     type: 'sunat.warn',
+                //     correlativo: invoiceCreated.correlativo,
+                //     time: dayjs(new Date()).format('DD-MM-YYYY·HH:mm:ss'),
+                //     message: `El CPE#${invoiceCreated.correlativo}  -  Warning:${mensaje_sunat}.`,
+                //   });
+              }
+            }
+
+            //Guardamos archivos excepto si es excepcion-contribuyente
+            if (!(sunat_code_int >= 1000 && sunat_code_int <= 1999)) {
+              //Guardamos el XML en el directorio del cliente
+              this.guardarArchivo(
+                invoiceCreated.empresa.ruc,
+                `${invoiceCreated.establecimiento.codigo}/${invoiceCreated.tipo_doc.tipo_documento}/XML`,
+                `${fileName}.xml`,
+                xmlUnsigned,
+                true,
+              );
+
+              //Guardamos el XML Firmado en el directorio del cliente
+              this.guardarArchivo(
+                invoiceCreated.empresa.ruc,
+                `${invoiceCreated.establecimiento.codigo}/${invoiceCreated.tipo_doc.tipo_documento}/FIRMA`,
+                `${fileName}.xml`,
+                xmlSigned,
+                true,
+              );
+
+              //Creamos el pdf formato A4
+              await this.getPdf(
+                invoiceCreated.empresa.ruc,
+                `${invoiceCreated.establecimiento.codigo}/${invoiceCreated.tipo_doc.tipo_documento}/PDF/A4`,
+                fileName,
+                docDefinitionA4,
+              );
             }
           } else {
             //Si no envia a sunat directamente
+            const xmlGenerado = await this.generarXML(invoiceCreated, totales);
+            const certificado = await this.validarCertificado(invoiceCreated);
+            const { xmlBuffer, fileNameExtension } = xmlGenerado;
+            const xmlSigned = await this.firmar(xmlBuffer, certificado);
+            await this.validarInvoice(xmlSigned, fileNameExtension);
+
+            //Actulizamos estado 0 = creado
             _invoice = await this.formatListInvoices(
               {
                 ...invoiceCreated,
@@ -862,8 +980,6 @@ export class InvoiceService {
               },
               null,
             );
-
-            await this.validarInvoice(invoiceCreated, totales);
 
             //Notificamos al servidor que se ha creado un CPE pero no se ha enviado a sunat
             this.logger.log(
@@ -897,18 +1013,11 @@ export class InvoiceService {
           });
         }
 
-        //Creamos el pdf formato A4
-        await this.getPdf(
-          invoiceCreated.empresa.ruc,
-          `${establecimiento.codigo}/${tipoDocumento.tipo_documento}/PDF/A4`,
-          fileName,
-          docDefinitionA4,
-        );
-
         return {
           invoice: invoiceCreated.borrador ? invoiceSimple : _invoice,
           fileName: fileName,
           codigo_respuesta_sunat: codigo_respuesta_sunat,
+          codigo_respuesta_sunat_int: codigo_respuesta_sunat_int,
           documento: `${invoiceCreated.tipo_doc.tipo_documento.toUpperCase()} ELECTRÓNICA`,
           serie: invoiceCreated.serie,
           correlativo: existInvoice
@@ -1031,7 +1140,7 @@ export class InvoiceService {
     }
   }
 
-  validarCertificado(invoice: InvoiceEntity) {
+  async validarCertificado(invoice: InvoiceEntity) {
     //Verificamos si el cliente esta en modo beta o produccion
     const certFilePath = path.join(
       process.cwd(),
@@ -1052,7 +1161,7 @@ export class InvoiceService {
       }`,
     );
 
-    return this.convertToPem(
+    return await this.convertToPem(
       certFilePath,
       pemFilePath,
       invoice.empresa.cert_password,
@@ -1104,10 +1213,10 @@ export class InvoiceService {
     });
   }
 
-  convertToPem(ubicacion: string, destino: string, password: string) {
+  async convertToPem(ubicacion: string, destino: string, password: string) {
     try {
       const command = `openssl pkcs12 -in ${ubicacion} -out ${destino} -nodes -passin pass:${password}`;
-      execSync(command);
+      await execSync(command);
 
       return destino;
     } catch (error) {
@@ -1118,98 +1227,62 @@ export class InvoiceService {
     }
   }
 
-  validXsdUblInvoice2_1(rutaXML: string) {
-    const xsd = path.join(
+  async validXsdUblInvoice2_1(
+    pathXML: string,
+  ): Promise<{ isValid: boolean; errors: string[] }> {
+    const PATH_XSD = path.join(
       process.cwd(),
       'uploads/utils/sunat_archivos/sfs/VALI/commons/xsd/2.1/maindoc/UBL-Invoice-2.1.xsd',
     );
 
-    try {
-      const command = `xmllint --schema ${xsd} ${rutaXML} --noout`;
-      execSync(command, { encoding: 'utf-8', stdio: 'pipe' });
+    const COMMAND = `xmllint --schema ${PATH_XSD} ${pathXML} --noout`;
 
-      return {
-        isValid: true,
-        errors: [],
-      };
-    } catch (e) {
-      // Captura y procesa el error
-      const errorMessage = String(e.stderr); // Mensaje de error
-      const errorLines = errorMessage.split('\n').filter(Boolean); // Divide en líneas no vacías
+    return new Promise((resolve) => {
+      exec(COMMAND, { encoding: 'utf-8' }, (error, stdout, stderr) => {
+        if (error) {
+          const errorLines = stderr.split('\n').filter(Boolean);
+          const errorArray = errorLines.map((line) => {
+            if (line.includes('fails to validate')) {
+              const fileName = line.match(/([^\\\/]+\.xml)/)?.[0];
+              return fileName ? `${fileName} fails to validate` : line;
+            }
+            return line;
+          });
 
-      // Crear el array de errores
-      const errorArray = errorLines.map((line) => {
-        if (line.includes('fails to validate')) {
-          // Extrae el nombre del archivo con expresión regular
-          const fileName = line.match(/([^\\\/]+\.xml)/)?.[0];
-          return fileName ? `${fileName} fails to validate` : line;
+          return resolve({ isValid: false, errors: errorArray });
         }
 
-        return line;
+        resolve({ isValid: true, errors: [] });
       });
-
-      //console.log(JSON.stringify({ errors: errorJSON }, null, 2));
-
-      return {
-        isValid: false,
-        errors: errorArray,
-      };
-    }
+    });
   }
 
   async validXslExprRegFactura2_0_1(
-    rutaXML: string,
-    nombreXML: string,
+    pathXML: string,
+    nameXML: string,
   ): Promise<{
     isValid: boolean;
-    errors: {
-      code: string;
-      message: string;
-      type: string;
-    }[];
+    errors: string[];
   }> {
     // Definir rutas de archivos
-    const rutaSaxon = path.join(
+    const PATH_SAXON = path.join(
       process.cwd(),
       'uploads/utils/saxon/saxon-he-12.4.jar',
     );
-    const rutaXSL = path.join(
+    const PATH_XSL = path.join(
       process.cwd(),
       'uploads/utils/sunat_archivos/sfs/VALI/commons/xsl/validation/2.X/ValidaExprRegFactura-2.0.1.xsl',
     );
 
     // Construir el comando
-    const command = `java -jar ${rutaSaxon} -s:${rutaXML} -xsl:${rutaXSL} nombreArchivoEnviado=${nombreXML}`;
+    const COMMAND = `java -jar ${PATH_SAXON} -s:${pathXML} -xsl:${PATH_XSL} nombreArchivoEnviado=${nameXML}`;
     const result = {
       isValid: true,
       errors: [],
     };
 
-    // Directorio donde se guardan los archivos Excel
-    const excelDirectoryMigrations = path.join(
-      process.cwd(),
-      `uploads/utils/migraciones`,
-    );
-
-    //Buscar archivo excel mas reciente
-    const latestFileMigrations =
-      this.codeReturnSunatService.findLatestExcelFile(excelDirectoryMigrations);
-
-    const codesMigrations = this.codeReturnSunatService.getCodesMigrations(
-      latestFileMigrations,
-      true,
-    );
-
-    // Convertir el array de strings en un array de objetos
-    const objCodesMigrations = codesMigrations.map((item) => {
-      const [code, migra] = item.split(':');
-      return { code, migra };
-    });
-
-    let typeReturn = '';
-
     return new Promise((resolve) => {
-      exec(command + ' 2>&1', (error, stdout, stderr) => {
+      exec(COMMAND + ' 2>&1', (error, stdout, stderr) => {
         const output = stdout + stderr;
         // Filtrar y procesar la salida
         output.split('\n').forEach((line) => {
@@ -1221,99 +1294,28 @@ export class InvoiceService {
           }
           if (line.toLowerCase().includes('error')) {
             // Buscar el código después de "errorCode"
-            const codeMatch = line.match(/errorCode\s*(\d+)/);
-
-            const validCodeWithMigrations = objCodesMigrations.find(
-              (item) => item.code === codeMatch[1],
-            );
-
-            const code = codeMatch
-              ? validCodeWithMigrations
-                ? validCodeWithMigrations.migra
-                : codeMatch[1]
-              : '---';
-
-            // Del 0100 al 999 Excepciones propias de SUNAT
-            if (Number(code) >= 100 && Number(code) <= 999) {
-              typeReturn = 'ERROR_EXCEPCION';
-            }
-            // Del 1000 al 1999 Excepciones (formatos y estructura)propias del contribuyente
-            else if (Number(code) >= 1000 && Number(code) <= 1999) {
-              typeReturn = 'ERROR_CONTRIBUYENTE';
-            }
-            // Del 2000 al 3999 Errores que generan rechazo
-            else if (Number(code) >= 2000 && Number(code) <= 3999) {
-              typeReturn = 'RECHAZO';
-            }
-            // Del 4000 en adelante Observaciones
-            else if (Number(code) >= 4000) {
-              typeReturn = 'OBSERV';
-            } else {
-              typeReturn = 'INTERNAL_ERROR';
-            }
-
-            result.errors.push({
-              code,
-              message: line,
-              type: typeReturn,
-            });
+            result.errors.push(line);
           }
         });
 
         if (result.errors.length > 0) {
-          const allErrorsAreObservations = result.errors.every(
-            (error) => error.type === 'OBSERV',
-          );
-          result.isValid = allErrorsAreObservations;
+          result.isValid = false;
         }
 
         // Devolver el resultado como JSON
         resolve(result);
       });
     });
-
-    // try {
-    //   const output = execSync(command + ' 2>&1', {
-    //     encoding: 'utf-8',
-    //     stdio: 'pipe',
-    //   });
-    //   console.log('output', output);
-    //   exec
-    //   result.type = 'OBSERV';
-    //   // Filtrar y procesar la salida
-    //   output.split('\n').forEach((line) => {
-    //     if (line.toLowerCase().includes('error')) {
-    //       console.log("line", line)
-    //       result.errors.push(line);
-    //     }
-    //   });
-
-    //   if (result.errors.length > 0) {
-    //     result.isValid = false;
-    //   }
-    // } catch (e) {
-    //   console.error('Error en ejecución validXslExprRegFactura2_0_1:', e);
-    //   result.isValid = false;
-    //   result.type = 'EXCEPCION';
-    //   e.output.split('\n').filter(Boolean).forEach((line) => {
-    //     if (
-    //       line.includes('Error at xsl:message') ||
-    //       line.includes('Processing terminated by xsl:message')
-    //     ) {
-    //       return; // Ignorar estas líneas
-    //     }
-
-    //     if (line.toLowerCase().includes('error')) {
-    //       result.errors.push(line);
-    //     }
-    //   });
-    // }
-
-    // // Devolver el resultado como JSON
-    // return result;
   }
 
-  private async generarXML(invoice: InvoiceEntity, totales: QueryTotales) {
+  private async generarXML(
+    invoice: InvoiceEntity,
+    totales: QueryTotales,
+  ): Promise<{
+    xmlBuffer: string;
+    fileName: string;
+    fileNameExtension: string;
+  }> {
     //Si el producto tiene id validamos producto
 
     //Validamos si el producto pertenece a la empresa
@@ -1352,14 +1354,20 @@ export class InvoiceService {
       forma_pago: invoice.forma_pago.forma_pago, //1 = Contado; 2 = Credito
       moneda: invoice.tipo_moneda.abrstandar, //PEN
       productos: invoice.invoices_details.reduce((acc, producto) => {
-        //gravada onerosa
-        if (producto.tipAfeIgv.codigo === '10') {
+        //onerosas y exportacion
+        const ONEROSAS_EXPORTACION = [
+          CODIGO_GRAVADA_ONEROSA,
+          CODIGO_EXONERADA_ONEROSA,
+          CODIGO_INAFECTA_ONEROSA,
+          CODIGO_EXPORTACION,
+        ];
+        if (ONEROSAS_EXPORTACION.includes(producto.tipAfeIgv.codigo)) {
           const mtoValorUnitario = round(producto.mtoValorUnitario);
           const mtoValorVenta = mtoValorUnitario * producto.cantidad;
           const mtoBaseIgv = mtoValorVenta;
           const porcentajeIgv = producto.porcentajeIgv;
 
-          //producto.porcentajeIgv = 18
+          //onerosa = 18; exonerada = 0; inafecta = 0; exportacion = 0
           const igvUnitario = (mtoValorUnitario * porcentajeIgv) / 100;
           const igv = igvUnitario * producto.cantidad;
           const totalImpuestos = igv + 0;
@@ -1368,7 +1376,7 @@ export class InvoiceService {
           const objProduct = {
             codigo: producto.codigo,
             unidad: producto.unidad.codigo,
-            producto: producto.producto,
+            producto: producto.descripcion,
             cantidad: producto.cantidad,
             mtoValorUnitario: mtoValorUnitario, //3decimales
             mtoValorVenta: round(mtoValorVenta),
@@ -1383,112 +1391,23 @@ export class InvoiceService {
           acc.push(objProduct);
         }
 
-        //exonerada onerosa
-        if (producto.tipAfeIgv.codigo === '20') {
-          const mtoValorUnitario = round(producto.mtoValorUnitario);
-          const mtoValorVenta = mtoValorUnitario * producto.cantidad;
-          const mtoBaseIgv = mtoValorVenta;
-          const porcentajeIgv = producto.porcentajeIgv;
+        //11,12,13,14,15,16,17,21,31,32,33,34,35,36,37
+        const CODIGOS_GRAVADAS_INAFECTAS_GRATUITAS = [
+          ...CODIGOS_GRAVADAS_GRATUITAS,
+          ...CODIGOS_INAFECTAS_GRATUITAS,
+        ];
 
-          //producto.porcentajeIgv = 0
-          const igvUnitario = (mtoValorUnitario * porcentajeIgv) / 100;
-          const igv = igvUnitario * producto.cantidad;
-          const totalImpuestos = igv + 0;
-          const mtoPrecioUnitario = mtoValorUnitario + igvUnitario;
-
-          const objProduct = {
-            codigo: producto.codigo,
-            unidad: producto.unidad.codigo,
-            producto: producto.producto,
-            cantidad: producto.cantidad,
-            mtoValorUnitario: mtoValorUnitario,
-            mtoValorVenta: round(mtoValorVenta),
-            mtoBaseIgv: round(mtoBaseIgv),
-            porcentajeIgv: porcentajeIgv,
-            igv: round(igv),
-            tipAfeIgv: producto.tipAfeIgv.codigo,
-            totalImpuestos: round(totalImpuestos),
-            mtoPrecioUnitario: round(mtoPrecioUnitario),
-          };
-
-          acc.push(objProduct);
-        }
-
-        //inafecto onerosa
-        if (producto.tipAfeIgv.codigo === '30') {
-          const mtoValorUnitario = round(producto.mtoValorUnitario);
-          const mtoValorVenta = mtoValorUnitario * producto.cantidad;
-          const mtoBaseIgv = mtoValorVenta;
-          const porcentajeIgv = producto.porcentajeIgv;
-
-          //producto.porcentajeIgv = 0
-          const igvUnitario = (mtoValorUnitario * porcentajeIgv) / 100;
-          const igv = igvUnitario * producto.cantidad;
-          const totalImpuestos = igv + 0;
-          const mtoPrecioUnitario = mtoValorUnitario + igvUnitario;
-
-          const objProduct = {
-            codigo: producto.codigo,
-            unidad: producto.unidad.codigo,
-            producto: producto.producto,
-            cantidad: producto.cantidad,
-            mtoValorUnitario: mtoValorUnitario,
-            mtoValorVenta: round(mtoValorVenta),
-            mtoBaseIgv: round(mtoBaseIgv),
-            porcentajeIgv: porcentajeIgv,
-            igv: round(igv),
-            tipAfeIgv: producto.tipAfeIgv.codigo,
-            totalImpuestos: round(totalImpuestos),
-            mtoPrecioUnitario: round(mtoPrecioUnitario),
-          };
-
-          acc.push(objProduct);
-        }
-
-        //exportacion
-        if (producto.tipAfeIgv.codigo === '40') {
-          const mtoValorUnitario = round(producto.mtoValorUnitario);
-          const mtoValorVenta = mtoValorUnitario * producto.cantidad;
-          const mtoBaseIgv = mtoValorVenta;
-          const porcentajeIgv = producto.porcentajeIgv;
-
-          //producto.porcentajeIgv = 0
-          const igvUnitario = (mtoValorUnitario * porcentajeIgv) / 100;
-          const igv = igvUnitario * producto.cantidad;
-          const totalImpuestos = igv + 0;
-          const mtoPrecioUnitario = mtoValorUnitario + igvUnitario;
-
-          const objProduct = {
-            codigo: producto.codigo,
-            //setCodProdSunat('44121618') // Codigo Producto Sunat, requerido.
-            unidad: producto.unidad.codigo,
-            producto: producto.producto,
-            cantidad: producto.cantidad,
-            mtoValorUnitario: mtoValorUnitario,
-            mtoValorVenta: round(mtoValorVenta),
-            mtoBaseIgv: round(mtoBaseIgv),
-            porcentajeIgv: porcentajeIgv,
-            igv: round(igv),
-            tipAfeIgv: producto.tipAfeIgv.codigo,
-            totalImpuestos: round(totalImpuestos),
-            mtoPrecioUnitario: round(mtoPrecioUnitario),
-          };
-
-          acc.push(objProduct);
-        }
-
-        //gravadas gratuitas
         if (
-          ['11', '12', '13', '14', '15', '16', '17'].includes(
+          CODIGOS_GRAVADAS_INAFECTAS_GRATUITAS.includes(
             producto.tipAfeIgv.codigo,
           )
         ) {
-          const mtoValorGratuito = round(producto.mtoValorGratuito);
+          const mtoValorGratuito = round(producto.mtoValorUnitario);
           const mtoValorVenta = mtoValorGratuito * producto.cantidad;
           const mtoBaseIgv = mtoValorVenta;
           const porcentajeIgv = producto.porcentajeIgv;
 
-          //producto.porcentajeIgv = 18
+          //grabavos gratuitos = 18; inafecta gratuitos = 0
           const igvUnitario = (mtoValorGratuito * porcentajeIgv) / 100;
           const igv = igvUnitario * producto.cantidad;
           const totalImpuestos = igv + 0;
@@ -1496,42 +1415,7 @@ export class InvoiceService {
           const objProduct = {
             codigo: producto.codigo,
             unidad: producto.unidad.codigo,
-            producto: producto.producto,
-            cantidad: producto.cantidad,
-            mtoValorUnitario: 0,
-            mtoValorGratuito: mtoValorGratuito,
-            mtoValorVenta: round(mtoValorVenta),
-            mtoBaseIgv: round(mtoBaseIgv),
-            porcentajeIgv: porcentajeIgv,
-            igv: round(igv),
-            tipAfeIgv: producto.tipAfeIgv.codigo,
-            totalImpuestos: round(totalImpuestos),
-            mtoPrecioUnitario: 0,
-          };
-
-          acc.push(objProduct);
-        }
-
-        //inafectas gratuitas
-        if (
-          ['31', '32', '33', '34', '35', '36', '37', '21'].includes(
-            producto.tipAfeIgv.codigo,
-          )
-        ) {
-          const mtoValorGratuito = round(producto.mtoValorGratuito);
-          const mtoValorVenta = mtoValorGratuito * producto.cantidad;
-          const mtoBaseIgv = mtoValorVenta;
-          const porcentajeIgv = producto.porcentajeIgv;
-
-          //producto.porcentajeIgv = 0
-          const igvUnitario = (mtoValorGratuito * porcentajeIgv) / 100;
-          const igv = igvUnitario * producto.cantidad;
-          const totalImpuestos = igv + 0;
-
-          const objProduct = {
-            codigo: producto.codigo,
-            unidad: producto.unidad.codigo,
-            producto: producto.producto,
+            producto: producto.descripcion,
             cantidad: producto.cantidad,
             mtoValorUnitario: 0,
             mtoValorGratuito: mtoValorGratuito,
@@ -1562,13 +1446,13 @@ export class InvoiceService {
       MtoOperExportacion: invoice.mto_operaciones_exportacion,
       MtoOperGratuitas: invoice.mto_operaciones_gratuitas,
       MtoIGVGratuitas: invoice.mto_igv_gratuitas,
-      //observaciones: invoice.observaciones,
+      observaciones: invoice.observaciones_invoice
+        ? invoice.observaciones_invoice.split('|')
+        : [],
       fecha_vencimiento: invoice.fecha_vencimiento,
     };
+
     //opcionales
-    // if (invoice.fecha_vencimiento) {
-    //   data['fecha_vencimiento'] = invoice.fecha_vencimiento;
-    // }
 
     //Solo enviaremos los datos necesarios a la api generar xml
     if (
@@ -1614,11 +1498,7 @@ export class InvoiceService {
       delete dataApi.MtoIGV;
     }
 
-    // if (invoice.observaciones && invoice.observaciones.length > 0) {
-    //   data['observaciones'] = invoice.observaciones;
-    // }
     //fin opcionales
-
     try {
       const res = await axios.post(
         `${process.env.API_SERVICE_PHP}/gen-xml`,
@@ -1652,8 +1532,6 @@ export class InvoiceService {
   private async firmar(
     xmlBuffer: string,
     certificado: string,
-    fileNameExtension: string,
-    invoice: InvoiceEntity,
   ): Promise<string> {
     try {
       const res = await axios.post(`${process.env.API_SERVICE_PHP}/sign`, {
@@ -1681,17 +1559,42 @@ export class InvoiceService {
     }
   }
 
-  async validarInvoice(invoice: InvoiceEntity, totales: QueryTotales) {
+  async validarInvoiceWithLink(path: string, nameXml: string) {
+    // Validación de Esquema (XSD)
+    const resultXSD = await this.validXsdUblInvoice2_1(path);
+    if (!resultXSD.isValid) {
+      const extensionContentErrors = resultXSD.errors.filter(
+        (error) =>
+          !error.includes('ExtensionContent') &&
+          !error.includes('fails to validate'),
+      );
+      if (extensionContentErrors.length > 0) {
+        throw new HttpException(
+          JSON.stringify(extensionContentErrors, null, 2),
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+
+    // Validación de contenido (XSL)
+    const resultXSL = await this.validXslExprRegFactura2_0_1(path, nameXml);
+    if (!resultXSL.isValid) {
+      throw new HttpException(
+        JSON.stringify(resultXSL.errors, null, 2),
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  async validarInvoice(xml: string, fileNameExtension: string) {
     let tempXmlPath = '';
     let tempError = '';
     try {
-      const xmlGenerado = await this.generarXML(invoice, totales);
-      const { xmlBuffer, fileNameExtension } = xmlGenerado;
       tempXmlPath = path.join(os.tmpdir(), fileNameExtension);
-      fs.writeFileSync(tempXmlPath, xmlBuffer);
+      fs.writeFileSync(tempXmlPath, xml);
 
       // Validación de Esquema (XSD)
-      const resultXSD = this.validXsdUblInvoice2_1(tempXmlPath);
+      const resultXSD = await this.validXsdUblInvoice2_1(tempXmlPath);
       if (!resultXSD.isValid) {
         const extensionContentErrors = resultXSD.errors.filter(
           (error) =>
@@ -1712,11 +1615,8 @@ export class InvoiceService {
         fileNameExtension,
       );
       if (!resultXSL.isValid) {
-        const nonObservationErrors = resultXSL.errors.filter(
-          (err) => err.type !== 'OBSERV',
-        );
         throw new HttpException(
-          JSON.stringify(nonObservationErrors, null, 2),
+          JSON.stringify(resultXSL.errors, null, 2),
           HttpStatus.BAD_REQUEST,
         );
       }
@@ -1739,72 +1639,24 @@ export class InvoiceService {
     invoice: InvoiceEntity,
     totales: QueryTotales,
   ): Promise<QuerySunat> {
-    let tempXmlPath = '';
-    let tempError = '';
     try {
       //GENERAR XML
       const xmlGenerado = await this.generarXML(invoice, totales);
 
       //VALIDAMOS CERTIFICADO DE LA EMPRESA PARA FIRMAR
-      const certificado = this.validarCertificado(invoice);
+      const certificado = await this.validarCertificado(invoice);
 
       const { fileName, xmlBuffer, fileNameExtension } = xmlGenerado;
 
       //FIRMAR XML
-      const xmlSigned = await this.firmar(
-        xmlBuffer,
-        certificado,
-        fileNameExtension,
-        invoice,
-      );
+      const xmlSigned = await this.firmar(xmlBuffer, certificado);
 
-      // Guardamos el XML Firmado en un archivo temporal
-      tempXmlPath = path.join(os.tmpdir(), fileNameExtension);
-      fs.writeFileSync(tempXmlPath, xmlSigned);
-
-      // Validación de Esquema (XSD)
-      const resultXSD = this.validXsdUblInvoice2_1(tempXmlPath);
-
-      if (!resultXSD.isValid) {
-        throw new HttpException(
-          JSON.stringify(resultXSD.errors, null, 2),
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-
-      // Validación de contenido (XSL)
-      const resultXSL = await this.validXslExprRegFactura2_0_1(
-        tempXmlPath,
-        fileNameExtension,
-      );
-
-      if (!resultXSL.isValid) {
-        const nonObservationErrors = resultXSL.errors.filter(
-          (err) => err.type !== 'OBSERV',
-        );
-        throw new HttpException(
-          JSON.stringify(nonObservationErrors, null, 2),
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-
-      //Guardamos el XML en el directorio del cliente
-      this.guardarArchivo(
-        invoice.empresa.ruc,
-        `${invoice.establecimiento.codigo}/${invoice.tipo_doc.tipo_documento}/XML`,
-        fileNameExtension,
-        xmlBuffer,
-        true,
-      );
-
-      //Guardamos el XML Firmado en el directorio del cliente
-      this.guardarArchivo(
-        invoice.empresa.ruc,
-        `${invoice.establecimiento.codigo}/${invoice.tipo_doc.tipo_documento}/FIRMA`,
-        fileNameExtension,
-        xmlSigned,
-        true,
-      );
+      // Validación de Esquema (XSD) y Validación de contenido (XSL)
+      // await this.validarInvoiceWithLink(
+      //   `C:/Users/USUARIO/Proyectos/backend-ft/uploads/files/10722312185/0000/Factura/FIRMA/10722312185-01-F001-00000053.xml`,
+      //   '10722312185-01-F001-00000053.xml',
+      // );
+      await this.validarInvoice(xmlSigned, fileNameExtension);
 
       //ENVIAR SUNAT
       const urlService = invoice.empresa.web_service;
@@ -1826,19 +1678,15 @@ export class InvoiceService {
       return {
         ...sunat,
         fileName,
+        xmlSigned,
+        xmlUnsigned: xmlBuffer,
       };
     } catch (e) {
-      tempError = e.message;
+      console.log('e', e);
       throw new HttpException(
         `Error en InvoiceService.enviarSunat - ${e.message}`,
         HttpStatus.BAD_REQUEST,
       );
-    } finally {
-      if (!tempXmlPath) {
-        throw new HttpException(tempError, HttpStatus.BAD_REQUEST);
-      }
-      // Limpia el archivo temporal después de la validación
-      fs.unlinkSync(tempXmlPath);
     }
   }
 
@@ -1848,36 +1696,38 @@ export class InvoiceService {
     usuario: string,
     contrasenia: string,
     fileName: string,
-    contentFile: string,
-  ) {
+    xmlSigned: string,
+  ): Promise<QuerySunat> {
     try {
-      const sunat = await axios.post(
+      const { data } = await axios.post<QuerySunat>(
         `${process.env.API_SERVICE_PHP}/sendSunat`,
         {
           urlService,
           usuario,
           contrasenia,
           fileName,
-          contentFile,
+          contentFile: xmlSigned,
         },
       );
 
-      //Si hay conexion y repuesta de sunat descargamos CDR
-      const { cdrZip } = sunat.data;
+      if (data.cdrZip) {
+        //Si hay conexion y repuesta de sunat descargamos CDR
+        const { cdrZip } = data;
 
-      //Decodificamos el CDR en base64 (LA RESPUESTA DE SUNAT)
-      const CdrZipBuffer = Buffer.from(cdrZip, 'base64');
+        //Decodificamos el CDR en base64 (LA RESPUESTA DE SUNAT)
+        const CdrZipBuffer = Buffer.from(cdrZip, 'base64');
 
-      //Guardamos el CDR en el servidor en el directorio del cliente
-      this.guardarArchivo(
-        invoice.empresa.ruc,
-        `${invoice.establecimiento.codigo}/${invoice.tipo_doc.tipo_documento}/RPTA`,
-        `R-${fileName}.zip`,
-        CdrZipBuffer,
-        true,
-      );
+        //Guardamos el CDR en el servidor en el directorio del cliente
+        this.guardarArchivo(
+          invoice.empresa.ruc,
+          `${invoice.establecimiento.codigo}/${invoice.tipo_doc.tipo_documento}/RPTA`,
+          `R-${fileName}.zip`,
+          CdrZipBuffer,
+          true,
+        );
+      }
 
-      return sunat.data;
+      return data;
     } catch (e) {
       if (e.code === 'ECONNREFUSED') {
         throw new HttpException(
@@ -1885,15 +1735,10 @@ export class InvoiceService {
           HttpStatus.BAD_GATEWAY,
         );
       }
-
+      console.log('entralk', e);
+      console.log('entralkx2', e.response.data, e.code);
       throw new HttpException(
-        {
-          sendSunat: true,
-          code: e.response.data?.error?.code,
-          message: `[${e.response.data?.error?.code}]:${
-            e.response.data?.error?.message ?? 'Internal'
-          }`,
-        },
+        `Error en InvoiceService.enviarSolicitudSunat - ${e.message}`,
         HttpStatus.BAD_GATEWAY,
       );
     }
@@ -1940,7 +1785,7 @@ export class InvoiceService {
     motivo: string,
     correlativoBaja: string,
   ) {
-    const certificado = this.validarCertificado(invoice);
+    const certificado = await this.validarCertificado(invoice);
 
     const dataXML = {
       empresa: {
@@ -1985,12 +1830,7 @@ export class InvoiceService {
       );
 
       //FIRMAMOS XML
-      const xmlSigned = await this.firmar(
-        xmlBuffer,
-        certificado,
-        fileName,
-        invoice,
-      );
+      const xmlSigned = await this.firmar(xmlBuffer, certificado);
 
       //GUARDAMOS XML FIRMADO
       this.guardarArchivo(
@@ -2032,7 +1872,7 @@ export class InvoiceService {
           HttpStatus.BAD_GATEWAY,
         );
       }
-
+      console.log('baja', e);
       const message = `[${e.response.data.error?.code}]:${e.response.data.error?.message}`;
       throw new HttpException(
         `Error al comunicar la baja InvoiceService.comunicarBaja - ${
@@ -2062,6 +1902,7 @@ export class InvoiceService {
       );
       return res.data;
     } catch (e) {
+      console.log(e);
       if (e.code === 'ECONNREFUSED') {
         throw new HttpException(
           'Verifique el servidor de la API Greenter actualmente esta deshabilitado.',
@@ -2119,6 +1960,10 @@ export class InvoiceService {
     try {
       invoice = await this.invoiceRepository.findOne({
         relations: {
+          invoices_details: {
+            tipAfeIgv: true,
+            unidad: true,
+          },
           tipo_moneda: true,
           forma_pago: true,
           tipo_doc: true,
@@ -2202,7 +2047,7 @@ export class InvoiceService {
     idEstablecimiento: number,
     page: number,
     limit: number,
-  ) {
+  ): Promise<QueryInvoice> {
     const pageSize = Number(limit);
     const pageIndex = Number(page);
     const offset = pageIndex * pageSize;
@@ -2292,34 +2137,55 @@ export class InvoiceService {
       // const prevPage = page > 1;
       // const totalPage = Math.ceil(countInvoices / _take);
 
-      const items = invoices.map(async (invoice) => {
-        const ruc = invoice.empresa.ruc;
-        const tipoDoc = invoice.tipo_doc.codigo;
-        const nomDoc = invoice.tipo_doc.tipo_documento;
-        const serie = invoice.serie;
-        const correlativo = invoice.correlativo;
-        const establecimiento = `${invoice.establecimiento.codigo}`;
+      const items: QueryInvoiceList[] = await Promise.all(
+        invoices.map(async (invoice): Promise<QueryInvoiceList> => {
+          const ruc = invoice.empresa.ruc;
+          const tipoDoc = invoice.tipo_doc.codigo;
+          const nomDoc = invoice.tipo_doc.tipo_documento;
+          const serie = invoice.serie;
+          const correlativo = invoice.correlativo;
+          const establecimiento = `${invoice.establecimiento.codigo}`;
 
-        let pathDirFirma = '';
-        let pathDirCDR = '';
-        let pathStaticFirma = '';
-        let pathStaticCDR = '';
+          let pathDirFirma = '';
+          let pathDirCDR = '';
+          let pathStaticFirma = '';
+          let pathStaticCDR = '';
 
-        //null(no enviado), 1(enviado con ticket), 2(anulacion aceptado), 3(anulacion rechazada)
-        if (invoice.estado_anulacion === 2) {
-          const anulacion = await this.anulacionRepository.findOneBy({
-            invoice: { id: invoice.id },
-          });
+          //null(no enviado), 1(enviado con ticket), 2(anulacion aceptado), 3(anulacion rechazada)
+          if (invoice.estado_anulacion === 2) {
+            const anulacion = await this.anulacionRepository.findOneBy({
+              invoice: { id: invoice.id },
+            });
 
-          if (anulacion) {
-            const fechaAnulacion = dayjs(anulacion.fecha_comunicacion).format(
-              'YYYYMMDD',
-            );
-            const correlativoAnulacion = anulacion.numero;
-            const fileName = `${ruc}-RA-${fechaAnulacion}-${correlativoAnulacion}`;
+            if (anulacion) {
+              const fechaAnulacion = dayjs(anulacion.fecha_comunicacion).format(
+                'YYYYMMDD',
+              );
+              const correlativoAnulacion = anulacion.numero;
+              const fileName = `${ruc}-RA-${fechaAnulacion}-${correlativoAnulacion}`;
 
-            const rutaFirma = `${ruc}/${establecimiento}/${nomDoc}/BAJA/FIRMA/${fileName}.xml`;
-            const rutaCDR = `${ruc}/${establecimiento}/${nomDoc}/BAJA/RPTA/R-${fileName}.zip`;
+              const rutaFirma = `${ruc}/${establecimiento}/${nomDoc}/BAJA/FIRMA/${fileName}.xml`;
+              const rutaCDR = `${ruc}/${establecimiento}/${nomDoc}/BAJA/RPTA/R-${fileName}.zip`;
+              pathDirFirma = path.join(
+                process.cwd(),
+                `uploads/files/${rutaFirma}`,
+              );
+
+              pathDirCDR = path.join(process.cwd(), `uploads/files/${rutaCDR}`);
+
+              pathStaticFirma = `${urlStatic}/${rutaFirma}`;
+              pathStaticCDR = `${urlStatic}/${rutaCDR}`;
+            }
+          }
+          //0(creado), 1(enviando), 2(aceptado), 3(rechazado)
+          else if (
+            invoice.estado_operacion === 0 ||
+            invoice.estado_operacion === 2 ||
+            invoice.estado_operacion === 3
+          ) {
+            const fileName = `${ruc}-${tipoDoc}-${serie}-${correlativo}`;
+            const rutaFirma = `${ruc}/${establecimiento}/${nomDoc}/FIRMA/${fileName}.xml`;
+            const rutaCDR = `${ruc}/${establecimiento}/${nomDoc}/RPTA/R-${fileName}.zip`;
             pathDirFirma = path.join(
               process.cwd(),
               `uploads/files/${rutaFirma}`,
@@ -2329,160 +2195,87 @@ export class InvoiceService {
 
             pathStaticFirma = `${urlStatic}/${rutaFirma}`;
             pathStaticCDR = `${urlStatic}/${rutaCDR}`;
+          } else {
           }
-        }
-        //0(creado), 1(enviando), 2(aceptado), 3(rechazado)
-        else if (
-          invoice.estado_operacion === 0 ||
-          invoice.estado_operacion === 2 ||
-          invoice.estado_operacion === 3
-        ) {
-          const fileName = `${ruc}-${tipoDoc}-${serie}-${correlativo}`;
-          const rutaFirma = `${ruc}/${establecimiento}/${nomDoc}/FIRMA/${fileName}.xml`;
-          const rutaCDR = `${ruc}/${establecimiento}/${nomDoc}/RPTA/R-${fileName}.zip`;
-          pathDirFirma = path.join(process.cwd(), `uploads/files/${rutaFirma}`);
 
-          pathDirCDR = path.join(process.cwd(), `uploads/files/${rutaCDR}`);
-
-          pathStaticFirma = `${urlStatic}/${rutaFirma}`;
-          pathStaticCDR = `${urlStatic}/${rutaCDR}`;
-        } else {
-        }
-
-        const {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          UBLVersionID,
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          CustomizationID,
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          createdAt,
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          fecha_emision,
-          ...rest
-        } = invoice;
-
-        //dayjs(invoice.createdAt).format('DD-MM-YYYY·HH:mm:ss',)
-
-        return {
-          ...rest,
-          cliente: invoice.cliente
-            ? {
-                id: invoice.cliente.id,
-                entidad: rest.cliente.entidad,
-                nombre_comercial: invoice.cliente.nombre_comercial,
-                numero_documento: invoice.cliente.numero_documento,
-                estado: invoice.cliente.estado,
-                direccion: invoice.cliente.direccion,
-                tipo_entidad: invoice.cliente.tipo_entidad.codigo,
-              }
-            : null,
-          empresa: {
-            id: invoice.empresa.id,
-            ruc: invoice.empresa.ruc,
-            razon_social: invoice.empresa.razon_social,
-            nombre_comercial: invoice.empresa.nombre_comercial,
-            estado: invoice.empresa.estado,
-            modo: invoice.empresa.modo === 0 ? 'BETA' : 'PRODUCCION',
-          },
-          establecimiento: {
-            id: invoice.establecimiento.id,
-            codigo: invoice.establecimiento.codigo,
-            denominacion: invoice.establecimiento.denominacion,
-            estado: invoice.establecimiento.estado,
-          },
-          status: [0, 2, 3].includes(invoice.estado_operacion),
-          xml: !fs.existsSync(pathDirFirma) ? '#' : `${pathStaticFirma}`,
-          cdr: !fs.existsSync(pathDirCDR) ? '#' : `${pathStaticCDR}`,
-          pdfA4: `${urlStatic}/${ruc}/${establecimiento}/${nomDoc}/PDF/A4/${'test'}.pdf`,
-          usuario: invoice.usuario.nombres + ' ' + invoice.usuario.apellidos,
-          moneda: invoice.tipo_moneda,
-          fecha_registro: invoice.createdAt,
-          fecha_emision: invoice.fecha_emision,
-          productos: invoice.invoices_details.map((item, i) => {
-            if (item.mtoValorGratuito) {
-              const igvUnitario =
-                (item.mtoValorGratuito * item.porcentajeIgv) / 100;
-              const precioUnitarioGratuito =
-                item.mtoValorGratuito + igvUnitario;
-              const mtoValorVenta = item.mtoValorGratuito * item.cantidad;
-              const igvTotal = igvUnitario * item.cantidad;
-
-              const itemObj = {
-                id: item.id,
-                posicionTabla: i,
-                uuid: uuidv4(),
-                cantidad: item.cantidad,
-                codigo: item.codigo,
-                descripcion: item.producto,
-                //igv: Number(igvTotal).toFixed(2),
-                //igvUnitario: Number(igvUnitario).toFixed(2),
-                //mtoBaseIgv: Number(mtoValorVenta).toFixed(2),
-                //mtoPrecioUnitario: Number(0).toFixed(3),
-                //mtoTotalItem: Number(0).toFixed(2),
-                //mtoValorGratuito: Number(item.mtoValorGratuito).toFixed(3),
-                mtoValorUnitario: item.mtoValorUnitario,
-                //mtoValorVenta: Number(mtoValorVenta).toFixed(2),
-                porcentajeIgv: Number(item.porcentajeIgv),
-                tipAfeIgv: item.tipAfeIgv.codigo,
-                //totalImpuestos: Number(igvTotal).toFixed(2),
-                unidad: item.unidad.codigo,
-              };
-
-              //gravadas gratuitas
-              if (
-                ['11', '12', '13', '14', '15', '16', '17'].includes(
-                  item.tipAfeIgv.codigo,
-                )
-              ) {
-                itemObj['mtoPrecioUnitarioGratuito'] = round(
-                  precioUnitarioGratuito,
-                );
-              }
-
-              return itemObj;
-            } else {
-              const igvUnitario =
-                (item.mtoValorUnitario * item.porcentajeIgv) / 100;
-              const igvTotal = igvUnitario * item.cantidad;
-
-              const precioUnitario = item.mtoValorUnitario + igvUnitario;
-              const mtoValorVenta = item.mtoValorUnitario * item.cantidad;
-
-              const mtoTotalItem = precioUnitario * item.cantidad;
-
+          return {
+            id: invoice.id,
+            tipo_operacion: invoice.tipo_operacion,
+            serie: invoice.serie,
+            correlativo: invoice.correlativo,
+            fecha_vencimiento: invoice.fecha_vencimiento,
+            mto_operaciones_gravadas: invoice.mto_operaciones_gravadas,
+            mto_operaciones_exoneradas: invoice.mto_operaciones_exoneradas,
+            mto_operaciones_inafectas: invoice.mto_operaciones_inafectas,
+            mto_operaciones_exportacion: invoice.mto_operaciones_exportacion,
+            mto_operaciones_gratuitas: invoice.mto_operaciones_gratuitas,
+            mto_igv: invoice.mto_igv,
+            mto_igv_gratuitas: invoice.mto_igv_gratuitas,
+            porcentaje_igv: invoice.porcentaje_igv,
+            estado_operacion: invoice.estado_operacion,
+            estado_anulacion: invoice.estado_anulacion,
+            respuesta_sunat_codigo: invoice.respuesta_sunat_codigo,
+            respuesta_sunat_descripcion: invoice.respuesta_sunat_descripcion,
+            respuesta_anulacion_codigo: invoice.respuesta_anulacion_codigo,
+            respuesta_anulacion_descripcion:
+              invoice.respuesta_anulacion_descripcion,
+            observaciones_sunat: invoice.observaciones_sunat,
+            observaciones: invoice.observaciones_invoice
+              ? invoice.observaciones_invoice.split('|').map((item) => ({
+                  observacion: item,
+                  uuid: uuidv4(),
+                }))
+              : [],
+            borrador: invoice.borrador,
+            documento: invoice.tipo_doc.tipo_documento,
+            tipo_documento: invoice.tipo_doc.codigo,
+            cliente: invoice.cliente
+              ? invoice.cliente.entidad
+              : invoice.entidad,
+            cliente_direccion: invoice.cliente
+              ? invoice.cliente.direccion
+              : invoice.entidad_direccion,
+            cliente_cod_doc: invoice.cliente
+              ? invoice.cliente.tipo_entidad.codigo
+              : invoice.entidad_tipo,
+            cliente_num_doc: invoice.cliente
+              ? invoice.cliente.numero_documento
+              : invoice.entidad_documento,
+            empresa: invoice.empresa.id,
+            establecimiento: invoice.establecimiento.id,
+            usuario: invoice.usuario.nombres + ' ' + invoice.usuario.apellidos,
+            moneda_abrstandar: invoice.tipo_moneda.abrstandar,
+            moneda_simbolo: invoice.tipo_moneda.simbolo,
+            fecha_registro: invoice.createdAt,
+            fecha_emision: invoice.fecha_emision,
+            forma_pago: invoice.forma_pago.forma_pago,
+            cdr: !fs.existsSync(pathDirCDR) ? '#' : `${pathStaticCDR}`,
+            xml: !fs.existsSync(pathDirFirma) ? '#' : `${pathStaticFirma}`,
+            pdfA4: `${urlStatic}/${ruc}/${establecimiento}/${nomDoc}/PDF/A4/${'test'}.pdf`,
+            status: [0, 2, 3].includes(invoice.estado_operacion),
+            details: invoice.invoices_details.map((item, i) => {
               return {
                 id: item.id,
                 posicionTabla: i,
                 uuid: uuidv4(),
                 cantidad: item.cantidad,
                 codigo: item.codigo,
-                descripcion: item.producto,
-                //igv: Number(igvTotal).toFixed(2),
-                //igvUnitario: Number(igvUnitario).toFixed(2),
-                //mtoBaseIgv: Number(mtoValorVenta).toFixed(2),
-                //mtoPrecioUnitario: Number(precioUnitario).toFixed(3),
-                //mtoTotalItem: Number(mtoTotalItem).toFixed(2),
+                descripcion: item.descripcion,
                 mtoValorUnitario: item.mtoValorUnitario,
-                //mtoValorVenta: Number(mtoValorVenta).toFixed(2),
-                porcentajeIgv: Number(item.porcentajeIgv),
+                porcentajeIgv: item.porcentajeIgv,
                 tipAfeIgv: item.tipAfeIgv.codigo,
-                //totalImpuestos: Number(igvTotal).toFixed(2),
                 unidad: item.unidad.codigo,
               };
-            }
-          }),
-        };
-      });
+            }),
+          };
+        }),
+      );
 
       return {
         statusCode: 'success',
         pageSize: Number(pageSize),
         pageCount,
         rowCount,
-        // currentPage: Number(page),
-        // nextPage: nextPage,
-        // prevPage: prevPage,
-        // totalPage: totalPage,
         items: await Promise.all(items),
       };
     } catch (e) {
@@ -2696,12 +2489,12 @@ export class InvoiceService {
           producto.tipAfeIgv.codigo === '37'
         ) {
           const igv = round(
-            ((producto.mtoValorGratuito * producto.porcentajeIgv) / 100) *
+            ((producto.mtoValorUnitario * producto.porcentajeIgv) / 100) *
               producto.cantidad,
           );
 
           const opeGratuitas = round(
-            producto.mtoValorGratuito * producto.cantidad,
+            producto.mtoValorUnitario * producto.cantidad,
           );
 
           acc.mtoOperGratuitas += opeGratuitas;
@@ -2799,7 +2592,7 @@ export class InvoiceService {
   async formatListInvoices(
     invoice: InvoiceEntity,
     fileName?: string,
-  ): Promise<any> {
+  ): Promise<QueryInvoiceList> {
     const DECIMAL = 6;
 
     return new Promise(async (resolve, reject) => {
@@ -2849,70 +2642,70 @@ export class InvoiceService {
         } else {
         }
 
-        const {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          UBLVersionID,
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          CustomizationID,
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          createdAt,
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          fecha_emision,
-          ...rest
-        } = invoice;
-
-        const result = {
-          ...rest,
-          cliente: invoice.cliente
-            ? {
-                id: invoice.cliente.id,
-                entidad: rest.cliente.entidad,
-                nombre_comercial: invoice.cliente.nombre_comercial,
-                numero_documento: invoice.cliente.numero_documento,
-                estado: invoice.cliente.estado,
-                direccion: invoice.cliente.direccion,
-                tipo_entidad: invoice.cliente.tipo_entidad.codigo,
-              }
-            : null,
-          empresa: {
-            id: invoice.empresa.id,
-            ruc: invoice.empresa.ruc,
-            razon_social: invoice.empresa.razon_social,
-            nombre_comercial: invoice.empresa.nombre_comercial,
-            estado: invoice.empresa.estado,
-            modo: invoice.empresa.modo === 0 ? 'BETA' : 'PRODUCCION',
-          },
-          establecimiento: {
-            id: invoice.establecimiento.id,
-            codigo: invoice.establecimiento.codigo,
-            denominacion: invoice.establecimiento.denominacion,
-            estado: invoice.establecimiento.estado,
-          },
-          status: [0, 2, 3].includes(invoice.estado_operacion),
-          xml: !fs.existsSync(pathDirFirma) ? '#' : `${pathStaticFirma}`,
-          cdr: !fs.existsSync(pathDirCDR) ? '#' : `${pathStaticCDR}`,
-          pdfA4: `${urlStatic}/${ruc}/${establecimiento}/${nomDoc}/PDF/A4/${'test'}.pdf`,
+        const result: QueryInvoiceList = {
+          id: invoice.id,
+          tipo_operacion: invoice.tipo_operacion,
+          serie: invoice.serie,
+          correlativo: invoice.correlativo,
+          fecha_vencimiento: invoice.fecha_vencimiento,
+          mto_operaciones_gravadas: invoice.mto_operaciones_gravadas,
+          mto_operaciones_exoneradas: invoice.mto_operaciones_exoneradas,
+          mto_operaciones_inafectas: invoice.mto_operaciones_inafectas,
+          mto_operaciones_exportacion: invoice.mto_operaciones_exportacion,
+          mto_operaciones_gratuitas: invoice.mto_operaciones_gratuitas,
+          mto_igv: invoice.mto_igv,
+          mto_igv_gratuitas: invoice.mto_igv_gratuitas,
+          porcentaje_igv: invoice.porcentaje_igv,
+          estado_operacion: invoice.estado_operacion,
+          estado_anulacion: invoice.estado_anulacion,
+          respuesta_sunat_codigo: invoice.respuesta_sunat_codigo,
+          respuesta_sunat_descripcion: invoice.respuesta_sunat_descripcion,
+          respuesta_anulacion_codigo: invoice.respuesta_anulacion_codigo,
+          respuesta_anulacion_descripcion:
+            invoice.respuesta_anulacion_descripcion,
+          observaciones_sunat: invoice.observaciones_sunat,
+          observaciones: invoice.observaciones_invoice
+            ? invoice.observaciones_invoice.split('|').map((item) => ({
+                observacion: item,
+                uuid: uuidv4(),
+              }))
+            : [],
+          borrador: invoice.borrador,
+          documento: invoice.tipo_doc.tipo_documento,
+          tipo_documento: invoice.tipo_doc.codigo,
+          cliente: invoice.cliente ? invoice.cliente.entidad : invoice.entidad,
+          cliente_direccion: invoice.cliente
+            ? invoice.cliente.direccion
+            : invoice.entidad_direccion,
+          cliente_cod_doc: invoice.cliente
+            ? invoice.cliente.tipo_entidad.codigo
+            : invoice.entidad_tipo,
+          cliente_num_doc: invoice.cliente
+            ? invoice.cliente.numero_documento
+            : invoice.entidad_documento,
+          empresa: invoice.empresa.id,
+          establecimiento: invoice.establecimiento.id,
           usuario: invoice.usuario.nombres + ' ' + invoice.usuario.apellidos,
-          moneda: invoice.tipo_moneda,
+          moneda_abrstandar: invoice.tipo_moneda.abrstandar,
+          moneda_simbolo: invoice.tipo_moneda.simbolo,
           fecha_registro: invoice.createdAt,
           fecha_emision: invoice.fecha_emision,
-          productos: invoice.invoices_details.map((item) => {
-            const igvUnitario = item.mtoValorUnitario * item.porcentajeIgv;
-            const precioUnitario = item.mtoValorUnitario + igvUnitario;
+          forma_pago: invoice.forma_pago.forma_pago,
+          cdr: !fs.existsSync(pathDirCDR) ? '#' : `${pathStaticCDR}`,
+          xml: !fs.existsSync(pathDirFirma) ? '#' : `${pathStaticFirma}`,
+          pdfA4: `${urlStatic}/${ruc}/${establecimiento}/${nomDoc}/PDF/A4/${'test'}.pdf`,
+          status: [0, 2, 3].includes(invoice.estado_operacion),
+          details: invoice.invoices_details.map((item, i) => {
             return {
+              id: item.id,
+              posicionTabla: i,
+              uuid: uuidv4(),
               cantidad: item.cantidad,
               codigo: item.codigo,
-              descripcion: item.producto,
-              igv: round(igvUnitario * item.cantidad),
-              igvUnitario: round(igvUnitario),
-              mtoBaseIgv: round(item.mtoValorUnitario * item.cantidad),
-              mtoPrecioUnitario: round(precioUnitario, DECIMAL),
-              mtoTotalItem: round(precioUnitario * item.cantidad),
-              mtoValorUnitario: round(item.mtoValorUnitario, DECIMAL),
-              mtoValorVenta: round(item.mtoValorUnitario * item.cantidad),
-              porcentajeIgv: Number(item.porcentajeIgv),
+              descripcion: item.descripcion,
+              mtoValorUnitario: item.mtoValorUnitario,
+              porcentajeIgv: item.porcentajeIgv,
               tipAfeIgv: item.tipAfeIgv.codigo,
-              totalImpuestos: round(igvUnitario * item.cantidad),
               unidad: item.unidad.codigo,
             };
           }),
