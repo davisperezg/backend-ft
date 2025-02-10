@@ -59,5 +59,5 @@ export class EstablecimientoCreateDto {
   empresa: number;
 
   @IsBoolean()
-  status?: boolean;
+  estado?: boolean;
 }

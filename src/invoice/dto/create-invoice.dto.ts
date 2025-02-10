@@ -150,10 +150,10 @@ export class CreateInvoiceDto {
   // total_pagar: number;
 
   @IsNotEmpty({ message: 'Por favor ingrese los productos de la venta.' })
-  productos: any[];
+  details: any[];
 
   @IsOptional()
-  observaciones?: any[];
+  observaciones?: string[];
 
   @IsBoolean({ message: 'El borrador debe ser de tipo booleano' })
   @IsOptional()

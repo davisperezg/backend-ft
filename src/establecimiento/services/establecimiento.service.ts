@@ -39,7 +39,7 @@ export class EstablecimientoService {
 
     const createObj = this.establecimientoRepository.create({
       ...body.data,
-      estado: body.data.status,
+      estado: body.data.estado,
       logo: body.files,
       empresa,
     });
@@ -82,7 +82,7 @@ export class EstablecimientoService {
 
       const createObj = this.establecimientoRepository.merge(establecimiento, {
         ...body.data,
-        estado: body.data.status,
+        estado: body.data.estado,
         logo: body.files,
         empresa,
       });

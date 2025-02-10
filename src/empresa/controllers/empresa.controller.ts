@@ -60,12 +60,8 @@ export class EmpresaController {
   @UseGuards(
     PermissionGuard([Permission.GetOneEmpresas, Permission.UpdateEmpresas]),
   )
-  async getEmpresa(@Res() res, @Param('id') id: number, @Req() req: Request) {
-    const response = await this.empresaService.findOneEmpresaById(
-      id,
-      false,
-      req,
-    );
+  async getEmpresa(@Res() res, @Param('id') id: number) {
+    const response = await this.empresaService.findOneEmpresaById(id, false);
     return res.status(HttpStatus.OK).json({
       message: 'La empresa ha sido obtenida correctamente.',
       response,

@@ -182,7 +182,7 @@ export class InvoiceEntity {
 
   @Column({
     type: 'tinyint',
-    default: 0, //0 es creado, 1 es enviando, 2 es aceptado, 3 es rechazado, 4 borrador
+    default: 0, //0 es creado, 1 es enviando, 2 es aceptado, 3 es rechazado, 4 error_contribuyente(excepcion)
   })
   estado_operacion?: number;
 

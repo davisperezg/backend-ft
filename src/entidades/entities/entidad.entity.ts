@@ -9,6 +9,7 @@ import {
   JoinColumn,
   ManyToOne,
   OneToMany,
+  CreateDateColumn,
 } from 'typeorm';
 
 @Entity({ name: 'entidades' })
@@ -21,7 +22,7 @@ export class EntidadEntity {
     nullable: false,
   })
   @JoinColumn({ name: 'tipo_entidad_id' })
-  tipo_entidad?: TipoEntidadEntity;
+  tipo_entidad: TipoEntidadEntity;
 
   //empleado quien registro
   @ManyToOne(() => UserEntity, (user) => user.entidades, {
@@ -89,8 +90,14 @@ export class EntidadEntity {
   @Column({
     default: true,
   })
-  estado: boolean;
+  estado?: boolean;
 
   @OneToMany(() => InvoiceEntity, (invoice) => invoice.cliente)
   invoices?: InvoiceEntity[];
+
+  @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  createdAt?: Date;
+
+  @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  updatedAt?: Date;
 }

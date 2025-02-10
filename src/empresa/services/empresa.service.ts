@@ -18,7 +18,7 @@ import {
   ROL_PRINCIPAL,
 } from 'src/lib/const/consts';
 import { UserService } from 'src/user/services/user.service';
-import { EmpresaSimpleDTO } from '../dto/queryEmpresas.dto';
+import { EmpresaListDTO } from '../dto/queryEmpresas.dto';
 import { TipodocsService } from 'src/tipodocs/services/tipodocs.service';
 import { TipodocsEmpresaEntity } from 'src/tipodocs_empresa/entities/tipodocs_empresa.entity';
 import { CreateEmpresaDTO } from '../dto/create-empresa.dto';
@@ -29,6 +29,8 @@ import { EstablecimientoEntity } from 'src/establecimiento/entities/establecimie
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User, UserDocument } from 'src/user/schemas/user.schema';
+import { EmpresaDetailDTO } from '../dto/queryEmpresa.dto';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class EmpresaService {
@@ -46,12 +48,13 @@ export class EmpresaService {
     private establecimientoService: EstablecimientoService,
     @InjectModel(User.name)
     private userModel: Model<UserDocument>,
+    private readonly configService: ConfigService,
   ) {}
 
   async createEmpresa(body: {
     data: CreateEmpresaDTO;
     files: any;
-  }): Promise<EmpresaSimpleDTO> {
+  }): Promise<EmpresaListDTO> {
     //Verficamos si la empresa ya existe
     const findEmpresa = await this.empresaRepository.findOne({
       where: {
@@ -183,7 +186,7 @@ export class EmpresaService {
             }
           }
 
-          const objResult: EmpresaSimpleDTO = {
+          const objResult: EmpresaListDTO = {
             id: empresa.id,
             usuario: {
               nombres: empresa.usuario.nombres,
@@ -203,7 +206,7 @@ export class EmpresaService {
             logo: empresa.logo,
             direccion: empresa.domicilio_fiscal,
             ubigeo: empresa.ubigeo,
-            status: empresa.estado,
+            estado: empresa.estado,
           };
 
           return objResult;
@@ -234,7 +237,7 @@ export class EmpresaService {
     }
   }
 
-  //: Promise<EmpresaSimpleDTO>
+  //: Promise<EmpresaListDTO>
   async updateEmpresa(
     id: number,
     body: {
@@ -482,7 +485,7 @@ export class EmpresaService {
                     direccion: establecimiento.direccion,
                     ubigeo: establecimiento.ubigeo,
                     empresa: newEmpresa.id,
-                    status: establecimiento.status,
+                    estado: establecimiento.estado,
                   },
                   files:
                     idsField.includes(establecimiento.id) && fileEstablecimiento
@@ -500,7 +503,7 @@ export class EmpresaService {
                 direccion: establecimiento.direccion,
                 ubigeo: establecimiento.ubigeo,
                 empresa: newEmpresa,
-                estado: establecimiento.status,
+                estado: establecimiento.estado,
                 logo:
                   fileEstablecimiento && establecimiento.logo
                     ? establecimiento.logo
@@ -511,7 +514,7 @@ export class EmpresaService {
             }
           }
 
-          const objResult: EmpresaSimpleDTO = {
+          const objResult: EmpresaListDTO = {
             id: newEmpresa.id,
             usuario: {
               nombres: empresa.usuario.nombres,
@@ -531,7 +534,7 @@ export class EmpresaService {
             logo: newEmpresa.logo,
             direccion: newEmpresa.domicilio_fiscal,
             ubigeo: newEmpresa.ubigeo,
-            status: newEmpresa.estado,
+            estado: newEmpresa.estado,
             documentos: empresa.tipodoc_empresa.map((a) => {
               return {
                 id: a.id,
@@ -557,7 +560,7 @@ export class EmpresaService {
   async listEmpresas(
     userToken: QueryToken,
     front = true,
-  ): Promise<EmpresaSimpleDTO[] | EmpresaEntity[]> {
+  ): Promise<EmpresaListDTO[] | EmpresaEntity[]> {
     const { tokenEntityFull } = userToken;
 
     let empresas: EmpresaEntity[] = [];
@@ -616,7 +619,7 @@ export class EmpresaService {
     }
 
     if (front) {
-      const queryEmpresa: EmpresaSimpleDTO[] = empresas.map((a) => {
+      const queryEmpresa: EmpresaListDTO[] = empresas.map((a) => {
         return {
           id: a.id,
           usuario: {
@@ -633,7 +636,6 @@ export class EmpresaService {
           sunat_pass: a.usu_secundario_password,
           ose_usu: a.usu_secundario_ose_user,
           ose_pass: a.usu_secundario_ose_password,
-          status: a.estado,
           estado: a.estado,
         };
       });
@@ -847,7 +849,10 @@ export class EmpresaService {
     return establecimientos;
   }
 
-  async findOneEmpresaById(idEmpresa: number, internal = false, req?: Request) {
+  async findOneEmpresaById(
+    idEmpresa: number,
+    internal = false,
+  ): Promise<EmpresaEntity | EmpresaDetailDTO> {
     let empresa: EmpresaEntity;
 
     try {
@@ -879,82 +884,99 @@ export class EmpresaService {
 
     const { estado, tipodoc_empresa, usuario, ...rest } = empresa;
 
-    const result = internal
-      ? empresa
-      : {
-          ...rest,
-          usuario: {
-            id: usuario.id,
-            nombres: usuario.nombres,
-            apellidos: usuario.apellidos,
-            nombres_completo: usuario.nombres + ' ' + usuario.apellidos,
-          },
-          logo: [
-            {
-              name: empresa.logo,
-              src:
-                empresa.logo === 'logo_default.png'
-                  ? `${req.protocol}://${req.get('Host')}/default/${
-                      empresa.logo
-                    }`
-                  : `${req.protocol}://${req.get('Host')}/${
-                      empresa.ruc
-                    }/IMAGES/LOGO/${empresa.logo}`,
-            },
-          ],
-          cert: [
-            {
-              name: empresa.cert,
-            },
-          ],
-          status: estado,
-          documentos: tipodoc_empresa.map((a) => {
-            return {
-              id: a.id,
-              nombre: a.tipodoc.tipo_documento,
-              estado: a.estado,
-            };
-          }),
-          establecimientos: empresa.establecimientos
-            .map((a) => {
-              const departamento = DEPARTAMENTOS.find(
-                (b) => b.departamento.toUpperCase() === a.departamento,
-              );
-              const provincia = PROVINCIAS.find(
-                (c) => c.provincia.toUpperCase() === a.provincia,
-              );
-              const distrito = DISTRITOS.find(
-                (d) => d.distrito.toUpperCase() === a.distrito,
-              );
+    const URL_BASE_STATIC = this.configService.get<string>('URL_BASE_STATIC');
+    const empresaDetail: EmpresaDetailDTO = {
+      id: empresa.id,
+      logo: [
+        {
+          name: empresa.logo,
+          src:
+            empresa.logo === 'logo_default.png'
+              ? `${URL_BASE_STATIC}/default/${empresa.logo}`
+              : `${URL_BASE_STATIC}/${empresa.ruc}/IMAGES/LOGO/${empresa.logo}`,
+        },
+      ],
+      ruc: empresa.ruc,
+      razon_social: empresa.razon_social,
+      nombre_comercial: empresa.nombre_comercial,
+      domicilio_fiscal: empresa.domicilio_fiscal,
+      ubigeo: empresa.ubigeo,
+      urbanizacion: empresa.urbanizacion,
+      correo: empresa.correo,
+      telefono_movil_1: empresa.telefono_movil_1,
+      telefono_movil_2: empresa.telefono_movil_2,
+      telefono_fijo_1: empresa.telefono_fijo_1,
+      telefono_fijo_2: empresa.telefono_fijo_2,
+      web_service: empresa.web_service,
+      fieldname_cert: empresa.fieldname_cert,
+      cert: [
+        {
+          name: empresa.cert,
+        },
+      ],
+      cert_password: empresa.cert_password,
+      modo: empresa.modo,
+      ose_enabled: empresa.ose_enabled,
+      usu_secundario_user: empresa.usu_secundario_user,
+      usu_secundario_password: empresa.usu_secundario_password,
+      usu_secundario_ose_user: empresa.usu_secundario_ose_user,
+      usu_secundario_ose_password: empresa.usu_secundario_ose_password,
+      establecimientos: empresa.establecimientos
+        .map((a) => {
+          const departamento = DEPARTAMENTOS.find(
+            (b) => b.departamento.toUpperCase() === a.departamento,
+          );
+          const provincia = PROVINCIAS.find(
+            (c) => c.provincia.toUpperCase() === a.provincia,
+          );
+          const distrito = DISTRITOS.find(
+            (d) => d.distrito.toUpperCase() === a.distrito,
+          );
 
-              return {
-                id: a.id,
-                codigo: a.codigo,
-                denominacion: a.denominacion,
-                departamento: {
-                  value: departamento?.id || '',
-                  label: departamento?.departamento.toUpperCase() || '',
-                },
-                provincia: {
-                  value: provincia?.id || '',
-                  label: provincia?.provincia.toUpperCase() || '',
-                },
-                distrito: {
-                  value: distrito?.id || '',
-                  label: distrito?.distrito.toUpperCase() || '',
-                },
-                direccion: a.direccion,
-                logo: [
-                  {
-                    name: a.logo,
-                  },
-                ],
-                ubigeo: a.ubigeo,
-                status: a.estado,
-              };
-            })
-            .filter((b) => b.codigo !== '0000'),
+          return {
+            id: a.id,
+            codigo: a.codigo,
+            denominacion: a.denominacion,
+            departamento: {
+              value: departamento?.id || '',
+              label: departamento?.departamento.toUpperCase() || '',
+            },
+            provincia: {
+              value: provincia?.id || '',
+              label: provincia?.provincia.toUpperCase() || '',
+            },
+            distrito: {
+              value: distrito?.id || '',
+              label: distrito?.distrito.toUpperCase() || '',
+            },
+            direccion: a.direccion,
+            logo: [
+              {
+                name: a.logo,
+              },
+            ],
+            ubigeo: a.ubigeo,
+            estado: a.estado,
+          };
+        })
+        .filter((b) => b.codigo !== '0000'),
+      usuario: {
+        id: usuario.id,
+        nombres: usuario.nombres,
+        apellidos: usuario.apellidos,
+        nombre_completo: usuario.nombres + ' ' + usuario.apellidos,
+      },
+      estado: estado,
+      documentos: tipodoc_empresa.map((a) => {
+        return {
+          id: a.id,
+          nombre: a.tipodoc.tipo_documento,
+          estado: a.estado,
         };
+      }),
+    };
+
+    const result = internal ? empresa : empresaDetail;
 
     return result;
   }

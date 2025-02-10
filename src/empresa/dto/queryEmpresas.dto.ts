@@ -1,6 +1,8 @@
+import { EstablecimientoListDTO } from 'src/establecimiento/dto/query-establecimiento.dto';
+import { TipoDocElectListDTO } from 'src/tipodocs/dto/query-tipodoc.dto';
 import { UserBasicInfoDTO } from 'src/user/dto/queryUser.dto';
 
-export class EmpresaSimpleDTO {
+export class EmpresaListDTO {
   id: number;
   usuario: UserBasicInfoDTO;
   ruc: string;
@@ -12,10 +14,10 @@ export class EmpresaSimpleDTO {
   sunat_pass: string;
   ose_usu: string;
   ose_pass: string;
-  status: boolean;
+  estado: boolean;
   logo?: string;
   direccion?: string;
   ubigeo?: string;
-  documentos?: any[];
-  establecimientos?: any[];
+  documentos?: TipoDocElectListDTO[];
+  establecimientos?: EstablecimientoListDTO[];
 }
