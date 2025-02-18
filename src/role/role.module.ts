@@ -39,6 +39,8 @@ import { EstablecimientoService } from 'src/establecimiento/services/establecimi
 import { EstablecimientoEntity } from 'src/establecimiento/entities/establecimiento.entity';
 import { UsersEmpresaEntity } from 'src/users_empresa/entities/users_empresa.entity';
 import { SeriesModule } from 'src/series/series.module';
+import { PosService } from 'src/pos/services/pos.service';
+import { PosEntity } from 'src/pos/entities/pos.entity';
 
 @Module({
   imports: [
@@ -48,6 +50,7 @@ import { SeriesModule } from 'src/series/series.module';
       TipodocsEmpresaEntity,
       EstablecimientoEntity,
       UsersEmpresaEntity,
+      PosEntity,
     ]),
     MongooseModule.forFeature([
       { name: Role.name, schema: RoleSchema },
@@ -71,6 +74,7 @@ import { SeriesModule } from 'src/series/series.module';
     UserService,
     EmpresaService,
     EstablecimientoService,
+    PosService,
   ],
 })
 export class RoleModule {}
