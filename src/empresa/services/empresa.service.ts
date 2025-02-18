@@ -31,6 +31,7 @@ import { Model } from 'mongoose';
 import { User, UserDocument } from 'src/user/schemas/user.schema';
 import { EmpresaDetailDTO } from '../dto/queryEmpresa.dto';
 import { ConfigService } from '@nestjs/config';
+import { PosService } from 'src/pos/services/pos.service';
 
 @Injectable()
 export class EmpresaService {
@@ -49,6 +50,7 @@ export class EmpresaService {
     @InjectModel(User.name)
     private userModel: Model<UserDocument>,
     private readonly configService: ConfigService,
+    private readonly posService: PosService,
   ) {}
 
   async createEmpresa(body: {
@@ -134,7 +136,7 @@ export class EmpresaService {
             usu_secundario_user:
               body.data.modo === 0
                 ? '20000000001MODDATOS'
-                : body.data.usu_secundario_user,
+                : body.data.ruc + body.data.usu_secundario_user,
             usu_secundario_password:
               body.data.modo === 0
                 ? 'moddatos'
@@ -214,18 +216,26 @@ export class EmpresaService {
       );
 
       //Si todo sale ok creamos establecimiento x defecto
-      await this.establecimientoService.createEstablecimiento({
-        data: {
-          codigo: '0000',
-          denominacion: result.razon_social,
-          departamento: (body.data as any).departamento.label ?? '',
-          provincia: (body.data as any).provincia.label ?? '',
-          distrito: (body.data as any).distrito.label ?? '',
-          direccion: result.direccion,
-          ubigeo: result.ubigeo,
-          empresa: result.id,
-        },
-        files: result.logo,
+      const establecimiento =
+        await this.establecimientoService.createEstablecimiento({
+          data: {
+            codigo: '0000',
+            denominacion: result.razon_social,
+            departamento: (body.data as any).departamento.label ?? '',
+            provincia: (body.data as any).provincia.label ?? '',
+            distrito: (body.data as any).distrito.label ?? '',
+            direccion: result.direccion,
+            ubigeo: result.ubigeo,
+            empresa: result.id,
+          },
+          files: result.logo,
+        });
+
+      //Creamos punto de venta por defecto
+      await this.posService.createPOS({
+        nombre: `POS Principal - ${establecimiento.denominacion}`,
+        codigo: '001',
+        establecimiento: establecimiento.id,
       });
 
       return result;

@@ -279,31 +279,28 @@ export class InvoiceService {
         HttpStatus.BAD_REQUEST,
       );
     }
-    //No se puede emitir un cpe con un correlativo menor o mayor al actual
-    // if (
-    //   Number(invoice.numero) < Number(serie.numero) ||
-    //   Number(invoice.numero) > Number(serie.numero)
-    // ) {
-    //   throw new HttpException(
-    //     'El correlativo ingresado ya fue utilizada o es mayor a la actual serie del establecimiento.',
-    //     HttpStatus.BAD_REQUEST,
-    //   );
-    // }
+
+    let reservedCorrelativo: string = null;
 
     //Validar que correlativo no se repita con nuestro cpe en la db
-    const existInvoice = await this.findOneInvoice(
+    const existInvoiceWithSerialNumber = await this.findOneInvoice(
       invoice.serie,
       serie.numeroConCeros,
       empresa.id,
       establecimiento.id,
     );
 
-    console.log(existInvoice);
+    console.log({
+      serieInput: invoice.serie,
+      serieData: serie,
+      empresaId: empresa.id,
+      establecimientoId: establecimiento.id,
+    });
 
     //Si ya existe una invoice es porque el correlativo, empresa y establecimiento
     //son los mismos datos por lo tanto para seguir con la transaccion debemos
     //actualizar el correlativo de la serie
-    if (existInvoice) {
+    if (existInvoiceWithSerialNumber) {
       throw new HttpException(
         'Ya existe un cpe con el mismo número de serie.',
         HttpStatus.BAD_REQUEST,
@@ -351,7 +348,17 @@ export class InvoiceService {
       cdr?: string;
     } = null;
 
+    //BUSCAREMOS EL INVOICE PARA SABER SI EXSITE O NO, SI EXISTE ACTUALIZAMOS BORRADOR DE LO CONTRARIO CREAMOS
+    const existInvoiceById = await this.findOneInvoiceById(invoice.id);
+
     try {
+      // Reservar el correlativo antes de iniciar la transacción
+      if (!existInvoiceById) {
+        //reservedCorrelativo = 100
+      }
+
+      console.log(reservedCorrelativo);
+
       result = await this.dataSource.transaction(async (entityManager) => {
         let clienteEntity: EntidadEntity = null;
 
@@ -456,31 +463,26 @@ export class InvoiceService {
 
           return item;
         });
+
         const details = await Promise.all(validDetails);
+
         //Calculamos los totales del invoice y obtendran solo 2 decimales
         const totales = this.obtenerTotalesInvoices(details);
-
-        //BUSCAREMOS EL INVOICE PARA SABER SI EXSITE O NO, SI EXISTE ACTUALIZAMOS BORRADOR DE LO CONTRARIO CREAMOS
-        const existInvoice = await this.findOneInvoiceById(invoice.id);
 
         //Seteamos nuestro obj invoice con sus productos y totales
         const newInvoice: InvoiceEntity = {
           tipo_operacion: invoice.tipo_operacion,
           tipo_doc: tipoDocumento,
-          serie:
-            existInvoice && invoice.borrador //Si existe un borrador y sigue guardando como borrador
-              ? existInvoice.serie !== invoice.serie //Si la serie es diferente a la que se esta guardando
-                ? invoice.serie //Guardamos la nueva serie
-                : existInvoice.serie //Si no guardamos la serie actual
-              : invoice.serie, //Si no guardamos la serie actual
-          correlativo:
-            existInvoice && invoice.borrador //Si existe un borrador y sigue guardando como borrador
-              ? existInvoice.serie !== invoice.serie //Si la serie es diferente a la que se esta guardando
-                ? serie.numeroConCeros //Guardamos el nuevo correlativo
-                : existInvoice.correlativo //Si no guardamos el correlativo actual
-              : existInvoice && !invoice.borrador
-              ? invoice.numero
-              : serie.numeroConCeros, //Si no guardamos el correlativo actual
+          serie: existInvoiceById
+            ? existInvoiceById.serie !== invoice.serie
+              ? invoice.serie
+              : existInvoiceById.serie
+            : invoice.serie,
+          correlativo: existInvoiceById
+            ? invoice.borrador && existInvoiceById.serie !== invoice.serie
+              ? null // Si es borrador y cambia serie, el correlativo es null
+              : existInvoiceById.correlativo // Mantiene el correlativo existente
+            : reservedCorrelativo, // Nuevo invoice borrador o no, usa correlativo reservado
           fecha_emision: invoice.fecha_emision,
           fecha_vencimiento: invoice.fecha_vencimiento,
           forma_pago: formaPago,
@@ -518,9 +520,9 @@ export class InvoiceService {
         let fileName = `${empresa.ruc}-${invoiceCreated.tipo_doc.codigo}-${invoiceCreated.serie}-${invoiceCreated.correlativo}`;
 
         //Si existe invoice actualizamos de lo contrario creamos
-        if (existInvoice) {
+        if (existInvoiceById) {
           //No se permite actualizar un cpe valido
-          if (!existInvoice.borrador) {
+          if (!existInvoiceById.borrador) {
             throw new HttpException(
               'No puedes modificar un CPE ya emitido.',
               HttpStatus.BAD_REQUEST,
@@ -535,12 +537,12 @@ export class InvoiceService {
           //UPDATE INVOICE
           await entityManager.update(
             InvoiceEntity,
-            { id: existInvoice.id },
+            { id: existInvoiceById.id },
             restInvoiceCreated,
           );
 
           invoiceCreated = {
-            id: existInvoice.id,
+            id: existInvoiceById.id,
             ...invoiceCreated,
           };
 
@@ -550,7 +552,7 @@ export class InvoiceService {
             },
             where: {
               invoice: {
-                id: Equal(existInvoice.id),
+                id: Equal(existInvoiceById.id),
               },
             },
           });
@@ -574,7 +576,7 @@ export class InvoiceService {
                 },
               });
 
-              if (findProduct.invoice.id !== existInvoice.id) {
+              if (findProduct.invoice.id !== existInvoiceById.id) {
                 throw new HttpException(
                   'No puedes modificar este producto.',
                   HttpStatus.BAD_REQUEST,
@@ -612,7 +614,7 @@ export class InvoiceService {
               // Si el producto nuevo no existe, agregarlo
               const objDetail = this.invoiceDetailsRepository.create({
                 ...newProduct,
-                invoice: existInvoice,
+                invoice: existInvoiceById,
               });
 
               //Guardamos detalle del invoice
@@ -1005,11 +1007,11 @@ export class InvoiceService {
           }
         }
 
-        if (!existInvoice) {
+        if (!existInvoiceById) {
           //Actualizamos serie
           await entityManager.save(SeriesEntity, {
             ...serie,
-            numero: String(Number(serie.numero) + 1),
+            numero: String(Number(reservedCorrelativo) + 1),
           });
         }
 
@@ -1020,9 +1022,10 @@ export class InvoiceService {
           codigo_respuesta_sunat_int: codigo_respuesta_sunat_int,
           documento: `${invoiceCreated.tipo_doc.tipo_documento.toUpperCase()} ELECTRÓNICA`,
           serie: invoiceCreated.serie,
-          correlativo: existInvoice
+          correlativo: existInvoiceById
             ? String(Number(serie.numero))
-            : String(Number(serie.numero) + 1),
+            : String(Number(reservedCorrelativo) + 1),
+          //: String(Number(serie.numero) + 1),
           correlativo_registrado: invoiceCreated.correlativo,
           total: `${invoiceCreated.tipo_moneda.simbolo} ${totales.mtoImpVenta}`,
           xml: invoiceCreated.borrador ? null : _invoice.xml,
@@ -1030,11 +1033,12 @@ export class InvoiceService {
           pdfA4: invoiceCreated.borrador ? invoiceSimple.pdfA4 : _invoice.pdfA4,
         };
       });
+
+      return result;
     } catch (e) {
+      console.log('jeje', e);
       throw new HttpException(e.response ?? e.message, HttpStatus.BAD_REQUEST);
     }
-
-    return result;
 
     // return {
     //   ...restoSunat,
@@ -1975,13 +1979,13 @@ export class InvoiceService {
           usuario: true,
         },
         where: {
-          serie: serie,
-          correlativo: numero,
+          serie: Equal(serie),
+          correlativo: Equal(numero),
           empresa: {
-            id: empresa,
+            id: Equal(empresa),
           },
           establecimiento: {
-            id: establecimiento,
+            id: Equal(establecimiento),
           },
         },
       });

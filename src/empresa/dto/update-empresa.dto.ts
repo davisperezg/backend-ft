@@ -180,4 +180,10 @@ export class UpdateEmpresaDTO {
     message: 'Los establecimientos de la empresa no debe estar vacia.',
   })
   establecimientos: any[];
+
+  @IsNotEmpty({
+    message: 'Los puntos de venta de la empresa no debe estar vacio.',
+  })
+  @IsOptional()
+  pos: any[];
 }

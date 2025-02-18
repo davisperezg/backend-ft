@@ -79,7 +79,7 @@ export class InvoiceGateway
 
   //Se ejecutara esta tarea todos los dias a las 1am -> enviara todos cpes pendientes a sunat
   //@Cron('0 0,20,40,59 2 * * *')
-  @Cron('0 43 00 * * *')
+  @Cron('0 53 1 * * *')
   async handleCron() {
     this.logger.debug(
       'INICIANDO ENVIO DE COMPROBANTES A SUNAT MEDIANTE CRON...',
@@ -1253,7 +1253,6 @@ export class InvoiceGateway
       // this.invoiceInProcess = false;
       // release();
 
-      console.log({ codigo_respuesta_sunat_int, codigo_respuesta_sunat });
       const estadoSunat =
         codigo_respuesta_sunat !== 'HTTP' //si envia sunat
           ? codigo_respuesta_sunat_int === 0 //aceptada
@@ -1269,8 +1268,6 @@ export class InvoiceGateway
             ? 'ERROR_EXCEPCION'
             : 'ERROR' //obs u otro codigo
           : null; //devuelve nul si es borrador
-
-      console.log({ estadoSunat });
 
       //Notificamos el nuevo nro de serie al cliente
       client.emit('server::getIdInvoice', {

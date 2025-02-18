@@ -1,3 +1,4 @@
+import { PosService } from './../pos/services/pos.service';
 import { Module, forwardRef, MiddlewareConsumer } from '@nestjs/common';
 import { EmpresaService } from './services/empresa.service';
 import { EmpresaController } from './controllers/empresa.controller';
@@ -10,6 +11,7 @@ import { EstablecimientoModule } from 'src/establecimiento/establecimiento.modul
 import { EstablecimientoEntity } from 'src/establecimiento/entities/establecimiento.entity';
 import { MongooseModule } from '@nestjs/mongoose';
 import { User, UserSchema } from 'src/user/schemas/user.schema';
+import { PosEntity } from 'src/pos/entities/pos.entity';
 
 @Module({
   imports: [
@@ -18,12 +20,13 @@ import { User, UserSchema } from 'src/user/schemas/user.schema';
       EmpresaEntity,
       TipodocsEmpresaEntity,
       EstablecimientoEntity,
+      PosEntity,
     ]),
     forwardRef(() => UserModule),
     TipodocsModule,
     EstablecimientoModule,
   ],
-  providers: [EmpresaService],
+  providers: [EmpresaService, PosService],
   controllers: [EmpresaController],
   exports: [EmpresaService],
 })
