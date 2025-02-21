@@ -1,4 +1,5 @@
 import { EstablecimientoEntity } from 'src/establecimiento/entities/establecimiento.entity';
+import { PosEntity } from 'src/pos/entities/pos.entity';
 import { TipodocsEmpresaEntity } from 'src/tipodocs_empresa/entities/tipodocs_empresa.entity';
 import {
   BeforeInsert,
@@ -39,4 +40,10 @@ export class SeriesEntity {
     default: '1',
   })
   numero: string;
+
+  @ManyToOne(() => PosEntity, (pos) => pos.series, {
+    nullable: true,
+  })
+  @JoinColumn({ name: 'pos_id' })
+  pos?: PosEntity;
 }

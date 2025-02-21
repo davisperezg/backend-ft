@@ -141,6 +141,90 @@ export class SeriesService {
     }
   }
 
+  async listSeriesByIdEstablishment(idEstablishment: number) {
+    try {
+      const series = await this.serieRepository.find({
+        relations: {
+          documento: {
+            empresa: true,
+            tipodoc: true,
+          },
+          establecimiento: {
+            configsEstablecimiento: true,
+            series: true,
+          },
+        },
+        select: {
+          establecimiento: {
+            id: true,
+            codigo: true,
+            denominacion: true,
+            configsEstablecimiento: true,
+          },
+          documento: {
+            id: true,
+            estado: true,
+            empresa: {
+              id: true,
+              razon_social: true,
+            },
+          },
+        },
+
+        where: {
+          establecimiento: {
+            id: idEstablishment,
+          },
+        },
+      });
+
+      return series.reduce((result, item) => {
+        const id = item.documento.id;
+        const estado = item.documento.estado;
+        const codigo = item.documento.tipodoc.codigo;
+        const tipoDocumento = item.documento.tipodoc.tipo_documento;
+
+        // Verificamos si ya hemos agregado este tipo de documento al resultado
+        const tipoDocumentoExistente = result.find((doc) => doc.id === id);
+
+        if (!tipoDocumentoExistente) {
+          // Si no existe, lo agregamos al resultado
+          result.push({
+            id,
+            estado,
+            codigo,
+            nombre: tipoDocumento,
+            series: [
+              {
+                id: item.id,
+                serie: item.serie,
+                estado: item.estado,
+                numeroConCeros: completarConCeros(item.numero),
+                numero: item.numero,
+              },
+            ],
+          });
+        } else {
+          // Si ya existe, simplemente agregamos la serie a las series existentes
+          tipoDocumentoExistente.series.push({
+            id: item.id,
+            serie: item.serie,
+            estado: item.estado,
+            numeroConCeros: completarConCeros(item.numero),
+            numero: item.numero,
+          });
+        }
+
+        return result;
+      }, []);
+    } catch (e) {
+      throw new HttpException(
+        'Error al intentar listar las series SeriesService.listSeriesByIdEstablishment.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
   async listSeriesByIdEmpresa(idEmpresa: number) {
     try {
       const series = await this.serieRepository.find({

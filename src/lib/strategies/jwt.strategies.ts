@@ -129,8 +129,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
                 estado: item.estado,
                 configuraciones: item.configsEmpresa,
                 establecimientos: item.establecimientos.map((est) => {
+                  const { empresa, ...rest } = est;
                   return {
-                    ...est,
+                    ...rest,
                     codigo: est.codigo === '0000' ? 'PRINCIPAL' : est.codigo,
                   };
                 }),
@@ -154,8 +155,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
                   establecimiento: empresa.establecimientos
                     .filter((establecimiento) => establecimiento.estado)
                     .map((est) => {
+                      const { empresa, ...rest } = est;
                       return {
-                        ...est,
+                        ...rest,
                         codigo:
                           est.codigo === '0000' ? 'PRINCIPAL' : est.codigo,
                       };
