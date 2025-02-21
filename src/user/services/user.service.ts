@@ -35,6 +35,7 @@ import { UsersEmpresaEntity } from 'src/users_empresa/entities/users_empresa.ent
 import { Types, Connection } from 'mongoose';
 import { SeriesService } from 'src/series/services/series.service';
 import { ConfigService } from '@nestjs/config';
+import { EstablecimientoEntity } from 'src/establecimiento/entities/establecimiento.entity';
 
 @Injectable()
 export class UserService {
@@ -833,8 +834,13 @@ export class UserService {
   async findUserById(id: string): Promise<any> {
     const URL_BASE_STATIC = this.configService.get<string>('URL_BASE_STATIC');
 
+    const buildLogoUrl = (logo: string, path: string) =>
+      logo === 'logo_default.png'
+        ? `${URL_BASE_STATIC}/default/logo_default.png`
+        : `${URL_BASE_STATIC}/${path}/${logo}`;
+
     try {
-      const user: any = await this.userModel.findById(id).populate([
+      const foundUserMongo: any = await this.userModel.findById(id).populate([
         {
           path: 'role',
           populate: [
@@ -855,17 +861,18 @@ export class UserService {
         },
       ]);
 
-      const usermysql = await this.userRepository.findOne({
+      const foundUserMysql = await this.userRepository.findOne({
         where: {
           _id: String(id),
         },
       });
 
-      let empresamysql: EmpresaEntity[];
-
-      if (usermysql) {
-        //user
-        const usermysql2 = await this.usersEmprersaRepository.find({
+      // Si es un usuario de mysql
+      if (foundUserMysql) {
+        // Usuarios regulares de nivel 2 o superior
+        // Buscar las asignaciones del usuario a empresa
+        const userAssignments = await this.usersEmprersaRepository.find({
+          select: ['usuario', 'empresa', 'establecimiento'],
           relations: {
             empresa: {
               configsEmpresa: true,
@@ -874,51 +881,126 @@ export class UserService {
               },
               tipodoc_empresa: true,
             },
+            establecimiento: {
+              empresa: true,
+              configsEstablecimiento: true,
+            },
+            usuario: true,
           },
           where: {
             usuario: {
-              id: usermysql.id,
+              id: foundUserMysql.id,
             },
           },
         });
-        //console.log('usermysql', usermysql);
-        //user part
-        empresamysql = await this.empresaService.findAllEmpresasByUserId(
-          usermysql.id,
-        );
-        //console.log('empresamysql', empresamysql);
-        const myEmpresas = empresamysql ?? usermysql2;
 
-        //console.log(user._doc.empresa);
-        const empresas = myEmpresas.map(async (emp) => {
-          const testseries = await this.seriesService.listSeriesByIdEmpresa(
-            emp.id,
+        // Si hay asignaciones, procesarlas
+        if (userAssignments.length > 0) {
+          const userAssignmentsFormat = userAssignments.reduce<{
+            usuario: UserEntity | null;
+            empresas: EmpresaEntity[];
+            establecimientos: EstablecimientoEntity[];
+          }>(
+            (acc, curr) => {
+              // Asignar el usuario si aún no se ha establecido
+              if (!acc.usuario) {
+                acc.usuario = curr.usuario;
+              }
+
+              // Agregar la empresa sin duplicados
+              if (
+                curr.empresa &&
+                !acc.empresas.some((e) => e.id === curr.empresa.id)
+              ) {
+                acc.empresas.push(curr.empresa);
+              }
+
+              // Agregar el establecimiento sin duplicados
+              if (
+                curr.establecimiento &&
+                !acc.establecimientos.some(
+                  (est) => est.id === curr.establecimiento.id,
+                )
+              ) {
+                acc.establecimientos.push(curr.establecimiento);
+              }
+
+              return acc;
+            },
+            { usuario: null, empresas: [], establecimientos: [] },
           );
-          return {
-            ...emp,
-            logo:
-              emp.logo === 'logo_default.png'
-                ? `${URL_BASE_STATIC}/default/logo_default.png`
-                : `${URL_BASE_STATIC}/${emp.ruc}/IMAGES/LOGO/${emp.logo}`,
-            establecimientos: testseries.establecimientos.map((est) => {
+
+          // Procesamos los establecimientos:
+          const establishments = await Promise.all(
+            userAssignmentsFormat.establecimientos.map(async (est) => {
+              const series =
+                await this.seriesService.listSeriesByIdEstablishment(est.id);
               return {
                 ...est,
-                logo:
-                  est.logo === 'logo_default.png'
-                    ? `${URL_BASE_STATIC}/default/logo_default.png`
-                    : `${URL_BASE_STATIC}/${emp.ruc}/IMAGES/LOGO/establecimientos/${est.codigo}/IMAGES/LOGO/${est.logo}`,
+                logo: buildLogoUrl(
+                  est.logo,
+                  `${est.empresa.ruc}/IMAGES/LOGO/establecimientos/${est.codigo}/IMAGES/LOGO`,
+                ),
+                documentos: series,
               };
             }),
-          };
-        });
+          );
 
-        user._doc.empresas = await Promise.all(empresas);
-        //user._doc.empresa.establecimientos = testseries.establecimientos;
+          // Luego, procesamos las empresas e incorporamos sus establecimientos correspondientes:
+          const companys = userAssignmentsFormat.empresas.map((emp) => {
+            // Filtrar los establecimientos que pertenezcan a la empresa actual (por ejemplo, comparando el id o ruc)
+            const empEstablishments = establishments.filter(
+              (est) => est.empresa.id === emp.id,
+            );
+
+            return {
+              ...emp,
+              logo: buildLogoUrl(emp.logo, `${emp.ruc}/IMAGES/LOGO`),
+              establecimientos: empEstablishments,
+            };
+          });
+
+          foundUserMongo._doc.empresas = companys;
+        } else {
+          // Usuarios de nivel 1 (rol principal) no tienen asignaciones
+          // Si no hay asignaciones, se busca empresas del usuario principal
+          const companys = await this.empresaService.findAllEmpresasByUserId(
+            foundUserMysql.id,
+          );
+
+          const companysWithDocuments = await Promise.all(
+            companys.map(async (emp) => {
+              return {
+                ...emp,
+                logo: buildLogoUrl(emp.logo, `${emp.ruc}/IMAGES/LOGO`),
+                establecimientos: await Promise.all(
+                  emp.establecimientos.map(async (est) => {
+                    const series =
+                      await this.seriesService.listSeriesByIdEstablishment(
+                        est.id,
+                      );
+
+                    return {
+                      ...est,
+                      logo: buildLogoUrl(
+                        est.logo,
+                        `${emp.ruc}/IMAGES/LOGO/establecimientos/${est.codigo}/IMAGES/LOGO`,
+                      ),
+                      documentos: series,
+                    };
+                  }),
+                ),
+              };
+            }),
+          );
+
+          foundUserMongo._doc.empresas = companysWithDocuments;
+        }
       } else {
-        user._doc.empresas = null;
+        foundUserMongo._doc.empresas = null;
       }
 
-      return user;
+      return foundUserMongo;
     } catch (e) {
       throw new HttpException(
         `Error al intentar buscar usuario.`,
