@@ -483,10 +483,13 @@ export class EmpresaService {
                   establecimiento.id,
                 );
 
-              await this.establecimientoService.editEstablecimiento(
-                findEstablecimiento.id,
-                {
-                  data: {
+              if (findEstablecimiento.codigo !== '0000') {
+                await entityManager.update(
+                  EstablecimientoEntity,
+                  {
+                    id: Equal(findEstablecimiento.id),
+                  },
+                  {
                     codigo: establecimiento.codigo,
                     denominacion: establecimiento.denominacion,
                     departamento: establecimiento.departamento.label,
@@ -494,15 +497,16 @@ export class EmpresaService {
                     distrito: establecimiento.distrito.label,
                     direccion: establecimiento.direccion,
                     ubigeo: establecimiento.ubigeo,
-                    empresa: newEmpresa.id,
+                    empresa: newEmpresa,
                     estado: establecimiento.estado,
+                    logo:
+                      idsField.includes(establecimiento.id) &&
+                      fileEstablecimiento
+                        ? establecimiento.logo
+                        : findEstablecimiento.logo,
                   },
-                  files:
-                    idsField.includes(establecimiento.id) && fileEstablecimiento
-                      ? establecimiento.logo
-                      : findEstablecimiento.logo,
-                },
-              );
+                );
+              }
             } else {
               const createObjEst = this.establecimientoRepository.create({
                 codigo: establecimiento.codigo,
@@ -559,7 +563,6 @@ export class EmpresaService {
 
       return result;
     } catch (e) {
-      console.log(e);
       throw new HttpException(
         `Error al intentar actualizar empresa EmpresaService.update. ${e.response}`,
         HttpStatus.BAD_REQUEST,
@@ -872,7 +875,9 @@ export class EmpresaService {
           tipodoc_empresa: {
             tipodoc: true,
           },
-          establecimientos: true,
+          establecimientos: {
+            pos: true,
+          },
         },
         where: {
           id: idEmpresa,
@@ -936,6 +941,7 @@ export class EmpresaService {
           const departamento = DEPARTAMENTOS.find(
             (b) => b.departamento.toUpperCase() === a.departamento,
           );
+
           const provincia = PROVINCIAS.find(
             (c) => c.provincia.toUpperCase() === a.provincia,
           );
@@ -948,16 +954,16 @@ export class EmpresaService {
             codigo: a.codigo,
             denominacion: a.denominacion,
             departamento: {
-              value: departamento?.id || '',
-              label: departamento?.departamento.toUpperCase() || '',
+              value: departamento?.id || '-',
+              label: departamento?.departamento.toUpperCase() || '-',
             },
             provincia: {
-              value: provincia?.id || '',
-              label: provincia?.provincia.toUpperCase() || '',
+              value: provincia?.id || '-',
+              label: provincia?.provincia.toUpperCase() || '-',
             },
             distrito: {
-              value: distrito?.id || '',
-              label: distrito?.distrito.toUpperCase() || '',
+              value: distrito?.id || '-',
+              label: distrito?.distrito.toUpperCase() || '-',
             },
             direccion: a.direccion,
             logo: [
@@ -967,9 +973,10 @@ export class EmpresaService {
             ],
             ubigeo: a.ubigeo,
             estado: a.estado,
+            pos: a.pos,
           };
         })
-        .filter((b) => b.codigo !== '0000'),
+        .filter((a) => a.codigo !== '0000'),
       usuario: {
         id: usuario.id,
         nombres: usuario.nombres,
