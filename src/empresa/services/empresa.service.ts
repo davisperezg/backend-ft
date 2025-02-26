@@ -32,6 +32,7 @@ import { User, UserDocument } from 'src/user/schemas/user.schema';
 import { EmpresaDetailDTO } from '../dto/queryEmpresa.dto';
 import { ConfigService } from '@nestjs/config';
 import { PosService } from 'src/pos/services/pos.service';
+import { PosEntity } from 'src/pos/entities/pos.entity';
 
 @Injectable()
 export class EmpresaService {
@@ -51,6 +52,8 @@ export class EmpresaService {
     private userModel: Model<UserDocument>,
     private readonly configService: ConfigService,
     private readonly posService: PosService,
+    @InjectRepository(PosEntity)
+    private posRepository: Repository<PosEntity>,
   ) {}
 
   async createEmpresa(body: {
@@ -233,7 +236,7 @@ export class EmpresaService {
 
       //Creamos punto de venta por defecto
       await this.posService.createPOS({
-        nombre: `POS Principal - ${establecimiento.denominacion}`,
+        nombre: `POS Principal - ${establecimiento.codigo}`,
         codigo: '001',
         establecimiento: establecimiento.id,
       });
@@ -525,6 +528,50 @@ export class EmpresaService {
               });
 
               await entityManager.save(EstablecimientoEntity, createObjEst);
+
+              //Creamos punto de venta por defecto
+              const createObjPOS = this.posRepository.create({
+                nombre: `POS Principal - ${establecimiento.codigo}`,
+                codigo: '001',
+                establecimiento: createObjEst,
+              });
+              await entityManager.save(PosEntity, createObjPOS);
+            }
+          }
+
+          //Si tiene pos el body ingresamos para agregar y crear
+          for (let index = 0; index < body.data.pos.length; index++) {
+            const pos = body.data.pos[index];
+
+            //Modificamos la data del establecimiento
+            if (pos.id) {
+              const POS = await this.posService.findPOSById(pos.id);
+
+              if (POS.codigo !== '001' || index !== 0) {
+                await entityManager.update(
+                  PosEntity,
+                  {
+                    id: Equal(POS.id),
+                  },
+                  {
+                    codigo: pos.codigo,
+                    nombre: pos.nombre,
+                    establecimiento: POS.establecimiento,
+                    estado: pos.estado,
+                  },
+                );
+              }
+            } else {
+              const establishment =
+                await this.establecimientoService.findEstablecimientoById(
+                  pos.establecimiento,
+                );
+              const createObjPOS = this.posRepository.create({
+                codigo: pos.codigo,
+                nombre: pos.nombre,
+                establecimiento: establishment,
+              });
+              await entityManager.save(PosEntity, createObjPOS);
             }
           }
 
@@ -563,6 +610,7 @@ export class EmpresaService {
 
       return result;
     } catch (e) {
+      console.log(e);
       throw new HttpException(
         `Error al intentar actualizar empresa EmpresaService.update. ${e.response}`,
         HttpStatus.BAD_REQUEST,
@@ -900,6 +948,9 @@ export class EmpresaService {
     const { estado, tipodoc_empresa, usuario, ...rest } = empresa;
 
     const URL_BASE_STATIC = this.configService.get<string>('URL_BASE_STATIC');
+
+    const pos = await this.posService.listPOSByIdCompany(idEmpresa);
+
     const empresaDetail: EmpresaDetailDTO = {
       id: empresa.id,
       logo: [
@@ -936,6 +987,7 @@ export class EmpresaService {
       usu_secundario_password: empresa.usu_secundario_password,
       usu_secundario_ose_user: empresa.usu_secundario_ose_user,
       usu_secundario_ose_password: empresa.usu_secundario_ose_password,
+      pos: pos,
       establecimientos: empresa.establecimientos
         .map((a) => {
           const departamento = DEPARTAMENTOS.find(
