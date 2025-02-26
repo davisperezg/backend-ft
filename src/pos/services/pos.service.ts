@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PosEntity } from '../entities/pos.entity';
-import { Repository } from 'typeorm';
+import { Equal, Repository } from 'typeorm';
 import { CreatePosDto } from '../dto/create-pos.dto';
 import { EstablecimientoService } from 'src/establecimiento/services/establecimiento.service';
+import { POSListDTO } from '../dto/query-pos.dto';
 
 @Injectable()
 export class PosService {
@@ -30,5 +31,59 @@ export class PosService {
     } catch (e) {
       throw new Error('Error al intentar crear punto de venta');
     }
+  }
+
+  async listPOSByIdCompany(idCompany: number): Promise<POSListDTO[]> {
+    const pos = await this.posRepository.find({
+      relations: {
+        establecimiento: true,
+      },
+      where: {
+        establecimiento: {
+          empresa: {
+            id: idCompany,
+          },
+        },
+      },
+    });
+
+    const result: POSListDTO[] = pos.map((item) => {
+      return {
+        id: item.id,
+        codigo: item.codigo,
+        nombre: item.nombre,
+        estado: item.estado,
+        establecimiento: {
+          id: item.establecimiento.id,
+          codigo: item.establecimiento.codigo,
+          denominacion: item.establecimiento.denominacion,
+        },
+      };
+    });
+
+    return result;
+  }
+
+  async findPOSById(idPOS: number): Promise<PosEntity> {
+    let POS: PosEntity;
+
+    try {
+      POS = await this.posRepository.findOne({
+        where: {
+          id: Equal(idPOS),
+        },
+      });
+    } catch (error) {
+      throw new Error('Error al intentar obtener POS PosService.findPOSById.');
+    }
+
+    if (!POS) {
+      throw new HttpException(
+        'El POS no se encuentra o no existe.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    return POS;
   }
 }

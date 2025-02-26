@@ -36,6 +36,9 @@ export class PosEntity {
   @JoinColumn({ name: 'establecimiento_id' })
   establecimiento: EstablecimientoEntity;
 
+  @Column({ default: true })
+  estado?: boolean;
+
   @OneToMany(() => SeriesEntity, (serie) => serie.pos)
   series?: SeriesEntity[];
 }

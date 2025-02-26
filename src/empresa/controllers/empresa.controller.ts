@@ -69,7 +69,13 @@ export class EmpresaController {
   }
 
   @Get(':id/establecimientos')
-  @UseGuards(PermissionGuard(Permission.CreateSeries))
+  @UseGuards(
+    PermissionGuard([
+      Permission.CreateSeries,
+      Permission.GetOneEmpresas,
+      Permission.UpdateEmpresas,
+    ]),
+  )
   async getEstablecimientos(@Param('id') id: number) {
     return await this.empresaService.findEstablecimientosByEmpresa(id);
   }

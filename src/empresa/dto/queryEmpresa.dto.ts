@@ -1,6 +1,7 @@
 import { UserBasicInfoDTO } from 'src/user/dto/queryUser.dto';
 import { EmpresaListDTO } from './queryEmpresas.dto';
 import { OmitType } from '@nestjs/swagger';
+import { POSListDTO } from 'src/pos/dto/query-pos.dto';
 
 export class EmpresaDetailDTO extends OmitType(EmpresaListDTO, [
   'logo',
@@ -39,4 +40,5 @@ export class EmpresaDetailDTO extends OmitType(EmpresaListDTO, [
   usu_secundario_password: string;
   usu_secundario_ose_user: string;
   usu_secundario_ose_password: string;
+  pos: POSListDTO[];
 }
