@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EstablecimientoEntity } from '../entities/establecimiento.entity';
-import { Repository } from 'typeorm';
+import { Equal, Repository } from 'typeorm';
 import { EstablecimientoCreateDto } from '../dto/establecimiento-create.dto';
 import { EmpresaService } from 'src/empresa/services/empresa.service';
 import { EmpresaEntity } from 'src/empresa/entities/empresa.entity';
@@ -96,7 +96,7 @@ export class EstablecimientoService {
     }
   }
 
-  async findEstablecimientoById(id: number) {
+  async findEstablecimientoById(idEstablishment: number) {
     let establecimiento: EstablecimientoEntity;
 
     try {
@@ -105,7 +105,7 @@ export class EstablecimientoService {
           configsEstablecimiento: true,
         },
         where: {
-          id,
+          id: Equal(idEstablishment),
         },
       });
     } catch (e) {
@@ -138,6 +138,27 @@ export class EstablecimientoService {
     } catch (e) {
       throw new HttpException(
         'Error al intentar obtener establecimientos EstablecimientoService.findAllEstablecimientos.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    return establecimientos;
+  }
+
+  async findAllEstablishmentsByCompany(idCompany: number) {
+    let establecimientos: EstablecimientoEntity[];
+
+    try {
+      establecimientos = await this.establecimientoRepository.find({
+        where: {
+          empresa: {
+            id: Equal(idCompany),
+          },
+        },
+      });
+    } catch (e) {
+      throw new HttpException(
+        'Error al intentar obtener establecimientos EstablecimientoService.findAllEstablishmentsByCompany.',
         HttpStatus.NOT_FOUND,
       );
     }
