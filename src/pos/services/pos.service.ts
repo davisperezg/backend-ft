@@ -69,6 +69,9 @@ export class PosService {
 
     try {
       POS = await this.posRepository.findOne({
+        relations: {
+          establecimiento: true,
+        },
         where: {
           id: Equal(idPOS),
         },

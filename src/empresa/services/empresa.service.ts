@@ -252,7 +252,7 @@ export class EmpresaService {
 
   //: Promise<EmpresaListDTO>
   async updateEmpresa(
-    id: number,
+    idCompany: number,
     body: {
       data: UpdateEmpresaDTO;
       files: any;
@@ -269,7 +269,7 @@ export class EmpresaService {
         },
       },
       where: {
-        id,
+        id: Equal(idCompany),
       },
     });
 
@@ -333,11 +333,8 @@ export class EmpresaService {
                   body.files.certificado.originalname.lastIndexOf('.'), //obtenermos el nombre del certificado
                 )
               : empresa.fieldname_cert,
-            establecimientos:
-              body.data.establecimientos.length > 0
-                ? body.data.establecimientos
-                : empresa.establecimientos,
           });
+
           const newEmpresa = await entityManager.save(EmpresaEntity, empresa);
 
           //Al actualizar los datos de la empresa tambien debe actualizar los datos del establecimiento 0000
@@ -471,6 +468,13 @@ export class EmpresaService {
             }
           }
 
+          const allCurrentEstablishments =
+            await this.establecimientoService.findAllEstablishmentsByCompany(
+              empresa.id,
+            );
+
+          const codesByCompany = new Map();
+
           //Si tiene establecimientos el body ingresamos para agregar y crear
           for (
             let index = 0;
@@ -478,6 +482,42 @@ export class EmpresaService {
             index++
           ) {
             const establecimiento = body.data.establecimientos[index];
+
+            // Validar para que no pueda modificar un establecimiento existente
+            const existEstablishment = allCurrentEstablishments.find(
+              (item) =>
+                item.id !== establecimiento.id &&
+                item.codigo === establecimiento.codigo,
+            );
+
+            if (existEstablishment) {
+              throw new HttpException(
+                `El código ${establecimiento.codigo} ya pertenece a otro establecimiento.`,
+                HttpStatus.BAD_REQUEST,
+              );
+            }
+
+            // No permitir crear más de un Establecimiento con código '001' dentro del mismo establecimiento
+            if (!establecimiento.id) {
+              // Si el establecimiento no está en el Map, se crea un nuevo Set vacío
+              if (!codesByCompany.has(empresa.id)) {
+                codesByCompany.set(empresa.id, new Set());
+              }
+
+              // Obtenemos los códigos actuales del establecimiento
+              const codes = codesByCompany.get(empresa.id);
+
+              // Validar si el código ya existe en el Set dentro del mismo establecimiento
+              if (codes.has(establecimiento.codigo)) {
+                throw new HttpException(
+                  `Estas ingresando el mismo codigo "${establecimiento.codigo}". Las empresas deben contener diferentes códigos de establecimientos.`,
+                  HttpStatus.BAD_REQUEST,
+                );
+              }
+
+              // Agregamos el código al Set para evitar duplicados en la siguiente iteración
+              codes.add(establecimiento.codigo);
+            }
 
             //Modificamos la data del establecimiento
             if (establecimiento.id) {
@@ -539,11 +579,67 @@ export class EmpresaService {
             }
           }
 
+          const allCurrentPOS = await this.posService.listPOSByIdCompany(
+            empresa.id,
+          );
+
+          const codesByEstablishment = new Map();
+
           //Si tiene pos el body ingresamos para agregar y crear
           for (let index = 0; index < body.data.pos.length; index++) {
             const pos = body.data.pos[index];
 
-            //Modificamos la data del establecimiento
+            //Validar para que no acepte codigo 000 un POS
+            if (pos.codigo === '000') {
+              throw new HttpException(
+                'El código 000 no puede ser asignado a un POS.',
+                HttpStatus.BAD_REQUEST,
+              );
+            }
+
+            // Validar para que no pueda modificar un POS existente
+            const exisPOS = allCurrentPOS.find(
+              (item) =>
+                item.id !== pos.id &&
+                item.codigo === pos.codigo &&
+                item.establecimiento.id === pos.establecimiento,
+            );
+
+            if (exisPOS) {
+              const establishment =
+                exisPOS.establecimiento.codigo === '0000'
+                  ? 'PRINCIPAL'
+                  : exisPOS.establecimiento.codigo;
+
+              throw new HttpException(
+                `El código "${pos.codigo}" de nombre "${pos.nombre}" ingresado ya le pertenece al establecimiento ${establishment}.`,
+                HttpStatus.BAD_REQUEST,
+              );
+            }
+
+            // No permitir crear más de un POS con código '001' dentro del mismo establecimiento
+            if (!pos.id) {
+              // Si el establecimiento no está en el Map, se crea un nuevo Set vacío
+              if (!codesByEstablishment.has(pos.establecimiento)) {
+                codesByEstablishment.set(pos.establecimiento, new Set());
+              }
+
+              // Obtenemos los códigos actuales del establecimiento
+              const codes = codesByEstablishment.get(pos.establecimiento);
+
+              // Validar si el código ya existe en el Set dentro del mismo establecimiento
+              if (codes.has(pos.codigo)) {
+                throw new HttpException(
+                  `Estas ingresando el mismo codigo "${pos.codigo}". Los establecimientos deben contener diferentes códigos de POS.`,
+                  HttpStatus.BAD_REQUEST,
+                );
+              }
+
+              // Agregamos el código al Set para evitar duplicados en la siguiente iteración
+              codes.add(pos.codigo);
+            }
+
+            // Modificamos la data del establecimiento
             if (pos.id) {
               const POS = await this.posService.findPOSById(pos.id);
 
@@ -570,6 +666,7 @@ export class EmpresaService {
                 codigo: pos.codigo,
                 nombre: pos.nombre,
                 establecimiento: establishment,
+                estado: pos.estado,
               });
               await entityManager.save(PosEntity, createObjPOS);
             }
@@ -610,7 +707,6 @@ export class EmpresaService {
 
       return result;
     } catch (e) {
-      console.log(e);
       throw new HttpException(
         `Error al intentar actualizar empresa EmpresaService.update. ${e.response}`,
         HttpStatus.BAD_REQUEST,
