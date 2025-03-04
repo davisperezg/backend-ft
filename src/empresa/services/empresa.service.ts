@@ -1171,11 +1171,12 @@ export class EmpresaService {
 
   async findAllEmpresasByUserIdObject(idUser: string) {
     try {
-      const empresas = await this.empresaRepository.find({
+      const companys = await this.empresaRepository.find({
         relations: {
           configsEmpresa: true,
           establecimientos: {
             configsEstablecimiento: true,
+            pos: true,
           },
         },
         select: {
@@ -1188,6 +1189,12 @@ export class EmpresaService {
             codigo: true,
             denominacion: true,
             estado: true,
+            pos: {
+              id: true,
+              codigo: true,
+              nombre: true,
+              estado: true,
+            },
           },
         },
         where: {
@@ -1196,17 +1203,33 @@ export class EmpresaService {
           },
         },
       });
-      return empresas.map((emp) => {
-        return {
-          ...emp,
-          establecimientos: emp.establecimientos.map((est) => {
+
+      return companys
+        .map((company) => {
+          // Filtrar solo los establecimientos que tengan al menos 1 POS
+          const establishmentsWithPOS = company.establecimientos.filter(
+            (est) => est.pos && est.pos.length > 0,
+          );
+
+          // Si después de filtrar hay establecimientos con POS, devolver la empresa con esos establecimientos
+          if (establishmentsWithPOS.length > 0) {
             return {
-              ...est,
-              codigo: est.codigo === '0000' ? 'PRINCIPAL' : est.codigo,
+              ...company,
+              establecimientos: establishmentsWithPOS.map((establishment) => {
+                return {
+                  ...establishment,
+                  codigo:
+                    establishment.codigo === '0000'
+                      ? 'PRINCIPAL'
+                      : establishment.codigo,
+                };
+              }),
             };
-          }),
-        };
-      });
+          }
+
+          return null; // Si no tiene establecimientos con POS, la empresa no se incluye
+        })
+        .filter(Boolean); // Elimina los valores null del array
     } catch (e) {
       throw new HttpException(
         'Error al obtener la empresa por usuario EmpresaService.findOneEmpresaById.',

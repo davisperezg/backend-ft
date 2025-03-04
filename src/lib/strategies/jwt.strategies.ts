@@ -1,4 +1,3 @@
-import { UserDocument } from 'src/user/schemas/user.schema';
 import { MOD_PRINCIPAL, ROL_PRINCIPAL } from 'src/lib/const/consts';
 import {
   HttpException,
@@ -33,68 +32,36 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JWType) {
-    const myUser = await this.authService.validateUser(payload.userId);
+    const user = await this.authService.validateUser(payload.userId);
 
-    //busca los modulos y menus activos
-    const modulesTrues = myUser.role.module
-      .filter((mod) => mod.status === true)
-      .map((mod) => {
-        return {
-          ...mod,
-          menu: mod.menu.filter((filt) => filt.status === true),
-        };
-      });
-
-    const validaModules = [];
-    if (myUser.role.name !== ROL_PRINCIPAL) {
-      myUser.creator.role.module.filter((mod) => {
-        modulesTrues.filter((mods) => {
-          if (mod.name === mods.name) {
-            validaModules.push(mods);
-          }
-        });
-      });
+    if (!user) {
+      throw new UnauthorizedException('Acceso denegado!!!');
     }
 
-    const { _doc: findUser } = [myUser].map((format) => {
-      return {
-        ...format,
-        role: {
-          ...format.role,
-          module:
-            myUser.role.name === ROL_PRINCIPAL ? modulesTrues : validaModules,
-        },
-      };
-    })[0] as any;
-
-    const userDocument: UserDocument = findUser;
-
     //si el usuario tiene estado false se cierra el acceso al sistema
-    if (userDocument.status === false) {
+    if (!user.status) {
       throw new HttpException('Acceso denegado!!', HttpStatus.UNAUTHORIZED);
     }
 
-    const findResource = await this.ruService.findOneResourceByUser(
-      userDocument._id,
-    );
+    const resources = await this.ruService.findOneResourceByUser(user._id);
 
-    const user: QueryToken = {
-      token_of_permisos: findResource,
+    const result: QueryToken = {
+      token_of_permisos: resources,
       tokenEntityFull: {
-        ...userDocument,
+        ...user._doc,
         role: {
-          ...(userDocument.role as any)._doc,
+          ...(user.role as any)._doc,
         } as RoleDocument,
       },
       token_of_front: {
-        id: String(userDocument._id),
-        nombre_usuario: userDocument.name + ' ' + userDocument.lastname,
-        usuario: userDocument.username,
-        email_usuario: userDocument.email,
-        estado_usuario: userDocument.status,
+        id: String(user._id),
+        nombre_usuario: user.name + ' ' + user.lastname,
+        usuario: user.username,
+        email_usuario: user.email,
+        estado_usuario: user.status,
         rol: {
-          nombre: userDocument.role.name,
-          modulos: userDocument.role.module
+          nombre: user.role.name,
+          modulos: user.role.module
             .map((a) => {
               return {
                 nombre: a.name,
@@ -115,9 +82,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
                 : 0,
             ),
         },
-        estado_rol: userDocument.role.status,
-        empresas: findUser.empresas
-          ? findUser.empresas.map((item) => {
+        estado_rol: user.role.status,
+        empresas: user._doc.empresas
+          ? user._doc.empresas.map((item) => {
               return {
                 id: item.id,
                 ruc: item.ruc,
@@ -138,8 +105,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
               };
             })
           : null,
-        empresaActual: findUser.empresas
-          ? findUser.empresas
+        empresaActual: user._doc.empresas
+          ? user._doc.empresas
               .filter((empresa) => empresa.estado)
               .map((empresa) => {
                 return {
@@ -168,12 +135,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       },
     };
 
-    //console.log(user.token_of_front);
-
-    if (!findUser) {
-      throw new UnauthorizedException('Acceso denegado!!!');
-    }
-
-    return user;
+    return result;
   }
 }
