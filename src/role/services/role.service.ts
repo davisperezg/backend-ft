@@ -151,9 +151,10 @@ export class RoleService {
       (a) => a.name.toLowerCase() === name.toLowerCase(),
     );
 
-    //Muestra que el rol ya exsite siempre y cuando el usuario no sea owner
+    // No se permite registrar un rol existente
     if (
       existRoleRegistered &&
+      findRole.name !== name &&
       tokenEntityFull.role.name.toLowerCase() !== ROL_PRINCIPAL.toLowerCase()
     )
       throw new HttpException('El rol ya existe.', HttpStatus.BAD_REQUEST);

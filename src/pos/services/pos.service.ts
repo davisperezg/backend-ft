@@ -89,4 +89,33 @@ export class PosService {
 
     return POS;
   }
+
+  async getPOSListByIdEstablishment(
+    idEstablishment: number,
+  ): Promise<POSListDTO[]> {
+    const posList = await this.posRepository.find({
+      relations: {
+        establecimiento: true,
+      },
+      where: {
+        establecimiento: {
+          id: Equal(idEstablishment),
+        },
+      },
+    });
+
+    return posList.map((item) => {
+      return {
+        id: item.id,
+        codigo: item.codigo,
+        nombre: item.nombre,
+        estado: item.estado,
+        establecimiento: {
+          id: item.establecimiento.id,
+          codigo: item.establecimiento.codigo,
+          denominacion: item.establecimiento.denominacion,
+        },
+      };
+    });
+  }
 }

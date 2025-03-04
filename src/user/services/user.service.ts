@@ -36,6 +36,7 @@ import { Types, Connection } from 'mongoose';
 import { SeriesService } from 'src/series/services/series.service';
 import { ConfigService } from '@nestjs/config';
 import { EstablecimientoEntity } from 'src/establecimiento/entities/establecimiento.entity';
+import { PosService } from 'src/pos/services/pos.service';
 
 @Injectable()
 export class UserService {
@@ -55,9 +56,10 @@ export class UserService {
     private readonly configService: ConfigService,
     private dataSource: DataSource,
     @Inject(forwardRef(() => EmpresaService))
-    private empresaService: EmpresaService,
+    private readonly empresaService: EmpresaService,
+    private readonly posService: PosService,
     @InjectRepository(UsersEmpresaEntity)
-    private usersEmprersaRepository: Repository<UsersEmpresaEntity>,
+    private readonly usersEmprersaRepository: Repository<UsersEmpresaEntity>,
     @InjectConnection() private readonly connection: Connection,
   ) {}
 
@@ -116,6 +118,7 @@ export class UserService {
         relations: {
           establecimiento: true,
           empresa: true,
+          pos: true,
         },
         select: {
           empresa: {
@@ -139,40 +142,57 @@ export class UserService {
       });
 
       const reduceFindEmpresasAsign = findEmpresasAsign.reduce((acc, curr) => {
-        const existingEmpresa = acc.find((acc) => acc.id === curr.empresa.id);
-        if (existingEmpresa) {
-          existingEmpresa.establecimientos.push({
-            ...curr.establecimiento,
-            idEntidad: curr.id,
-            checked: true,
-          });
-        } else {
-          const newEmpresa = {
+        // Si no hay POS o la lista de POS está vacía, ignoramos este establecimiento
+        if (!curr.pos) {
+          return acc;
+        }
+
+        // Buscamos si la empresa ya existe en el array acumulador
+        let existingEmpresa = acc.find((emp) => emp.id === curr.empresa.id);
+
+        if (!existingEmpresa) {
+          // Si no existe, la creamos
+          existingEmpresa = {
             id: curr.empresa.id,
             ruc: curr.empresa.ruc,
             razon_social: curr.empresa.razon_social,
             estado: curr.empresa.estado,
             checked: true,
-            establecimientos: [
-              { ...curr.establecimiento, idEntidad: curr.id, checked: true },
-            ],
+            establecimientos: [],
           };
-          acc.push(newEmpresa);
+          acc.push(existingEmpresa);
+        }
+
+        // Buscamos si el establecimiento ya existe dentro de la empresa
+        let existingEstablecimiento = existingEmpresa.establecimientos.find(
+          (est) => est.id === curr.establecimiento.id,
+        );
+
+        if (!existingEstablecimiento) {
+          // Si no existe, lo creamos con su lista de POS vacía
+          existingEstablecimiento = {
+            ...curr.establecimiento,
+            idEntidad: curr.establecimiento.id,
+            checked: true,
+            pos: [], // Inicializamos POS vacío
+          };
+          existingEmpresa.establecimientos.push(existingEstablecimiento);
+        }
+
+        // Si hay un POS en el `curr`, lo agregamos al establecimiento
+        if (curr.pos) {
+          existingEstablecimiento.pos.push({
+            id: curr.pos.id,
+            codigo: curr.pos.codigo,
+            nombre: curr.pos.nombre,
+            estado: curr.pos.estado,
+            idEntidad: curr.pos.id,
+            checked: true,
+          });
         }
 
         return acc;
       }, []);
-      // const userMYSQL = await this.userRepository.findOne({
-      //   where: {
-      //     _id: String(user._id),
-      //   },
-      //   relations: {
-      //     empresas: true,
-      //   },
-      //   select: {
-      //     empresas: true,
-      //   },
-      // });
 
       return {
         _id: user._id,
@@ -380,18 +400,50 @@ export class UserService {
                     if (validEstablecimiento.estado) {
                       //Una vez validado el establecimiento se procede a registrar
                       if (inputEstablecimiento.checked) {
-                        const userEmpresa = this.usersEmprersaRepository.create(
-                          {
-                            empresa: idEmpresa,
-                            usuario: userRegisteredMYSQL,
-                            establecimiento: idEstablecimiento,
-                          },
-                        );
+                        const pos = inputEstablecimiento.pos;
+                        for (let index = 0; index < pos.length; index++) {
+                          const currentPOS = pos[index];
+                          const posId = currentPOS.id;
+                          const posDescription = `${currentPOS.codigo} - ${currentPOS.nombre}`;
+                          const posList =
+                            await this.posService.getPOSListByIdEstablishment(
+                              idEstablecimiento,
+                            );
+                          const validatedPOS = posList.find(
+                            (a) => a.id === posId,
+                          );
 
-                        await entityManager.save(
-                          UsersEmpresaEntity,
-                          userEmpresa,
-                        );
+                          //Solo pasara POS que le pertenece al establecimiento del creador
+                          if (!validatedPOS) {
+                            throw new HttpException(
+                              `No es posible asignar el POS ${posDescription}. Ya que no le pertecene al establecimiento ${inputEstablecimiento.denominacion}.`,
+                              HttpStatus.BAD_REQUEST,
+                            );
+                          }
+
+                          // Solo se aceptara POS con el estado activo
+                          if (validatedPOS.estado) {
+                            if (currentPOS.checked) {
+                              const userEmpresa =
+                                this.usersEmprersaRepository.create({
+                                  empresa: idEmpresa,
+                                  usuario: userRegisteredMYSQL,
+                                  establecimiento: idEstablecimiento,
+                                  pos: posId,
+                                });
+
+                              await entityManager.save(
+                                UsersEmpresaEntity,
+                                userEmpresa,
+                              );
+                            }
+                          } else {
+                            throw new HttpException(
+                              `El POS ${posDescription} debe estar activo.`,
+                              HttpStatus.BAD_REQUEST,
+                            );
+                          }
+                        }
                       }
                       //Revisar: los establecimientos y la empresa deben
                       //tener la propiedad checked en true para que se registre
@@ -549,6 +601,7 @@ export class UserService {
                 relations: {
                   empresa: true,
                   establecimiento: true,
+                  pos: true,
                 },
                 where: {
                   usuario: {
@@ -609,36 +662,68 @@ export class UserService {
 
                     //Solo se aceptara establecimientos con el estado "activo" = true
                     if (validEstablecimiento.estado) {
-                      const findEntidadExisting = findMyEmpresasAsign.find(
-                        (a) =>
-                          a.empresa.id === idEmpresa &&
-                          a.establecimiento.id === inputEstablecimiento.id,
-                      );
+                      //Si no existe un establecimiento agregado y esta checked se agrega
+                      if (inputEstablecimiento.checked) {
+                        const pos = inputEstablecimiento.pos;
+                        for (let index = 0; index < pos.length; index++) {
+                          const currentPOS = pos[index];
+                          const posId = currentPOS.id;
+                          const posDescription = `${currentPOS.codigo} - ${currentPOS.nombre}`;
+                          const posList =
+                            await this.posService.getPOSListByIdEstablishment(
+                              idEstablecimiento,
+                            );
+                          const validatedPOS = posList.find(
+                            (a) => a.id === posId,
+                          );
 
-                      //Si ya existe un establecimiento agregado y esta checked no se agrega
-                      if (!findEntidadExisting) {
-                        //Si no existe un establecimiento agregado y esta checked se agrega
-                        if (inputEstablecimiento.checked) {
-                          const userEmpresa =
-                            this.usersEmprersaRepository.create({
-                              empresa: idEmpresa,
-                              usuario: userMYSQL,
-                              establecimiento: idEstablecimiento,
-                            });
-                          await entityManager.save(
-                            UsersEmpresaEntity,
-                            userEmpresa,
-                          );
-                        }
-                        //Revisar: los establecimientos y la empresa deben
-                        //tener la propiedad checked en true para que se registre
-                      } else {
-                        //Si ya existe un establecimiento agregado y esta unchecked se elimina
-                        if (!inputEstablecimiento.checked) {
-                          await entityManager.delete(
-                            UsersEmpresaEntity,
-                            inputEstablecimiento.idEntidad,
-                          );
+                          //Solo pasara POS que le pertenece al establecimiento del creador
+                          if (!validatedPOS) {
+                            throw new HttpException(
+                              `No es posible asignar el POS ${posDescription}. Ya que no le pertecene al establecimiento ${inputEstablecimiento.denominacion}.`,
+                              HttpStatus.BAD_REQUEST,
+                            );
+                          }
+
+                          // Solo se aceptara POS con el estado activo
+                          if (validatedPOS.estado) {
+                            const findEntidadExisting =
+                              findMyEmpresasAsign.find(
+                                (a) =>
+                                  a.empresa.id === idEmpresa &&
+                                  a.establecimiento.id === idEstablecimiento &&
+                                  a.pos.id === posId,
+                              );
+
+                            //Si ya existe un establecimiento agregado y esta checked no se agrega
+                            if (!findEntidadExisting) {
+                              if (currentPOS.checked) {
+                                const userEmpresa =
+                                  this.usersEmprersaRepository.create({
+                                    empresa: idEmpresa,
+                                    usuario: userMYSQL,
+                                    establecimiento: idEstablecimiento,
+                                    pos: posId,
+                                  });
+                                await entityManager.save(
+                                  UsersEmpresaEntity,
+                                  userEmpresa,
+                                );
+                              }
+                            } else {
+                              //Si ya existe un establecimiento agregado y esta unchecked se elimina
+                              if (!currentPOS.checked) {
+                                await entityManager.delete(UsersEmpresaEntity, {
+                                  pos: { id: currentPOS.id },
+                                });
+                              }
+                            }
+                          } else {
+                            throw new HttpException(
+                              `El POS ${posDescription} debe estar activo.`,
+                              HttpStatus.BAD_REQUEST,
+                            );
+                          }
                         }
                       }
                     } else {
@@ -663,10 +748,11 @@ export class UserService {
                   ) {
                     const inputEstablecimiento = establecimientos[index];
                     if (inputEstablecimiento.idEntidad) {
-                      await entityManager.delete(
-                        UsersEmpresaEntity,
-                        inputEstablecimiento.idEntidad,
-                      );
+                      await entityManager.delete(UsersEmpresaEntity, {
+                        establecimiento: {
+                          id: inputEstablecimiento.idEntidad,
+                        },
+                      });
                     }
                   }
                 }
@@ -861,6 +947,10 @@ export class UserService {
         },
       ]);
 
+      const userModules = await this.suModel
+        .findOne({ status: true, user: foundUserMongo._id })
+        .populate({ path: 'module', populate: { path: 'menu' } });
+
       const foundUserMysql = await this.userRepository.findOne({
         where: {
           _id: String(id),
@@ -960,7 +1050,17 @@ export class UserService {
             };
           });
 
+          const validaModules = [];
+          foundUserMongo._doc.creator.role.module.filter((mod) => {
+            userModules.module.filter((mods) => {
+              if (mod.name === mods.name) {
+                validaModules.push(mods);
+              }
+            });
+          });
+
           foundUserMongo._doc.empresas = companys;
+          foundUserMongo._doc.role.module = validaModules;
         } else {
           // Usuarios de nivel 1 (rol principal) no tienen asignaciones
           // Si no hay asignaciones, se busca empresas del usuario principal
@@ -994,9 +1094,11 @@ export class UserService {
             }),
           );
 
+          foundUserMongo._doc.role.module = userModules.module;
           foundUserMongo._doc.empresas = companysWithDocuments;
         }
       } else {
+        foundUserMongo._doc.role.module = userModules.module;
         foundUserMongo._doc.empresas = null;
       }
 
@@ -1029,10 +1131,7 @@ export class UserService {
 
   //Metodo para asginar empresas a un usuario
   async listToAsignEmpresasByIdPartner(id: string) {
-    const empresas = await this.empresaService.findAllEmpresasByUserIdObject(
-      id,
-    );
-    return empresas;
+    return await this.empresaService.findAllEmpresasByUserIdObject(id);
   }
 
   //Metodo para buscar usuarios al agregar empresa

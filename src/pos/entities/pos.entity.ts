@@ -1,5 +1,6 @@
 import { EstablecimientoEntity } from 'src/establecimiento/entities/establecimiento.entity';
 import { SeriesEntity } from 'src/series/entities/series.entity';
+import { UsersEmpresaEntity } from 'src/users_empresa/entities/users_empresa.entity';
 import {
   Column,
   Entity,
@@ -41,4 +42,8 @@ export class PosEntity {
 
   @OneToMany(() => SeriesEntity, (serie) => serie.pos)
   series?: SeriesEntity[];
+
+  //Referencia a users_empresa.entity
+  @OneToMany(() => UsersEmpresaEntity, (usuemp) => usuemp.pos)
+  users_empresa?: UsersEmpresaEntity[];
 }
