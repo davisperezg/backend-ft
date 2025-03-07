@@ -1023,15 +1023,17 @@ export class UserService {
           // Procesamos los establecimientos:
           const establishments = await Promise.all(
             userAssignmentsFormat.establecimientos.map(async (est) => {
-              const series =
-                await this.seriesService.listSeriesByIdEstablishment(est.id);
+              const POS = await this.seriesService.listSeriesByIdEstablishment(
+                est.id,
+              );
+
               return {
                 ...est,
                 logo: buildLogoUrl(
                   est.logo,
                   `${est.empresa.ruc}/IMAGES/LOGO/establecimientos/${est.codigo}/IMAGES/LOGO`,
                 ),
-                documentos: series,
+                pos: POS,
               };
             }),
           );
@@ -1075,7 +1077,7 @@ export class UserService {
                 logo: buildLogoUrl(emp.logo, `${emp.ruc}/IMAGES/LOGO`),
                 establecimientos: await Promise.all(
                   emp.establecimientos.map(async (est) => {
-                    const series =
+                    const POS =
                       await this.seriesService.listSeriesByIdEstablishment(
                         est.id,
                       );
@@ -1086,7 +1088,7 @@ export class UserService {
                         est.logo,
                         `${emp.ruc}/IMAGES/LOGO/establecimientos/${est.codigo}/IMAGES/LOGO`,
                       ),
-                      documentos: series,
+                      pos: POS,
                     };
                   }),
                 ),
