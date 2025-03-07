@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { TipodocsEmpresaEntity } from '../entities/tipodocs_empresa.entity';
-import { Repository } from 'typeorm';
+import { Equal, Repository } from 'typeorm';
 import { TipodocsService } from 'src/tipodocs/services/tipodocs.service';
 import { EmpresaService } from 'src/empresa/services/empresa.service';
 import { QueryToken } from 'src/auth/dto/queryToken';
@@ -63,12 +63,15 @@ export class TipodocsEmpresaService {
     return listDocuments;
   }
 
-  async activateDocument(idDocument: number, userToken: QueryToken) {
+  async activateDocument(documentId: number, userToken: QueryToken) {
     const { tokenEntityFull } = userToken;
 
     const documento = await this.documentRepository.findOne({
+      relations: {
+        empresa: true,
+      },
       where: {
-        id: idDocument,
+        id: Equal(documentId),
       },
     });
 
@@ -94,7 +97,7 @@ export class TipodocsEmpresaService {
           .set({
             estado: true,
           })
-          .where('id =:id', { id: idDocument })
+          .where('id =:id', { id: documentId })
           .execute();
 
         return res;
@@ -106,38 +109,35 @@ export class TipodocsEmpresaService {
       }
     } else {
       //Solo es permitido desactivar documentos por el usuario padre y sus hijos
-      if (tokenEntityFull.empresas) {
-        for (let index = 0; index < tokenEntityFull.empresas.length; index++) {
-          const tokenEmpresaFull = tokenEntityFull.empresas[index];
-          const documentos = await this.findDocumentsByIdEmpresa(
-            tokenEmpresaFull.id,
+      const companys = tokenEntityFull.empresas;
+
+      if (companys) {
+        const company = companys.find(
+          (item) => item.id === documento.empresa.id,
+        );
+        const documents = await this.findDocumentsByIdEmpresa(company.id);
+        const documentsIds = documents.tipodoc_empresa.map((d) => d.id);
+
+        if (!documentsIds.includes(documento.id)) {
+          throw new HttpException(
+            'Solo puedes activar documentos de la empresa a la que pertecences.',
+            HttpStatus.BAD_REQUEST,
           );
-
-          const getIdsDocumentos = documentos.tipodoc_empresa.map((d) => d.id);
-
-          if (!getIdsDocumentos.includes(documento.id)) {
+        } else {
+          try {
+            return await this.documentRepository
+              .createQueryBuilder()
+              .update(TipodocsEmpresaEntity)
+              .set({
+                estado: true,
+              })
+              .where('id =:id', { id: documentId })
+              .execute();
+          } catch (e) {
             throw new HttpException(
-              'Solo puedes activar documentos de la empresa a la que pertecences.',
+              'Error al activar el documento de la empresa TipodocsEmpresaService.desactivateDocument.',
               HttpStatus.BAD_REQUEST,
             );
-          } else {
-            try {
-              const res = await this.documentRepository
-                .createQueryBuilder()
-                .update(TipodocsEmpresaEntity)
-                .set({
-                  estado: true,
-                })
-                .where('id =:id', { id: idDocument })
-                .execute();
-
-              return res;
-            } catch (e) {
-              throw new HttpException(
-                'Error al activar el documento de la empresa TipodocsEmpresaService.desactivateDocument.',
-                HttpStatus.BAD_REQUEST,
-              );
-            }
           }
         }
       } else {
@@ -149,12 +149,15 @@ export class TipodocsEmpresaService {
     }
   }
 
-  async desactivateDocument(idDocument: number, userToken: QueryToken) {
+  async desactivateDocument(documentId: number, userToken: QueryToken) {
     const { tokenEntityFull } = userToken;
 
     const documento = await this.documentRepository.findOne({
+      relations: {
+        empresa: true,
+      },
       where: {
-        id: idDocument,
+        id: Equal(documentId),
       },
     });
 
@@ -180,7 +183,7 @@ export class TipodocsEmpresaService {
           .set({
             estado: false,
           })
-          .where('id =:id', { id: idDocument })
+          .where('id =:id', { id: documentId })
           .execute();
 
         return res;
@@ -192,37 +195,35 @@ export class TipodocsEmpresaService {
       }
     } else {
       //Solo es permitido desactivar documentos por el usuario padre y sus hijos
-      if (tokenEntityFull.empresas) {
-        for (let index = 0; index < tokenEntityFull.empresas.length; index++) {
-          const tokenEmpresaFull = tokenEntityFull.empresas[index];
-          const documentos = await this.findDocumentsByIdEmpresa(
-            tokenEmpresaFull.id,
-          );
-          const getIdsDocumentos = documentos.tipodoc_empresa.map((d) => d.id);
+      const companys = tokenEntityFull.empresas;
 
-          if (!getIdsDocumentos.includes(documento.id)) {
+      if (companys) {
+        const company = companys.find(
+          (item) => item.id === documento.empresa.id,
+        );
+        const documents = await this.findDocumentsByIdEmpresa(company.id);
+        const documentsIds = documents.tipodoc_empresa.map((d) => d.id);
+
+        if (!documentsIds.includes(documento.id)) {
+          throw new HttpException(
+            'Solo puedes desactivar documentos de la empresa a la que pertecences.',
+            HttpStatus.BAD_REQUEST,
+          );
+        } else {
+          try {
+            return await this.documentRepository
+              .createQueryBuilder()
+              .update(TipodocsEmpresaEntity)
+              .set({
+                estado: false,
+              })
+              .where('id =:id', { id: documentId })
+              .execute();
+          } catch (e) {
             throw new HttpException(
-              'Solo puedes desactivar documentos de la empresa a la que pertecences.',
+              'Error al desactivar el documento de la empresa TipodocsEmpresaService.desactivateDocument.',
               HttpStatus.BAD_REQUEST,
             );
-          } else {
-            try {
-              const res = await this.documentRepository
-                .createQueryBuilder()
-                .update(TipodocsEmpresaEntity)
-                .set({
-                  estado: false,
-                })
-                .where('id =:id', { id: idDocument })
-                .execute();
-
-              return res;
-            } catch (e) {
-              throw new HttpException(
-                'Error al desactivar el documento de la empresa TipodocsEmpresaService.desactivateDocument.',
-                HttpStatus.BAD_REQUEST,
-              );
-            }
           }
         }
       } else {
