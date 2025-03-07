@@ -1,3 +1,4 @@
+import { EmpresaEntity } from 'src/empresa/entities/empresa.entity';
 import { EstablecimientoEntity } from 'src/establecimiento/entities/establecimiento.entity';
 import { SeriesEntity } from 'src/series/entities/series.entity';
 import { UsersEmpresaEntity } from 'src/users_empresa/entities/users_empresa.entity';
@@ -36,6 +37,12 @@ export class PosEntity {
   )
   @JoinColumn({ name: 'establecimiento_id' })
   establecimiento: EstablecimientoEntity;
+
+  @ManyToOne(() => EmpresaEntity, (emp) => emp.pos, {
+    nullable: false,
+  })
+  @JoinColumn({ name: 'empresa_id' })
+  empresa: EmpresaEntity;
 
   @Column({ default: true })
   estado?: boolean;

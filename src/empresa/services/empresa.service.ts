@@ -654,6 +654,7 @@ export class EmpresaService {
                     nombre: pos.nombre,
                     establecimiento: POS.establecimiento,
                     estado: pos.estado,
+                    empresa: empresa,
                   },
                 );
               }
@@ -667,6 +668,7 @@ export class EmpresaService {
                 nombre: pos.nombre,
                 establecimiento: establishment,
                 estado: pos.estado,
+                empresa: empresa,
               });
               await entityManager.save(PosEntity, createObjPOS);
             }
@@ -1004,6 +1006,17 @@ export class EmpresaService {
     }
 
     return establecimientos;
+  }
+
+  async findPosByIdEstablishment(id: number) {
+    try {
+      return await this.posService.getPOSListByIdEstablishment(id);
+    } catch (e) {
+      throw new HttpException(
+        'Error al obtener POS EmpresaService.findPosByIdEstablishment.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
   }
 
   async findOneEmpresaById(

@@ -84,5 +84,6 @@ import { TipodocsEmpresaService } from 'src/tipodocs_empresa/services/tipodocs_e
     ServicesUsersService,
     TipodocsEmpresaService,
   ],
+  exports: [PosService],
 })
 export class PosModule {}
