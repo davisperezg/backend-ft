@@ -11,17 +11,20 @@ import { EmpresaService } from 'src/empresa/services/empresa.service';
 import { EstablecimientoService } from 'src/establecimiento/services/establecimiento.service';
 import { ROL_PRINCIPAL } from 'src/lib/const/consts';
 import { completarConCeros } from 'src/lib/functions';
+import { PosService } from 'src/pos/services/pos.service';
+import { SeriesMigrateDto } from '../dto/series-migrate.dto';
 
 @Injectable()
 export class SeriesService {
   constructor(
     @InjectRepository(SeriesEntity)
-    private serieRepository: Repository<SeriesEntity>,
-    private tipodocService: TipodocsService,
-    private tipodocEmpresaService: TipodocsEmpresaService,
-    private empresaService: EmpresaService,
-    private establecimientoService: EstablecimientoService,
-    private dataSource: DataSource,
+    private readonly serieRepository: Repository<SeriesEntity>,
+    private readonly tipodocService: TipodocsService,
+    private readonly tipodocEmpresaService: TipodocsEmpresaService,
+    private readonly empresaService: EmpresaService,
+    private readonly establecimientoService: EstablecimientoService,
+    private readonly dataSource: DataSource,
+    private readonly posService: PosService,
   ) {}
 
   async allSeries(userToken: QueryToken) {
@@ -35,6 +38,7 @@ export class SeriesService {
           establecimiento: {
             series: true,
           },
+          pos: true,
         },
         select: {
           establecimiento: {
@@ -57,75 +61,119 @@ export class SeriesService {
         false,
       )) as EmpresaEntity[];
 
-      const items = empresas.map((empresa) => {
-        return {
-          id: empresa.id,
-          empresa: empresa.razon_social,
-          documentosAsignados: empresa.tipodoc_empresa.length,
-          documentos: empresa.tipodoc_empresa.map(
-            (a) => a.tipodoc.tipo_documento,
-          ),
-          cantidadEstablecimientos: empresa.establecimientos.length,
-          establecimientos: empresa.establecimientos.reduce((acc, curr) => {
-            const findCountEstablishment = series.find((item) => {
-              return item.establecimiento.id === curr.id;
-            });
+      const items = await Promise.all(
+        empresas.map(async (empresa) => {
+          return {
+            id: empresa.id,
+            empresa: empresa.razon_social,
+            documentosAsignados: empresa.tipodoc_empresa.length,
+            documentos: empresa.tipodoc_empresa.map(
+              (a) => a.tipodoc.tipo_documento,
+            ),
+            cantidadEstablecimientos: empresa.establecimientos.length,
+            establecimientos: (
+              await Promise.all(
+                empresa.establecimientos.map(async (curr) => {
+                  // Obtener los POS asociados al establecimiento
+                  const posList =
+                    await this.posService.getPOSListByIdEstablishment(curr.id);
 
-            //Solo muestra los establecimientos con series asignadas
-            if (findCountEstablishment) {
-              return [
-                ...acc,
-                {
-                  id: curr.id,
-                  codigo: curr.codigo,
-                  denominacion: curr.denominacion,
-                  estado: curr.estado,
-                  documentos: curr.series.reduce((result, item) => {
-                    const id = item.documento.id;
-                    const estado = item.documento.estado;
-                    const codigo = item.documento.tipodoc.codigo;
-                    const tipoDocumento = item.documento.tipodoc.tipo_documento;
+                  if (!posList || posList.length === 0) return null; // Excluir establecimientos sin POS
 
-                    // Verificamos si ya hemos agregado este tipo de documento al resultado
-                    const tipoDocumentoExistente = result.find(
-                      (doc) => doc.id === id,
-                    );
+                  // Filtrar las series que pertenecen a este establecimiento
+                  const seriesDelEstablecimiento = series.filter(
+                    (s) => s.establecimiento.id === curr.id,
+                  );
 
-                    if (!tipoDocumentoExistente) {
-                      // Si no existe, lo agregamos al resultado
-                      result.push({
-                        id,
-                        estado,
-                        codigo,
-                        nombre: tipoDocumento,
-                        series: [
-                          {
+                  if (
+                    !seriesDelEstablecimiento ||
+                    seriesDelEstablecimiento.length === 0
+                  )
+                    return null; // Excluir establecimientos sin series asignadas
+
+                  // Procesar cada POS con sus documentos y series
+                  const posConDocumentos = posList
+                    .map((pos) => {
+                      // Filtrar solo las series que pertenecen a este POS
+                      const seriesDelPos = seriesDelEstablecimiento.filter(
+                        (s) => s.pos?.id === pos.id,
+                      );
+
+                      if (!seriesDelPos || seriesDelPos.length === 0)
+                        return null; // Excluir POS sin series
+
+                      // Agrupar series por documento
+                      const documentos = seriesDelPos.reduce((result, item) => {
+                        const id = item.documento.id;
+                        const estado = item.documento.estado;
+                        const codigo = item.documento.tipodoc.codigo;
+                        const nombre = item.documento.tipodoc.tipo_documento;
+
+                        // Buscar si el documento ya fue agregado
+                        const docExistente = result.find(
+                          (doc) => doc.id === id,
+                        );
+
+                        if (!docExistente) {
+                          result.push({
+                            id,
+                            estado,
+                            codigo,
+                            nombre,
+                            series: [
+                              {
+                                id: item.id,
+                                serie: item.serie,
+                                estado: item.estado,
+                                numeroConCeros: completarConCeros(item.numero),
+                                numero: item.numero,
+                              },
+                            ],
+                          });
+                        } else {
+                          docExistente.series.push({
                             id: item.id,
                             serie: item.serie,
                             estado: item.estado,
-                          },
-                        ],
-                      });
-                    } else {
-                      // Si ya existe, simplemente agregamos la serie a las series existentes
-                      tipoDocumentoExistente.series.push({
-                        id: item.id,
-                        serie: item.serie,
-                        estado: item.estado,
-                      });
-                    }
+                            numeroConCeros: completarConCeros(item.numero),
+                            numero: item.numero,
+                          });
+                        }
 
-                    return result;
-                  }, []),
-                },
-              ];
-            }
+                        return result;
+                      }, []);
 
-            return acc;
-          }, []),
-          status: empresa.estado,
-        };
-      });
+                      return {
+                        id: pos.id,
+                        nombre: pos.nombre,
+                        estado: pos.estado,
+                        documentos,
+                      };
+                    })
+                    .filter((pos) => pos !== null); // Elimina POS vacíos
+
+                  if (posConDocumentos.length === 0) return null; // Excluir establecimientos sin POS válidos
+
+                  return {
+                    id: curr.id,
+                    codigo: curr.codigo,
+                    denominacion: curr.denominacion,
+                    estado: curr.estado,
+                    configuraciones: curr.configsEstablecimiento,
+                    departamento: curr.departamento,
+                    provincia: curr.provincia,
+                    distrito: curr.distrito,
+                    direccion: curr.direccion,
+                    logo: curr.logo,
+                    pos: posConDocumentos,
+                  };
+                }),
+              )
+            ).filter((establecimiento) => establecimiento !== null), // Elimina establecimientos vacíos
+            status: empresa.estado,
+          };
+        }),
+      );
 
       // Filtrar items para incluir solo aquellos con establecimientos con series asignadas
       const filteredItems = items.filter(
@@ -237,6 +285,7 @@ export class SeriesService {
             configsEstablecimiento: true,
             series: true,
           },
+          pos: true,
         },
         select: {
           establecimiento: {
@@ -275,16 +324,88 @@ export class SeriesService {
           (a) => a.tipodoc.tipo_documento,
         ),
         cantidadEstablecimientos: empresa.establecimientos.length,
-        establecimientos: empresa.establecimientos.reduce((acc, curr) => {
-          const findCountEstablishment = series.find((item) => {
-            return item.establecimiento.id === curr.id;
-          });
+        establecimientos: (
+          await Promise.all(
+            empresa.establecimientos.map(async (curr) => {
+              // Obtener los POS asociados al establecimiento
+              const posList = await this.posService.getPOSListByIdEstablishment(
+                curr.id,
+              );
 
-          //Solo muestra los establecimientos con series asignadas
-          if (findCountEstablishment) {
-            return [
-              ...acc,
-              {
+              if (!posList || posList.length === 0) return null; // Excluir establecimientos sin POS
+
+              // Filtrar las series que pertenecen a este establecimiento
+              const seriesDelEstablecimiento = series.filter(
+                (s) => s.establecimiento.id === curr.id,
+              );
+
+              if (
+                !seriesDelEstablecimiento ||
+                seriesDelEstablecimiento.length === 0
+              )
+                return null; // Excluir establecimientos sin series asignadas
+
+              // Procesar cada POS con sus documentos y series
+              const posConDocumentos = posList
+                .map((pos) => {
+                  // Filtrar solo las series que pertenecen a este POS
+                  const seriesDelPos = seriesDelEstablecimiento.filter(
+                    (s) => s.pos?.id === pos.id,
+                  );
+
+                  if (!seriesDelPos || seriesDelPos.length === 0) return null; // Excluir POS sin series
+
+                  // Agrupar series por documento
+                  const documentos = seriesDelPos.reduce((result, item) => {
+                    const id = item.documento.id;
+                    const estado = item.documento.estado;
+                    const codigo = item.documento.tipodoc.codigo;
+                    const nombre = item.documento.tipodoc.tipo_documento;
+
+                    // Buscar si el documento ya fue agregado
+                    const docExistente = result.find((doc) => doc.id === id);
+
+                    if (!docExistente) {
+                      result.push({
+                        id,
+                        estado,
+                        codigo,
+                        nombre,
+                        series: [
+                          {
+                            id: item.id,
+                            serie: item.serie,
+                            estado: item.estado,
+                            numeroConCeros: completarConCeros(item.numero),
+                            numero: item.numero,
+                          },
+                        ],
+                      });
+                    } else {
+                      docExistente.series.push({
+                        id: item.id,
+                        serie: item.serie,
+                        estado: item.estado,
+                        numeroConCeros: completarConCeros(item.numero),
+                        numero: item.numero,
+                      });
+                    }
+
+                    return result;
+                  }, []);
+
+                  return {
+                    id: pos.id,
+                    nombre: pos.nombre,
+                    estado: pos.estado,
+                    documentos,
+                  };
+                })
+                .filter((pos) => pos !== null); // Elimina POS vacíos
+
+              if (posConDocumentos.length === 0) return null; // Excluir establecimientos sin POS válidos
+
+              return {
                 id: curr.id,
                 codigo: curr.codigo,
                 denominacion: curr.denominacion,
@@ -295,68 +416,11 @@ export class SeriesService {
                 distrito: curr.distrito,
                 direccion: curr.direccion,
                 logo: curr.logo,
-                documentos: curr.series.reduce((result, item) => {
-                  const id = item.documento.id;
-                  const estado = item.documento.estado;
-                  const codigo = item.documento.tipodoc.codigo;
-                  const tipoDocumento = item.documento.tipodoc.tipo_documento;
-
-                  // Verificamos si ya hemos agregado este tipo de documento al resultado
-                  const tipoDocumentoExistente = result.find(
-                    (doc) => doc.id === id,
-                  );
-
-                  if (!tipoDocumentoExistente) {
-                    // Si no existe, lo agregamos al resultado
-                    result.push({
-                      id,
-                      estado,
-                      codigo,
-                      nombre: tipoDocumento,
-                      series: [
-                        {
-                          id: item.id,
-                          serie: item.serie,
-                          estado: item.estado,
-                          numeroConCeros: completarConCeros(item.numero),
-                          numero: item.numero,
-                        },
-                      ],
-                    });
-                  } else {
-                    // Si ya existe, simplemente agregamos la serie a las series existentes
-                    tipoDocumentoExistente.series.push({
-                      id: item.id,
-                      serie: item.serie,
-                      estado: item.estado,
-                      numeroConCeros: completarConCeros(item.numero),
-                      numero: item.numero,
-                    });
-                  }
-
-                  return result;
-                }, []),
-              },
-            ];
-          }
-
-          return [
-            ...acc,
-            {
-              id: curr.id,
-              codigo: curr.codigo,
-              denominacion: curr.denominacion,
-              estado: curr.estado,
-              configuraciones: curr.configsEstablecimiento,
-              departamento: curr.departamento,
-              provincia: curr.provincia,
-              distrito: curr.distrito,
-              direccion: curr.direccion,
-              logo: curr.logo,
-              documentos: [],
-            },
-          ];
-        }, []),
+                pos: posConDocumentos,
+              };
+            }),
+          )
+        ).filter((establecimiento) => establecimiento !== null), // Elimina establecimientos vacíos
         status: empresa.estado,
       };
       return mapSeries;
@@ -369,7 +433,7 @@ export class SeriesService {
   }
 
   async createSeries(body: SeriesCreateDto, userToken: QueryToken) {
-    const { documentos, empresa, establecimiento } = body;
+    const { pos, empresa, establecimiento } = body;
     const { tokenEntityFull } = userToken;
 
     //valida existencia y estado de la empresa
@@ -425,54 +489,72 @@ export class SeriesService {
       );
     }
 
-    const keys = Object.keys(documentos);
+    const seriesByDocument = new Map();
 
     try {
       await this.dataSource.transaction(async (entityManager) => {
-        for (let index = 0; index < keys.length; index++) {
-          const key = Number(keys[index]) && Number(keys[index]) !== 0;
-          //Validar las keys
-          if (key) {
-            const id = Number(keys[index]);
-            //Valida estado y existencia del documento de la empresa
-            const validDoc =
+        for (let index = 0; index < pos.length; index++) {
+          const POS = pos[index];
+          const foundPOS = await this.posService.findPOSById(POS.id);
+
+          const posLabel = foundPOS.codigo + ' - ' + foundPOS.nombre;
+
+          // Validar que el POS le pertenece a la empresa
+          if (foundPOS.establecimiento.empresa.id !== findEmpresa.id) {
+            throw new HttpException(
+              ` El POS ${posLabel} no pertenece a la empresa.`,
+              HttpStatus.NOT_FOUND,
+            );
+          }
+
+          // Validar que el POS le pertenece al establecimiento
+          if (foundPOS.establecimiento.id !== findEstablecimiento.id) {
+            throw new HttpException(
+              ` El POS ${posLabel} no pertenece al establecimiento de la empresa.`,
+              HttpStatus.NOT_FOUND,
+            );
+          }
+
+          if (!foundPOS.estado) {
+            throw new HttpException(
+              ` El POS ${posLabel} está desactivado.`,
+              HttpStatus.NOT_FOUND,
+            );
+          }
+
+          const documentos = pos[index].documentos;
+
+          for (let index = 0; index < documentos.length; index++) {
+            const document = documentos[index];
+            const foundDocument =
               await this.tipodocEmpresaService.findOneDocumentByIdAndIdEmpresa(
-                id,
+                document.id,
                 findEmpresa.id,
               );
-            if (validDoc) {
-              //Validar los values
-              const values = documentos[id];
 
-              const todosLosValoresSonUnicos = values.every(
-                (item, index, array) => array.indexOf(item) === index,
-              );
-              if (!todosLosValoresSonUnicos) {
-                throw new HttpException(
-                  `values. Existe valores repetidos.`,
-                  HttpStatus.BAD_REQUEST,
-                );
-              }
+            if (foundDocument) {
+              const series = document.series;
 
-              for (let index = 0; index < values.length; index++) {
-                const value = values[index].toUpperCase();
-                const abreviado = validDoc.tipodoc.abreviado;
-                //const documento = validDoc.tipodoc.tipo_documento;
-                //const estado = validDoc.estado;
+              for (let index = 0; index < series.length; index++) {
+                const item = series[index];
+
+                const serieLabel = item.serie.toUpperCase();
+                const abreviado = foundDocument.tipodoc.abreviado;
                 /**
                  * Se procede a validar los abreviados con los regex para
                  * que posteriormente sean aceptados y creados
                  */
-                //if (estado) {
                 const regexFactura = /F[A-Z0-9]{3}/;
                 const regexBoleta = /B[A-Z0-9]{3}/;
-                if (abreviado === 'F' && !regexFactura.test(value)) {
+
+                if (abreviado === 'F' && !regexFactura.test(serieLabel)) {
                   throw new HttpException(
                     'regex. Serie inválida ([F]{1,1}[A-Z0-9]{3,3}).',
                     HttpStatus.BAD_REQUEST,
                   );
                 }
-                if (abreviado === 'B' && !regexBoleta.test(value)) {
+
+                if (abreviado === 'B' && !regexBoleta.test(serieLabel)) {
                   throw new HttpException(
                     'regex. Serie inválida ([B]{1,1}[A-Z0-9]{3,3}).',
                     HttpStatus.BAD_REQUEST,
@@ -480,45 +562,74 @@ export class SeriesService {
                 }
                 //Agregar mas patters...
 
-                //No se puede crear series existentes
                 const existSerie = await this.serieRepository.findOne({
+                  relations: {
+                    establecimiento: true,
+                    pos: true,
+                  },
                   where: {
-                    serie: value,
+                    serie: serieLabel,
                     documento: {
-                      id: validDoc.id,
+                      id: foundDocument.id,
                     },
                   },
                 });
 
-                if (!existSerie) {
-                  const createObj = this.serieRepository.create({
-                    establecimiento: findEstablecimiento,
-                    serie: value,
-                    documento: validDoc,
-                  });
-                  await entityManager.save(SeriesEntity, createObj);
-                } else {
-                  throw new HttpException(
-                    `serie. La serie ${value} ya existe.`,
-                    HttpStatus.BAD_REQUEST,
-                  );
-                }
+                // Si no encuentra id en el item, es porque es una serie nueva
+                if (!item.id) {
+                  // Si el documento no está en el Map, se crea un nuevo Set vacío
+                  if (!seriesByDocument.has(foundDocument.id)) {
+                    seriesByDocument.set(foundDocument.id, new Set());
+                  }
 
-                // return result;
-                //}
-                // else {
-                //   throw new HttpException(
-                //     `values. El documento ${documento} esta desactivado para la empresa o no existe.`,
-                //     HttpStatus.BAD_REQUEST,
-                //   );
-                // }
+                  // Obtenemos los codigos actuales del documento
+                  const codes = seriesByDocument.get(foundDocument.id);
+
+                  // Validar si la serie ya existe en el Set dentro del mismo documento
+                  if (codes.has(serieLabel)) {
+                    throw new HttpException(
+                      ` Estas ingresando la misma serie "${serieLabel}" para el mismo tipo de documento.`,
+                      HttpStatus.BAD_REQUEST,
+                    );
+                  }
+
+                  // Agregamos la serie al Set para evitar duplicados en la siguiente iteración
+                  codes.add(serieLabel);
+
+                  // Si no existe la serie, se crea
+                  if (!existSerie) {
+                    const createObj = this.serieRepository.create({
+                      establecimiento: findEstablecimiento,
+                      serie: serieLabel,
+                      documento: foundDocument,
+                      pos: foundPOS,
+                      empresa: findEmpresa,
+                    });
+                    await entityManager.save(SeriesEntity, createObj);
+                  } else {
+                    const establishmentCode = existSerie.establecimiento.codigo;
+                    const establishmentLabel =
+                      establishmentCode === '0000'
+                        ? 'PRINCIPAL'
+                        : establishmentCode;
+
+                    // Si la serie existe, se valida si tiene un POS asignado
+                    if (!existSerie.pos) {
+                      throw new HttpException(
+                        `serie. La serie ${serieLabel} ya existe y no tiene asignado un POS.`,
+                        HttpStatus.BAD_REQUEST,
+                      );
+                    }
+
+                    // Si la serie existe, se valida si le pertenece al establecimiento
+                    throw new HttpException(
+                      `serie. La serie ${serieLabel} ya existe y le pertenece al establecimiento ${establishmentLabel}.`,
+                      HttpStatus.BAD_REQUEST,
+                    );
+                  }
+                }
               }
             }
-          } else {
-            throw new HttpException(
-              'key.id no es un numero o es 0.',
-              HttpStatus.BAD_REQUEST,
-            );
           }
         }
       });
@@ -532,8 +643,8 @@ export class SeriesService {
     }
   }
 
-  async migrarSeries(body: SeriesCreateDto, userToken: QueryToken) {
-    const { documentos, empresa, establecimiento } = body;
+  async migrarSeries(body: SeriesMigrateDto, userToken: QueryToken) {
+    const { documentos, empresa, establecimiento, pos_destino } = body;
     const { tokenEntityFull } = userToken;
 
     //valida existencia y estado de la empresa
@@ -588,12 +699,40 @@ export class SeriesService {
       );
     }
 
+    // Validar la existencia del POS
+    const findPosDestino = await this.posService.findPOSById(pos_destino);
+    const posLabel = findPosDestino.codigo + ' - ' + findPosDestino.nombre;
+
+    // Validar que el POS le pertenece a la empresa
+    if (findPosDestino.establecimiento.empresa.id !== findEmpresa.id) {
+      throw new HttpException(
+        ` El POS ${posLabel} no pertenece a la empresa.`,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    // Validar que el POS le pertenece al establecimiento
+    if (findPosDestino.establecimiento.id !== findEstablecimiento.id) {
+      throw new HttpException(
+        ` El POS ${posLabel} no pertenece al establecimiento de la empresa.`,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    if (!findPosDestino.estado) {
+      throw new HttpException(
+        ` El POS ${posLabel} está desactivado.`,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
     const keys = Object.keys(documentos);
 
     try {
       await this.dataSource.transaction(async (entityManager) => {
         for (let index = 0; index < keys.length; index++) {
           const key = Number(keys[index]) && Number(keys[index]) !== 0;
+
           //Validar las keys
           if (key) {
             const id = Number(keys[index]);
@@ -603,6 +742,7 @@ export class SeriesService {
                 id,
                 findEmpresa.id,
               );
+
             if (validDoc) {
               //Validar los values
               const values = documentos[id];
@@ -619,6 +759,7 @@ export class SeriesService {
 
               for (let index = 0; index < values.length; index++) {
                 const value = values[index].toUpperCase();
+
                 const abreviado = validDoc.tipodoc.abreviado;
                 //const documento = validDoc.tipodoc.tipo_documento;
                 //const estado = validDoc.estado;
@@ -642,7 +783,6 @@ export class SeriesService {
                   );
                 }
                 //Agregar mas patters...
-
                 //No se puede crear series existentes
                 const existSerie = await this.serieRepository.findOne({
                   relations: {
@@ -671,6 +811,8 @@ export class SeriesService {
                         establecimiento: findEstablecimiento,
                         serie: value,
                         documento: validDoc,
+                        empresa: findEmpresa,
+                        pos: findPosDestino,
                       },
                     );
                   } else {
@@ -686,15 +828,6 @@ export class SeriesService {
                     HttpStatus.BAD_REQUEST,
                   );
                 }
-
-                // return result;
-                //}
-                // else {
-                //   throw new HttpException(
-                //     `values. El documento ${documento} esta desactivado para la empresa o no existe.`,
-                //     HttpStatus.BAD_REQUEST,
-                //   );
-                // }
               }
             }
           } else {
@@ -720,12 +853,12 @@ export class SeriesService {
 
     let estado = false;
 
-    const findSerie = await this.findOneSerieById(idSerie);
-    if (!findSerie) {
+    const serie = await this.findOneSerieById(idSerie);
+    if (!serie) {
       throw new HttpException('No se encontro la serie.', HttpStatus.NOT_FOUND);
     }
 
-    if (!findSerie.estado) {
+    if (!serie.estado) {
       throw new HttpException(
         'No puedes deshabilitar una serie que ya esta deshabilitada.',
         HttpStatus.NOT_FOUND,
@@ -746,27 +879,21 @@ export class SeriesService {
         );
       }
     } else {
-      //REVISAR
       const { empresas } = tokenEntityFull;
-      for (let index = 0; index < empresas.length; index++) {
-        const empresaToken = empresas[index];
-        const findEmpresa = await this.empresaService.findOneEmpresaById(
-          empresaToken.id,
-          true,
-        );
 
-        const idsEstablecimientosEmpresa = findEmpresa.establecimientos.map(
-          (est) => est.id,
-        );
+      const company = empresas.find(
+        (item) => item.id === serie.establecimiento.empresa.id,
+      );
 
-        if (
-          !idsEstablecimientosEmpresa.includes(findSerie.establecimiento.id)
-        ) {
-          throw new HttpException(
-            'No puedes deshabilitar una serie que no pertece a la empresa.',
-            HttpStatus.NOT_FOUND,
-          );
-        }
+      const isEstablishmentExisting = company.establecimientos.some(
+        (item) => item.id === serie.establecimiento.id,
+      );
+
+      if (!isEstablishmentExisting) {
+        throw new HttpException(
+          'No puedes deshabilitar una serie que no pertece a la empresa.',
+          HttpStatus.NOT_FOUND,
+        );
       }
 
       try {
@@ -790,12 +917,12 @@ export class SeriesService {
 
     let estado = false;
 
-    const findSerie = await this.findOneSerieById(idSerie);
-    if (!findSerie) {
+    const serie = await this.findOneSerieById(idSerie);
+    if (!serie) {
       throw new HttpException('No se encontro la serie.', HttpStatus.NOT_FOUND);
     }
 
-    if (findSerie.estado) {
+    if (serie.estado) {
       throw new HttpException(
         'No puedes habilitar una serie que ya esta habilitada.',
         HttpStatus.NOT_FOUND,
@@ -815,27 +942,21 @@ export class SeriesService {
         );
       }
     } else {
-      //REVISAR
       const { empresas } = tokenEntityFull;
-      for (let index = 0; index < empresas.length; index++) {
-        const empresaToken = empresas[index];
-        const findEmpresa = await this.empresaService.findOneEmpresaById(
-          empresaToken.id,
-          true,
-        );
 
-        const idsEstablecimientosEmpresa = findEmpresa.establecimientos.map(
-          (est) => est.id,
-        );
+      const company = empresas.find(
+        (item) => item.id === serie.establecimiento.empresa.id,
+      );
 
-        if (
-          !idsEstablecimientosEmpresa.includes(findSerie.establecimiento.id)
-        ) {
-          throw new HttpException(
-            'No puedes habilitar una serie que no pertece a la empresa.',
-            HttpStatus.NOT_FOUND,
-          );
-        }
+      const isEstablishmentExisting = company.establecimientos.some(
+        (item) => item.id === serie.establecimiento.id,
+      );
+
+      if (!isEstablishmentExisting) {
+        throw new HttpException(
+          'No puedes habilitar una serie que no pertece a la empresa.',
+          HttpStatus.NOT_FOUND,
+        );
       }
 
       try {
@@ -858,7 +979,9 @@ export class SeriesService {
     try {
       return await this.serieRepository.findOne({
         relations: {
-          establecimiento: true,
+          establecimiento: {
+            empresa: true,
+          },
         },
         where: {
           id: idSerie,

@@ -1,3 +1,4 @@
+import { EmpresaEntity } from 'src/empresa/entities/empresa.entity';
 import { EstablecimientoEntity } from 'src/establecimiento/entities/establecimiento.entity';
 import { PosEntity } from 'src/pos/entities/pos.entity';
 import { TipodocsEmpresaEntity } from 'src/tipodocs_empresa/entities/tipodocs_empresa.entity';
@@ -27,12 +28,12 @@ export class SeriesEntity {
   //Referencia a tb_tipodoc_empresa
   @ManyToOne(() => TipodocsEmpresaEntity, (docemp) => docemp.series)
   @JoinColumn({ name: 'doc_empresa_id' })
-  documento?: TipodocsEmpresaEntity;
+  documento: TipodocsEmpresaEntity;
 
   //Referencia a tb_establecimientos
   @ManyToOne(() => EstablecimientoEntity, (est) => est.series)
   @JoinColumn({ name: 'establecimiento_id' })
-  establecimiento?: EstablecimientoEntity;
+  establecimiento: EstablecimientoEntity;
 
   @Column({
     type: 'char',
@@ -42,8 +43,14 @@ export class SeriesEntity {
   numero: string;
 
   @ManyToOne(() => PosEntity, (pos) => pos.series, {
-    nullable: true,
+    nullable: false,
   })
   @JoinColumn({ name: 'pos_id' })
-  pos?: PosEntity;
+  pos: PosEntity;
+
+  @ManyToOne(() => EmpresaEntity, (emp) => emp.series, {
+    nullable: false,
+  })
+  @JoinColumn({ name: 'empresa_id' })
+  empresa: EmpresaEntity;
 }

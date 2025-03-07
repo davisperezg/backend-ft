@@ -14,6 +14,8 @@ import { EntidadEntity } from 'src/entidades/entities/entidad.entity';
 import { InvoiceEntity } from 'src/invoice/entities/invoice.entity';
 import { ConfigEmpresaEntity } from 'src/configuraciones/entities/configuraciones_empresa.entity';
 import { ConfigEstablecimientoEntity } from 'src/configuraciones/entities/configuraciones_establecimiento.entity';
+import { SeriesEntity } from 'src/series/entities/series.entity';
+import { PosEntity } from 'src/pos/entities/pos.entity';
 
 @Entity({ name: 'empresas' })
 export class EmpresaEntity {
@@ -122,4 +124,10 @@ export class EmpresaEntity {
     (config) => config.establecimiento,
   )
   configsEstablecimiento?: ConfigEstablecimientoEntity[];
+
+  @OneToMany(() => SeriesEntity, (serie) => serie.empresa)
+  series?: SeriesEntity[];
+
+  @OneToMany(() => PosEntity, (pos) => pos.empresa)
+  pos?: PosEntity[];
 }

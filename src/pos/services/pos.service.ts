@@ -70,7 +70,9 @@ export class PosService {
     try {
       POS = await this.posRepository.findOne({
         relations: {
-          establecimiento: true,
+          establecimiento: {
+            empresa: true,
+          },
         },
         where: {
           id: Equal(idPOS),

@@ -15,6 +15,7 @@ import Permission from 'src/lib/type/permission.type';
 import { SeriesCreateDto } from '../dto/series-create.dto';
 import { CtxUser } from 'src/lib/decorators/ctx-user.decorators';
 import { QueryToken } from 'src/auth/dto/queryToken';
+import { SeriesMigrateDto } from '../dto/series-migrate.dto';
 
 @Controller('api/v1/series')
 export class SeriesController {
@@ -39,7 +40,7 @@ export class SeriesController {
   async migrateSerie(
     @Res() res,
     @Body()
-    create: SeriesCreateDto,
+    create: SeriesMigrateDto,
     @CtxUser() user: QueryToken,
   ) {
     const response = await this.seriesService.migrarSeries(create, user);

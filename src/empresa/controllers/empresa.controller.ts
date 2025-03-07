@@ -80,6 +80,20 @@ export class EmpresaController {
     return await this.empresaService.findEstablecimientosByEmpresa(id);
   }
 
+  @Get('establecimientos/:establishmentId/pos')
+  @UseGuards(
+    PermissionGuard([
+      Permission.CreateSeries,
+      Permission.GetOneEmpresas,
+      Permission.UpdateEmpresas,
+    ]),
+  )
+  async getPOSByEstablishment(
+    @Param('establishmentId') establishmentId: number,
+  ) {
+    return await this.empresaService.findPosByIdEstablishment(establishmentId);
+  }
+
   @Put(':id')
   @UseGuards(PermissionGuard(Permission.UpdateEmpresas))
   @UseInterceptors(

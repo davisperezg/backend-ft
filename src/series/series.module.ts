@@ -7,7 +7,7 @@ import { TipodocsModule } from 'src/tipodocs/tipodocs.module';
 import { TipodocsEmpresaModule } from 'src/tipodocs_empresa/tipodocs_empresa.module';
 import { EstablecimientoModule } from 'src/establecimiento/establecimiento.module';
 import { EmpresaModule } from 'src/empresa/empresa.module';
-
+import { PosModule } from 'src/pos/pos.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([SeriesEntity]),
@@ -15,6 +15,7 @@ import { EmpresaModule } from 'src/empresa/empresa.module';
     TipodocsEmpresaModule,
     EstablecimientoModule,
     EmpresaModule,
+    PosModule,
   ],
   providers: [SeriesService],
   controllers: [SeriesController],
