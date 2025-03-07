@@ -1,6 +1,6 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Equal, Repository } from 'typeorm';
 import { SeriesEntity } from '../entities/series.entity';
 import { SeriesCreateDto } from '../dto/series-create.dto';
 import { TipodocsService } from 'src/tipodocs/services/tipodocs.service';
@@ -189,7 +189,7 @@ export class SeriesService {
     }
   }
 
-  async listSeriesByIdEstablishment(idEstablishment: number) {
+  async listSeriesByIdEstablishment(establishmentId: number) {
     try {
       const series = await this.serieRepository.find({
         relations: {
@@ -201,6 +201,8 @@ export class SeriesService {
             configsEstablecimiento: true,
             series: true,
           },
+          empresa: true,
+          pos: true,
         },
         select: {
           establecimiento: {
@@ -218,53 +220,86 @@ export class SeriesService {
             },
           },
         },
-
         where: {
           establecimiento: {
-            id: idEstablishment,
+            id: Equal(establishmentId),
           },
         },
       });
 
-      return series.reduce((result, item) => {
-        const id = item.documento.id;
-        const estado = item.documento.estado;
-        const codigo = item.documento.tipodoc.codigo;
-        const tipoDocumento = item.documento.tipodoc.tipo_documento;
+      const posList = await this.posService.getPOSListByIdEstablishment(
+        establishmentId,
+      );
 
-        // Verificamos si ya hemos agregado este tipo de documento al resultado
-        const tipoDocumentoExistente = result.find((doc) => doc.id === id);
+      return posList
+        .map((pos) => {
+          // Filtrar series pertenecientes al POS
+          const seriesDelPos = series.filter((s) => s.pos?.id === pos.id);
 
-        if (!tipoDocumentoExistente) {
-          // Si no existe, lo agregamos al resultado
-          result.push({
-            id,
-            estado,
-            codigo,
-            nombre: tipoDocumento,
-            series: [
-              {
+          if (seriesDelPos.length === 0) return null; // Excluir POS sin series
+
+          // Agrupar series por documento dentro de este POS
+          const documentos = seriesDelPos.reduce((docsResult, item) => {
+            if (!item.documento.estado) return docsResult; // Filtrar solo documentos activos
+
+            // Buscar si el documento ya fue agregado
+            let docExistente = docsResult.find(
+              (doc) => doc.id === item.documento.id,
+            );
+
+            if (!docExistente) {
+              docExistente = {
+                id: item.documento.id,
+                estado: item.documento.estado,
+                codigo: item.documento.tipodoc.codigo,
+                nombre: item.documento.tipodoc.tipo_documento,
+                series: [],
+              };
+              docsResult.push(docExistente);
+            }
+
+            // Agregar solo series activas
+            if (item.estado) {
+              docExistente.series.push({
                 id: item.id,
                 serie: item.serie,
                 estado: item.estado,
                 numeroConCeros: completarConCeros(item.numero),
                 numero: item.numero,
-              },
-            ],
-          });
-        } else {
-          // Si ya existe, simplemente agregamos la serie a las series existentes
-          tipoDocumentoExistente.series.push({
-            id: item.id,
-            serie: item.serie,
-            estado: item.estado,
-            numeroConCeros: completarConCeros(item.numero),
-            numero: item.numero,
-          });
-        }
+              });
+            }
 
-        return result;
-      }, []);
+            return docsResult;
+          }, []);
+
+          // Si un documento no tiene series activas, aseguramos que `series: []`
+          documentos.forEach((doc) => {
+            if (doc.series.length === 0) {
+              doc.series = []; // Asegurar que esté vacío si todas sus series están inactivas
+            }
+          });
+
+          // Filtrar solo documentos con estado `true`
+          const documentosActivos = documentos.filter((doc) => doc.estado);
+
+          // Si un POS tiene solo documentos inactivos, `documentos` será un array vacío
+          if (documentosActivos.length === 0) {
+            return {
+              id: pos.id,
+              nombre: pos.nombre,
+              estado: pos.estado,
+              documentos: [],
+            };
+          }
+
+          return {
+            id: pos.id,
+            nombre: pos.nombre,
+            estado: pos.estado,
+            documentos: documentosActivos,
+          };
+        })
+        .filter(Boolean); // Elimina los `null` (POS sin datos válidos)
     } catch (e) {
       throw new HttpException(
         'Error al intentar listar las series SeriesService.listSeriesByIdEstablishment.',
