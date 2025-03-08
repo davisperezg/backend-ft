@@ -288,6 +288,7 @@ export class SeriesService {
               id: pos.id,
               nombre: pos.nombre,
               estado: pos.estado,
+              codigo: pos.codigo,
               documentos: [],
             };
           }
@@ -296,6 +297,7 @@ export class SeriesService {
             id: pos.id,
             nombre: pos.nombre,
             estado: pos.estado,
+            codigo: pos.codigo,
             documentos: documentosActivos,
           };
         })
