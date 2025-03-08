@@ -127,6 +127,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
                         ...rest,
                         codigo:
                           est.codigo === '0000' ? 'PRINCIPAL' : est.codigo,
+                        pos:
+                          est.pos
+                            .filter((item) => item.estado)
+                            .map((item) => {
+                              return {
+                                ...item,
+                              };
+                            })[0] || null,
                       };
                     })[0],
                 };
