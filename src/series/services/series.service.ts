@@ -240,7 +240,7 @@ export class SeriesService {
 
           // Agrupar series por documento dentro de este POS
           const documentos = seriesDelPos.reduce((docsResult, item) => {
-            if (!item.documento.estado) return docsResult; // Filtrar solo documentos activos
+            //if (!item.documento.estado) return docsResult; // Filtrar solo documentos activos
 
             // Buscar si el documento ya fue agregado
             let docExistente = docsResult.find(
@@ -280,25 +280,25 @@ export class SeriesService {
           });
 
           // Filtrar solo documentos con estado `true`
-          const documentosActivos = documentos.filter((doc) => doc.estado);
+          // const documentosActivos = documentos.filter((doc) => doc.estado);
 
-          // Si un POS tiene solo documentos inactivos, `documentos` será un array vacío
-          if (documentosActivos.length === 0) {
-            return {
-              id: pos.id,
-              nombre: pos.nombre,
-              estado: pos.estado,
-              codigo: pos.codigo,
-              documentos: [],
-            };
-          }
+          // // Si un POS tiene solo documentos inactivos, `documentos` será un array vacío
+          // if (documentosActivos.length === 0) {
+          //   return {
+          //     id: pos.id,
+          //     nombre: pos.nombre,
+          //     estado: pos.estado,
+          //     codigo: pos.codigo,
+          //     documentos: [],
+          //   };
+          // }
 
           return {
             id: pos.id,
             nombre: pos.nombre,
             estado: pos.estado,
             codigo: pos.codigo,
-            documentos: documentosActivos,
+            documentos: documentos,
           };
         })
         .filter(Boolean); // Elimina los `null` (POS sin datos válidos)
