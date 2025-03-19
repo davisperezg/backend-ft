@@ -26,7 +26,7 @@ import {
 } from 'src/resources-users/schemas/resources-user';
 import { InjectRepository } from '@nestjs/typeorm';
 import { UserEntity } from '../entities/user.entity';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Equal, Repository } from 'typeorm';
 import { CreateUserDTO } from '../dto/create-user.dto';
 import { UpdateUserDTO } from '../dto/update-user.dto';
 import { EmpresaEntity } from '../../empresa/entities/empresa.entity';
@@ -37,6 +37,7 @@ import { SeriesService } from 'src/series/services/series.service';
 import { ConfigService } from '@nestjs/config';
 import { EstablecimientoEntity } from 'src/establecimiento/entities/establecimiento.entity';
 import { PosService } from 'src/pos/services/pos.service';
+import { completarConCeros } from 'src/lib/functions';
 
 @Injectable()
 export class UserService {
@@ -1023,9 +1024,7 @@ export class UserService {
           // Procesamos los establecimientos:
           const establishments = await Promise.all(
             userAssignmentsFormat.establecimientos.map(async (est) => {
-              const POS = await this.seriesService.listSeriesByIdEstablishment(
-                est.id,
-              );
+              const POS = await this.findAssignmentsByEstablishmentId(est.id);
 
               return {
                 ...est,
@@ -1182,4 +1181,105 @@ export class UserService {
 
     return descendientes;
   };
+
+  async findAssignmentsByEstablishmentId(id: number) {
+    try {
+      const posList = await this.usersEmprersaRepository.find({
+        relations: {
+          pos: {
+            series: {
+              documento: {
+                tipodoc: true,
+              },
+            },
+          },
+          establecimiento: true,
+          empresa: true,
+        },
+        where: {
+          establecimiento: {
+            id: Equal(id),
+          },
+        },
+      });
+
+      return posList
+        .map((pos) => {
+          // Filtrar series pertenecientes al POS
+          const series = pos.pos.series;
+
+          //Excluir POS sin series
+          if (series.length === 0) return null;
+
+          // Agrupar series por documento dentro de este POS
+          const documentos = series.reduce((docsResult, item) => {
+            //if (!item.documento.estado) return docsResult; // Filtrar solo documentos activos
+
+            //Buscar si el documento ya fue agregado
+            let existingDoc = docsResult.find(
+              (doc) => doc.id === item.documento.id,
+            );
+
+            if (!existingDoc) {
+              existingDoc = {
+                id: item.documento.id,
+                estado: item.documento.estado,
+                codigo: item.documento.tipodoc.codigo,
+                nombre: item.documento.tipodoc.tipo_documento,
+                series: [],
+              };
+              docsResult.push(existingDoc);
+            }
+
+            // Agregar solo series activas
+            if (item.estado) {
+              existingDoc.series.push({
+                id: item.id,
+                serie: item.serie,
+                estado: item.estado,
+                numeroConCeros: completarConCeros(item.numero),
+                numero: item.numero,
+              });
+            }
+
+            return docsResult;
+          }, []);
+
+          // Si un documento no tiene series activas, aseguramos que `series: []`
+          documentos.forEach((doc) => {
+            if (doc.series.length === 0) {
+              doc.series = []; // Asegurar que esté vacío si todas sus series están inactivas
+            }
+          });
+
+          // Filtrar solo documentos con estado `true`
+          // const documentosActivos = documentos.filter((doc) => doc.estado);
+
+          // // Si un POS tiene solo documentos inactivos, `documentos` será un array vacío
+          // if (documentosActivos.length === 0) {
+          //   return {
+          //     id: pos.pos.id,
+          //     nombre: pos.pos.nombre,
+          //     estado: pos.pos.estado,
+          //     codigo: pos.pos.codigo,
+          //     documentos: [],
+          //   };
+          // }
+
+          return {
+            id: pos.pos.id,
+            nombre: pos.pos.nombre,
+            estado: pos.pos.estado,
+            codigo: pos.pos.codigo,
+            documentos: documentos,
+          };
+        })
+        .filter(Boolean); // Elimina los `null` (POS sin datos válidos)
+    } catch (e) {
+      throw new HttpException(
+        'Error al intentar buscar asignaciones por establecimiento UserService.findAssignmentsByEstablishmentId.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+  }
 }
