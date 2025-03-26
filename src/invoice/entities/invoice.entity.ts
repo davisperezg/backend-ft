@@ -17,6 +17,7 @@ import {
 import { InvoiceDetailsEntity } from './invoice_details.entity';
 import { DecimalColumnTransformer } from 'src/lib/helpers/decimal_format';
 import { AnulacionEntity } from 'src/anulaciones/entities/anulacion.entity';
+import { PosEntity } from 'src/pos/entities/pos.entity';
 
 @Entity({ name: 'invoices' })
 export class InvoiceEntity {
@@ -284,4 +285,10 @@ export class InvoiceEntity {
 
   @Column({ default: false })
   borrador?: boolean;
+
+  @ManyToOne(() => PosEntity, (pos) => pos.invoices, {
+    nullable: true,
+  })
+  @JoinColumn({ name: 'pos_id' })
+  pos: PosEntity;
 }

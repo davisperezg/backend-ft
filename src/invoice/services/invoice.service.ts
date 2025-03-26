@@ -6,7 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Equal, Repository } from 'typeorm';
+import { DataSource, Equal, Repository, In } from 'typeorm';
 import { InvoiceEntity } from '../entities/invoice.entity';
 import { XMLBuilder, XMLParser } from 'fast-xml-parser';
 import * as fs from 'fs';
@@ -25,7 +25,7 @@ import { exec, execSync } from 'child_process';
 import { EmpresaService } from 'src/empresa/services/empresa.service';
 import { EstablecimientoService } from 'src/establecimiento/services/establecimiento.service';
 import { EmpresaEntity } from 'src/empresa/entities/empresa.entity';
-import { numeroALetras, round } from 'src/lib/functions';
+import { completarConCeros, numeroALetras, round } from 'src/lib/functions';
 import { EstablecimientoEntity } from 'src/establecimiento/entities/establecimiento.entity';
 import { MonedasService } from 'src/monedas/services/monedas.service';
 import { FormaPagosService } from 'src/forma-pagos/services/forma-pagos.service';
@@ -72,6 +72,7 @@ import os from 'os';
 import { QueryInvoiceList } from '../dto/query-invoice-list';
 import { QueryInvoice } from '../dto/query-invoice';
 import { QueryDetailsInvoice } from '../dto/query-detail-invoice-list';
+import { PosService } from 'src/pos/services/pos.service';
 @Injectable()
 export class InvoiceService {
   private logger = new Logger('InvoiceService');
@@ -88,6 +89,7 @@ export class InvoiceService {
     private readonly unidadService: UnidadesService,
     private readonly tipoDocumentoService: TipodocsService,
     private readonly configuracionesService: ConfiguracionesServices,
+    private readonly posService: PosService,
     @InjectRepository(EntidadEntity)
     private clienteRepository: Repository<EntidadEntity>,
     @InjectRepository(UserEntity)
@@ -256,8 +258,26 @@ export class InvoiceService {
       );
     }
 
+    const pos = await this.posService.findPOSById(invoice.pos);
+
+    if (!pos.estado) {
+      throw new HttpException('El POS está desactivado.', HttpStatus.NOT_FOUND);
+    }
+
+    //Validamos si el POS pertenece al establecimiento
+    const existPos = existEstablecimiento.pos.find(
+      (item) => item.id === pos.id,
+    );
+
+    if (!existPos) {
+      throw new HttpException(
+        'No puedes emitir facturas para este POS',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
     //Validamos si el tipo de documento del body es permitido en el establecimiento
-    const tipDoc = (existEstablecimiento as any).documentos.find(
+    const tipDoc = (existPos as any).documentos.find(
       (doc) => doc.codigo === invoice.tipo_documento,
     );
 
@@ -280,32 +300,25 @@ export class InvoiceService {
       );
     }
 
-    let reservedCorrelativo: string = null;
-
     //Validar que correlativo no se repita con nuestro cpe en la db
-    const existInvoiceWithSerialNumber = await this.findOneInvoice(
-      invoice.serie,
-      serie.numeroConCeros,
-      empresa.id,
-      establecimiento.id,
-    );
+    // const existInvoiceWithSerialNumber = await this.findOneInvoice(
+    //   invoice.serie,
+    //   serie.numeroConCeros,
+    //   empresa.id,
+    //   establecimiento.id,
+    // );
 
-    console.log({
-      serieInput: invoice.serie,
-      serieData: serie,
-      empresaId: empresa.id,
-      establecimientoId: establecimiento.id,
-    });
+    //console.log('existInvoiceWithSerialNumber', existInvoiceWithSerialNumber);
 
     //Si ya existe una invoice es porque el correlativo, empresa y establecimiento
     //son los mismos datos por lo tanto para seguir con la transaccion debemos
     //actualizar el correlativo de la serie
-    if (existInvoiceWithSerialNumber) {
-      throw new HttpException(
-        'Ya existe un cpe con el mismo número de serie.',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
+    // if (existInvoiceWithSerialNumber) {
+    //   throw new HttpException(
+    //     'Ya existe un cpe con el mismo número de serie.',
+    //     HttpStatus.BAD_REQUEST,
+    //   );
+    // }
 
     //Validamos si las entidades existen para que se pueda emitir el cpe
     const tipoDocumento =
@@ -327,11 +340,12 @@ export class InvoiceService {
 
     const DECIMAL = 6;
 
-    this.logger.log(`Ruc: ${empresa.ruc}`);
-    this.logger.log(`Razon social: ${empresa.razon_social}`);
+    this.logger.log(`Ruc: ${empresa.ruc} [${empresa.id}]`);
+    this.logger.log(`Razon social: ${empresa.razon_social} [${empresa.id}]`);
     this.logger.log(
-      `Establecimiento: ${establecimiento.codigo}:${establecimiento.denominacion}`,
+      `Establecimiento: ${establecimiento.codigo}:${establecimiento.denominacion} [${establecimiento.id}]`,
     );
+    this.logger.log(`POS: ${pos.codigo}:${pos.nombre} [${pos.id}]`);
 
     let result: {
       invoice: InvoiceEntity;
@@ -352,14 +366,20 @@ export class InvoiceService {
     const existInvoiceById = await this.findOneInvoiceById(invoice.id);
 
     try {
-      // Reservar el correlativo antes de iniciar la transacción
-      if (!existInvoiceById) {
-        //reservedCorrelativo = 100
-      }
-
-      console.log(reservedCorrelativo);
-
       result = await this.dataSource.transaction(async (entityManager) => {
+        const foundSerie = await entityManager.findOne(SeriesEntity, {
+          where: {
+            id: Equal(serie.id),
+            serie: Equal(invoice.serie),
+            pos: {
+              id: Equal(pos.id),
+            },
+          },
+          lock: {
+            mode: 'pessimistic_write',
+          },
+        });
+
         let clienteEntity: EntidadEntity = null;
 
         //Validamos si tiene el permisos de canCreate_clientes
@@ -373,8 +393,13 @@ export class InvoiceService {
           },
         });
 
+        this.logger.log(`Usuario conectado: ${usuario.username}`);
         this.logger.log(
-          `Usuario conectado: ${usuario.username}:${empresa.ruc}:${establecimiento.codigo}`,
+          `${usuario.username} ${completarConCeros(foundSerie.numero)}-${
+            foundSerie.serie
+          }-${pos.codigo}-${establecimiento.codigo}-${empresa.ruc}:[${
+            serie.id
+          }][${pos.id}][${establecimiento.id}][${empresa.id}]`,
         );
 
         if (existPermisoRegCliente) {
@@ -471,6 +496,7 @@ export class InvoiceService {
 
         //Seteamos nuestro obj invoice con sus productos y totales
         const newInvoice: InvoiceEntity = {
+          pos: pos,
           tipo_operacion: invoice.tipo_operacion,
           tipo_doc: tipoDocumento,
           serie: existInvoiceById
@@ -479,10 +505,10 @@ export class InvoiceService {
               : existInvoiceById.serie
             : invoice.serie,
           correlativo: existInvoiceById
-            ? invoice.borrador && existInvoiceById.serie !== invoice.serie
-              ? null // Si es borrador y cambia serie, el correlativo es null
-              : existInvoiceById.correlativo // Mantiene el correlativo existente
-            : reservedCorrelativo, // Nuevo invoice borrador o no, usa correlativo reservado
+            ? existInvoiceById.serie !== invoice.serie
+              ? completarConCeros(foundSerie.numero)
+              : existInvoiceById.correlativo
+            : completarConCeros(foundSerie.numero),
           fecha_emision: invoice.fecha_emision,
           fecha_vencimiento: invoice.fecha_vencimiento,
           forma_pago: formaPago,
@@ -971,8 +997,16 @@ export class InvoiceService {
             const xmlGenerado = await this.generarXML(invoiceCreated, totales);
             const certificado = await this.validarCertificado(invoiceCreated);
             const { xmlBuffer, fileNameExtension } = xmlGenerado;
-            const xmlSigned = await this.firmar(xmlBuffer, certificado);
-            await this.validarInvoice(xmlSigned, fileNameExtension);
+            const xmlSigned = await this.firmar(
+              xmlBuffer,
+              certificado,
+              invoiceCreated,
+            );
+            await this.validarInvoice(
+              xmlSigned,
+              fileNameExtension,
+              invoiceCreated,
+            );
 
             //Actulizamos estado 0 = creado
             _invoice = await this.formatListInvoices(
@@ -1011,10 +1045,10 @@ export class InvoiceService {
           //Actualizamos serie
           await entityManager.save(SeriesEntity, {
             ...serie,
-            numero: String(Number(reservedCorrelativo) + 1),
+            numero: String(Number(foundSerie.numero) + 1),
           });
         }
-
+        console.log();
         return {
           invoice: invoiceCreated.borrador ? invoiceSimple : _invoice,
           fileName: fileName,
@@ -1024,7 +1058,7 @@ export class InvoiceService {
           serie: invoiceCreated.serie,
           correlativo: existInvoiceById
             ? String(Number(serie.numero))
-            : String(Number(reservedCorrelativo) + 1),
+            : String(Number(foundSerie.numero) + 1),
           //: String(Number(serie.numero) + 1),
           correlativo_registrado: invoiceCreated.correlativo,
           total: `${invoiceCreated.tipo_moneda.simbolo} ${totales.mtoImpVenta}`,
@@ -1145,6 +1179,13 @@ export class InvoiceService {
   }
 
   async validarCertificado(invoice: InvoiceEntity) {
+    const fileLabel = `${invoice.empresa.ruc}-${invoice.tipo_doc.codigo}-${invoice.serie}-${invoice.correlativo}`;
+    const enviroment = invoice.empresa.modo === 0 ? 'BETA' : 'PRODUCCION';
+
+    this.logger.log(
+      `${invoice.usuario.username}-${fileLabel} validando certificado en ${enviroment}...`,
+    );
+
     //Verificamos si el cliente esta en modo beta o produccion
     const certFilePath = path.join(
       process.cwd(),
@@ -1165,11 +1206,17 @@ export class InvoiceService {
       }`,
     );
 
-    return await this.convertToPem(
+    const certificado = await this.convertToPem(
       certFilePath,
       pemFilePath,
       invoice.empresa.cert_password,
     );
+
+    this.logger.log(
+      `${invoice.usuario.username}-${fileLabel} Certificado de ${enviroment} validado!`,
+    );
+
+    return certificado;
   }
 
   async getPdf(
@@ -1320,6 +1367,10 @@ export class InvoiceService {
     fileName: string;
     fileNameExtension: string;
   }> {
+    const fileLabel = `${invoice.empresa.ruc}-${invoice.tipo_doc.codigo}-${invoice.serie}-${invoice.correlativo}`;
+    this.logger.log(
+      `${invoice.usuario.username}-${fileLabel} generando XML...`,
+    );
     //Si el producto tiene id validamos producto
 
     //Validamos si el producto pertenece a la empresa
@@ -1509,6 +1560,7 @@ export class InvoiceService {
         dataApi,
       );
 
+      this.logger.log(`${invoice.usuario.username}-${fileLabel} XML Generado!`);
       const { xml: xmlBuffer, fileName, fileNameExtension } = res.data;
 
       return {
@@ -1536,12 +1588,20 @@ export class InvoiceService {
   private async firmar(
     xmlBuffer: string,
     certificado: string,
+    invoice?: InvoiceEntity,
   ): Promise<string> {
+    const fileLabel = `${invoice.empresa.ruc}-${invoice.tipo_doc.codigo}-${invoice.serie}-${invoice.correlativo}`;
+    this.logger.log(`${invoice.usuario.username}-${fileLabel} firmando XML...`);
+
     try {
       const res = await axios.post(`${process.env.API_SERVICE_PHP}/sign`, {
         xml: xmlBuffer,
         certificado,
       });
+
+      this.logger.log(
+        `${invoice.usuario.username}-${fileLabel} XML firmado :)`,
+      );
 
       const xmlSignedBuffer = res.data;
 
@@ -1590,9 +1650,20 @@ export class InvoiceService {
     }
   }
 
-  async validarInvoice(xml: string, fileNameExtension: string) {
+  async validarInvoice(
+    xml: string,
+    fileNameExtension: string,
+    invoice?: InvoiceEntity,
+  ) {
+    const fileLabel = `${invoice.empresa.ruc}-${invoice.tipo_doc.codigo}-${invoice.serie}-${invoice.correlativo}`;
+
+    this.logger.log(
+      `${invoice.usuario.username}-${fileLabel} validando XSL y XSD del XML...`,
+    );
+
     let tempXmlPath = '';
     let tempError = '';
+
     try {
       tempXmlPath = path.join(os.tmpdir(), fileNameExtension);
       fs.writeFileSync(tempXmlPath, xml);
@@ -1624,6 +1695,10 @@ export class InvoiceService {
           HttpStatus.BAD_REQUEST,
         );
       }
+
+      this.logger.log(
+        `${invoice.usuario.username}-${fileLabel} XSL y XSD Validado con éxito!`,
+      );
     } catch (e) {
       tempError = e.message;
       throw new HttpException(
@@ -1653,14 +1728,14 @@ export class InvoiceService {
       const { fileName, xmlBuffer, fileNameExtension } = xmlGenerado;
 
       //FIRMAR XML
-      const xmlSigned = await this.firmar(xmlBuffer, certificado);
+      const xmlSigned = await this.firmar(xmlBuffer, certificado, invoice);
 
       // Validación de Esquema (XSD) y Validación de contenido (XSL)
       // await this.validarInvoiceWithLink(
       //   `C:/Users/USUARIO/Proyectos/backend-ft/uploads/files/10722312185/0000/Factura/FIRMA/10722312185-01-F001-00000053.xml`,
       //   '10722312185-01-F001-00000053.xml',
       // );
-      await this.validarInvoice(xmlSigned, fileNameExtension);
+      await this.validarInvoice(xmlSigned, fileNameExtension, invoice);
 
       //ENVIAR SUNAT
       const urlService = invoice.empresa.web_service;

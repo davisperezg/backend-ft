@@ -65,6 +65,15 @@ export class CreateInvoiceDto {
   })
   establecimiento: number;
 
+  @IsInt({
+    message:
+      'El POS del establecimiento debe contener un valor entero y válido.',
+  })
+  @IsNotEmpty({
+    message: 'Por favor ingrese POS del establecimiento emisor.',
+  })
+  pos: number;
+
   //boleta, factura, etc... - para facturas 01
   @Length(2, 2, {
     message: 'El tipo de documento debe tener exactamente dos caracteres.',
