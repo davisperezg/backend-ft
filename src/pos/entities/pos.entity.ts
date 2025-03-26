@@ -1,5 +1,6 @@
 import { EmpresaEntity } from 'src/empresa/entities/empresa.entity';
 import { EstablecimientoEntity } from 'src/establecimiento/entities/establecimiento.entity';
+import { InvoiceEntity } from 'src/invoice/entities/invoice.entity';
 import { SeriesEntity } from 'src/series/entities/series.entity';
 import { UsersEmpresaEntity } from 'src/users_empresa/entities/users_empresa.entity';
 import {
@@ -53,4 +54,8 @@ export class PosEntity {
   //Referencia a users_empresa.entity
   @OneToMany(() => UsersEmpresaEntity, (usuemp) => usuemp.pos)
   users_empresa?: UsersEmpresaEntity[];
+
+  //Referencia a invoice.entity
+  @OneToMany(() => InvoiceEntity, (invoice) => invoice.pos)
+  invoices?: InvoiceEntity[];
 }
