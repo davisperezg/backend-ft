@@ -1047,7 +1047,9 @@ export class UserService {
             return {
               ...emp,
               logo: buildLogoUrl(emp.logo, `${emp.ruc}/IMAGES/LOGO`),
-              establecimientos: empEstablishments,
+              establecimientos: empEstablishments.sort((a, b) =>
+                a.codigo.localeCompare(b.codigo),
+              ),
             };
           });
 
@@ -1075,21 +1077,23 @@ export class UserService {
                 ...emp,
                 logo: buildLogoUrl(emp.logo, `${emp.ruc}/IMAGES/LOGO`),
                 establecimientos: await Promise.all(
-                  emp.establecimientos.map(async (est) => {
-                    const POS =
-                      await this.seriesService.listSeriesByIdEstablishment(
-                        est.id,
-                      );
+                  emp.establecimientos
+                    .sort((a, b) => a.codigo.localeCompare(b.codigo))
+                    .map(async (est) => {
+                      const POS =
+                        await this.seriesService.listSeriesByIdEstablishment(
+                          est.id,
+                        );
 
-                    return {
-                      ...est,
-                      logo: buildLogoUrl(
-                        est.logo,
-                        `${emp.ruc}/IMAGES/LOGO/establecimientos/${est.codigo}/IMAGES/LOGO`,
-                      ),
-                      pos: POS,
-                    };
-                  }),
+                      return {
+                        ...est,
+                        logo: buildLogoUrl(
+                          est.logo,
+                          `${emp.ruc}/IMAGES/LOGO/establecimientos/${est.codigo}/IMAGES/LOGO`,
+                        ),
+                        pos: POS,
+                      };
+                    }),
                 ),
               };
             }),
@@ -1203,19 +1207,20 @@ export class UserService {
         },
       });
 
-      return posList
-        .map((pos) => {
+      const posMap = new Map<number, any>();
+
+      posList.forEach((pos) => {
+        const posId = pos.pos.id;
+
+        if (!posMap.has(posId)) {
           // Filtrar series pertenecientes al POS
           const series = pos.pos.series;
 
-          //Excluir POS sin series
-          if (series.length === 0) return null;
+          // Excluir POS sin series
+          if (series.length === 0) return;
 
           // Agrupar series por documento dentro de este POS
           const documentos = series.reduce((docsResult, item) => {
-            //if (!item.documento.estado) return docsResult; // Filtrar solo documentos activos
-
-            //Buscar si el documento ya fue agregado
             let existingDoc = docsResult.find(
               (doc) => doc.id === item.documento.id,
             );
@@ -1245,36 +1250,25 @@ export class UserService {
             return docsResult;
           }, []);
 
-          // Si un documento no tiene series activas, aseguramos que `series: []`
+          // Asegurar que `series` esté vacío si todas sus series están inactivas
           documentos.forEach((doc) => {
             if (doc.series.length === 0) {
-              doc.series = []; // Asegurar que esté vacío si todas sus series están inactivas
+              doc.series = [];
             }
           });
 
-          // Filtrar solo documentos con estado `true`
-          // const documentosActivos = documentos.filter((doc) => doc.estado);
-
-          // // Si un POS tiene solo documentos inactivos, `documentos` será un array vacío
-          // if (documentosActivos.length === 0) {
-          //   return {
-          //     id: pos.pos.id,
-          //     nombre: pos.pos.nombre,
-          //     estado: pos.pos.estado,
-          //     codigo: pos.pos.codigo,
-          //     documentos: [],
-          //   };
-          // }
-
-          return {
+          // Guardamos el POS en el Map para evitar duplicados
+          posMap.set(posId, {
             id: pos.pos.id,
             nombre: pos.pos.nombre,
             estado: pos.pos.estado,
             codigo: pos.pos.codigo,
             documentos: documentos,
-          };
-        })
-        .filter(Boolean); // Elimina los `null` (POS sin datos válidos)
+          });
+        }
+      });
+
+      return Array.from(posMap.values()); // Convertimos el Map a array
     } catch (e) {
       throw new HttpException(
         'Error al intentar buscar asignaciones por establecimiento UserService.findAssignmentsByEstablishmentId.',
