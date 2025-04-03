@@ -1176,7 +1176,7 @@ export class EmpresaService {
       });
     } catch (e) {
       throw new HttpException(
-        'Error al obtener la empresa por usuario EmpresaService.findOneEmpresaById.',
+        'Error al obtener la empresa por usuario EmpresaService.findOneEmpresaByUserId.',
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -1212,7 +1212,7 @@ export class EmpresaService {
         },
         where: {
           usuario: {
-            _id: String(idUser),
+            _id: Equal(String(idUser)),
           },
         },
       });
@@ -1228,15 +1228,17 @@ export class EmpresaService {
           if (establishmentsWithPOS.length > 0) {
             return {
               ...company,
-              establecimientos: establishmentsWithPOS.map((establishment) => {
-                return {
-                  ...establishment,
-                  codigo:
-                    establishment.codigo === '0000'
-                      ? 'PRINCIPAL'
-                      : establishment.codigo,
-                };
-              }),
+              establecimientos: establishmentsWithPOS
+                .sort((a, b) => a.codigo.localeCompare(b.codigo))
+                .map((establishment) => {
+                  return {
+                    ...establishment,
+                    codigo:
+                      establishment.codigo === '0000'
+                        ? 'PRINCIPAL'
+                        : establishment.codigo,
+                  };
+                }),
             };
           }
 
@@ -1245,7 +1247,7 @@ export class EmpresaService {
         .filter(Boolean); // Elimina los valores null del array
     } catch (e) {
       throw new HttpException(
-        'Error al obtener la empresa por usuario EmpresaService.findOneEmpresaById.',
+        'Error al obtener la empresa por usuario EmpresaService.findAllEmpresasByUserIdObject.',
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -1268,7 +1270,7 @@ export class EmpresaService {
       });
     } catch (e) {
       throw new HttpException(
-        'Error al obtener la empresa por usuario EmpresaService.findOneEmpresaById.',
+        'Error al obtener la empresa por usuario EmpresaService.findAllEmpresasByUserId.',
         HttpStatus.BAD_REQUEST,
       );
     }
