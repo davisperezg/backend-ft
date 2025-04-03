@@ -367,20 +367,37 @@ export class InvoiceService {
 
     try {
       result = await this.dataSource.transaction(async (entityManager) => {
-        const foundSerie = await entityManager.findOne(SeriesEntity, {
-          where: {
-            id: Equal(serie.id),
-            serie: Equal(invoice.serie),
-            pos: {
-              id: Equal(pos.id),
-            },
-          },
-          lock: {
-            mode: 'pessimistic_write',
-          },
-        });
+        let foundSerie: SeriesEntity | null = null;
+        let retries = 3;
 
-        let clienteEntity: EntidadEntity = null;
+        if (!existInvoiceById) {
+          // Bloqueo pesimista para evitar concurrencia al confirmar factura
+          foundSerie = await entityManager.findOne(SeriesEntity, {
+            where: {
+              id: Equal(serie.id),
+              serie: Equal(invoice.serie),
+              empresa: { id: Equal(empresa.id) },
+              establecimiento: { id: Equal(establecimiento.id) },
+              pos: { id: Equal(pos.id) },
+              documento: { id: Equal(tipDoc.id) },
+            },
+            lock: {
+              mode: 'pessimistic_write',
+            },
+          });
+
+          if (!foundSerie) {
+            throw new Error(
+              'No se pudo obtener la serie. Intente nuevamente en unos segundos.',
+            );
+          }
+
+          // Incrementar el correlativo SOLO al confirmar la factura
+          foundSerie.numero = String(Number(foundSerie.numero) + 1);
+          await entityManager.save(SeriesEntity, foundSerie);
+        }
+
+        let clienteEntity: EntidadEntity | null = null;
 
         //Validamos si tiene el permisos de canCreate_clientes
         const existPermisoRegCliente = token_of_permisos.some(
@@ -1041,14 +1058,6 @@ export class InvoiceService {
           }
         }
 
-        if (!existInvoiceById) {
-          //Actualizamos serie
-          await entityManager.save(SeriesEntity, {
-            ...serie,
-            numero: String(Number(foundSerie.numero) + 1),
-          });
-        }
-        console.log();
         return {
           invoice: invoiceCreated.borrador ? invoiceSimple : _invoice,
           fileName: fileName,
@@ -1071,6 +1080,13 @@ export class InvoiceService {
       return result;
     } catch (e) {
       console.log('jeje', e);
+      if (e.code === 'ER_LOCK_WAIT_TIMEOUT') {
+        throw new HttpException(
+          'Error de bloqueo, por favor intente nuevamente',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
       throw new HttpException(e.response ?? e.message, HttpStatus.BAD_REQUEST);
     }
 

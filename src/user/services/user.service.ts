@@ -446,8 +446,6 @@ export class UserService {
                           }
                         }
                       }
-                      //Revisar: los establecimientos y la empresa deben
-                      //tener la propiedad checked en true para que se registre
                     } else {
                       throw new HttpException(
                         `El establecimiento ${
@@ -636,125 +634,99 @@ export class UserService {
               //Solo se aceptara empresas con el estado "activo" = true
               if (validEmpresa.estado) {
                 const establecimientos = inputEmpresa.establecimientos;
-                //Si la empresa esta checked se procede a validar establecimientos
-                if (inputEmpresa.checked) {
-                  for (
-                    let index = 0;
-                    index < establecimientos.length;
-                    index++
-                  ) {
-                    const inputEstablecimiento = establecimientos[index];
-                    const idEstablecimiento = inputEstablecimiento.id;
-                    const listEstablecimientos =
-                      await this.empresaService.findEstablecimientosByEmpresa(
-                        idEmpresa,
-                      );
-                    const validEstablecimiento = listEstablecimientos.find(
-                      (a) => a.id === idEstablecimiento,
+                for (let index = 0; index < establecimientos.length; index++) {
+                  const inputEstablecimiento = establecimientos[index];
+                  const idEstablecimiento = inputEstablecimiento.id;
+                  const listEstablecimientos =
+                    await this.empresaService.findEstablecimientosByEmpresa(
+                      idEmpresa,
                     );
+                  const validEstablecimiento = listEstablecimientos.find(
+                    (a) => a.id === idEstablecimiento,
+                  );
 
-                    //Solo pasara establecimientos que le pertenece a la empresa del creador
-                    if (!validEstablecimiento) {
-                      throw new HttpException(
-                        `No es posible asignar el establecimiento ${inputEstablecimiento.denominacion}. Ya que no le pertecene a la empresa ${inputEmpresa.razon_social}.`,
-                        HttpStatus.BAD_REQUEST,
-                      );
-                    }
+                  //Solo pasara establecimientos que le pertenece a la empresa del creador
+                  if (!validEstablecimiento) {
+                    throw new HttpException(
+                      `No es posible asignar el establecimiento ${inputEstablecimiento.denominacion}. Ya que no le pertecene a la empresa ${inputEmpresa.razon_social}.`,
+                      HttpStatus.BAD_REQUEST,
+                    );
+                  }
 
-                    //Solo se aceptara establecimientos con el estado "activo" = true
-                    if (validEstablecimiento.estado) {
-                      //Si no existe un establecimiento agregado y esta checked se agrega
-                      if (inputEstablecimiento.checked) {
-                        const pos = inputEstablecimiento.pos;
-                        for (let index = 0; index < pos.length; index++) {
-                          const currentPOS = pos[index];
-                          const posId = currentPOS.id;
-                          const posDescription = `${currentPOS.codigo} - ${currentPOS.nombre}`;
-                          const posList =
-                            await this.posService.getPOSListByIdEstablishment(
-                              idEstablecimiento,
-                            );
-                          const validatedPOS = posList.find(
-                            (a) => a.id === posId,
-                          );
+                  //Solo se aceptara establecimientos con el estado "activo" = true
+                  if (validEstablecimiento.estado) {
+                    const pos = inputEstablecimiento.pos;
+                    for (let index = 0; index < pos.length; index++) {
+                      const currentPOS = pos[index];
+                      const posId = currentPOS.id;
+                      const posDescription = `${currentPOS.codigo} - ${currentPOS.nombre}`;
+                      const posList =
+                        await this.posService.getPOSListByIdEstablishment(
+                          idEstablecimiento,
+                        );
+                      const validatedPOS = posList.find((a) => a.id === posId);
 
-                          //Solo pasara POS que le pertenece al establecimiento del creador
-                          if (!validatedPOS) {
-                            throw new HttpException(
-                              `No es posible asignar el POS ${posDescription}. Ya que no le pertecene al establecimiento ${inputEstablecimiento.denominacion}.`,
-                              HttpStatus.BAD_REQUEST,
+                      //Solo pasara POS que le pertenece al establecimiento del creador
+                      if (!validatedPOS) {
+                        throw new HttpException(
+                          `No es posible asignar el POS ${posDescription}. Ya que no le pertecene al establecimiento ${inputEstablecimiento.denominacion}.`,
+                          HttpStatus.BAD_REQUEST,
+                        );
+                      }
+
+                      // Solo se aceptara POS con el estado activo
+                      if (validatedPOS.estado) {
+                        const findEntidadExisting = findMyEmpresasAsign.find(
+                          (a) =>
+                            a.empresa.id === idEmpresa &&
+                            a.establecimiento.id === idEstablecimiento &&
+                            a.pos.id === posId,
+                        );
+
+                        //Si ya existe un establecimiento agregado y esta checked no se agrega
+                        if (!findEntidadExisting) {
+                          if (currentPOS.checked) {
+                            const userEmpresa =
+                              this.usersEmprersaRepository.create({
+                                empresa: idEmpresa,
+                                usuario: userMYSQL,
+                                establecimiento: idEstablecimiento,
+                                pos: posId,
+                              });
+                            await entityManager.save(
+                              UsersEmpresaEntity,
+                              userEmpresa,
                             );
                           }
-
-                          // Solo se aceptara POS con el estado activo
-                          if (validatedPOS.estado) {
-                            const findEntidadExisting =
-                              findMyEmpresasAsign.find(
-                                (a) =>
-                                  a.empresa.id === idEmpresa &&
-                                  a.establecimiento.id === idEstablecimiento &&
-                                  a.pos.id === posId,
-                              );
-
-                            //Si ya existe un establecimiento agregado y esta checked no se agrega
-                            if (!findEntidadExisting) {
-                              if (currentPOS.checked) {
-                                const userEmpresa =
-                                  this.usersEmprersaRepository.create({
-                                    empresa: idEmpresa,
-                                    usuario: userMYSQL,
-                                    establecimiento: idEstablecimiento,
-                                    pos: posId,
-                                  });
-                                await entityManager.save(
-                                  UsersEmpresaEntity,
-                                  userEmpresa,
-                                );
-                              }
-                            } else {
-                              //Si ya existe un establecimiento agregado y esta unchecked se elimina
-                              if (!currentPOS.checked) {
-                                await entityManager.delete(UsersEmpresaEntity, {
-                                  pos: { id: currentPOS.id },
-                                });
-                              }
-                            }
-                          } else {
-                            throw new HttpException(
-                              `El POS ${posDescription} debe estar activo.`,
-                              HttpStatus.BAD_REQUEST,
-                            );
+                        } else {
+                          //Si ya existe un establecimiento agregado y esta unchecked se elimina
+                          if (!currentPOS.checked) {
+                            await entityManager.delete(UsersEmpresaEntity, {
+                              usuario: { id: userMYSQL.id },
+                              empresa: { id: idEmpresa },
+                              establecimiento: { id: idEstablecimiento },
+                              pos: { id: currentPOS.id },
+                            });
                           }
                         }
+                      } else {
+                        throw new HttpException(
+                          `El POS ${posDescription} debe estar activo.`,
+                          HttpStatus.BAD_REQUEST,
+                        );
                       }
-                    } else {
-                      throw new HttpException(
-                        `El establecimiento ${
-                          inputEstablecimiento.codigo === '0000'
-                            ? 'PRINCIPAL'
-                            : inputEstablecimiento.codigo
-                        } - ${
-                          inputEstablecimiento.denominacion
-                        } debe estar activo.`,
-                        HttpStatus.BAD_REQUEST,
-                      );
                     }
-                  }
-                } else {
-                  //Si desactiva la empresa se eliminan todos los establecimientos
-                  for (
-                    let index = 0;
-                    index < establecimientos.length;
-                    index++
-                  ) {
-                    const inputEstablecimiento = establecimientos[index];
-                    if (inputEstablecimiento.idEntidad) {
-                      await entityManager.delete(UsersEmpresaEntity, {
-                        establecimiento: {
-                          id: inputEstablecimiento.idEntidad,
-                        },
-                      });
-                    }
+                  } else {
+                    throw new HttpException(
+                      `El establecimiento ${
+                        inputEstablecimiento.codigo === '0000'
+                          ? 'PRINCIPAL'
+                          : inputEstablecimiento.codigo
+                      } - ${
+                        inputEstablecimiento.denominacion
+                      } debe estar activo.`,
+                      HttpStatus.BAD_REQUEST,
+                    );
                   }
                 }
               } else {
@@ -1024,7 +996,11 @@ export class UserService {
           // Procesamos los establecimientos:
           const establishments = await Promise.all(
             userAssignmentsFormat.establecimientos.map(async (est) => {
-              const POS = await this.findAssignmentsByEstablishmentId(est.id);
+              const POS = await this.findAssignmentsByEstablishmentId(
+                foundUserMysql.id,
+                est.empresa.id,
+                est.id,
+              );
 
               return {
                 ...est,
@@ -1186,7 +1162,11 @@ export class UserService {
     return descendientes;
   };
 
-  async findAssignmentsByEstablishmentId(id: number) {
+  async findAssignmentsByEstablishmentId(
+    userId: number,
+    companyId: number,
+    establishmentId: number,
+  ) {
     try {
       const posList = await this.usersEmprersaRepository.find({
         relations: {
@@ -1202,7 +1182,13 @@ export class UserService {
         },
         where: {
           establecimiento: {
-            id: Equal(id),
+            id: Equal(establishmentId),
+          },
+          empresa: {
+            id: Equal(companyId),
+          },
+          usuario: {
+            id: Equal(userId),
           },
         },
       });
