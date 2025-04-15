@@ -1,3 +1,85 @@
+import path from 'path';
+import { promises as fsPromises } from 'fs';
+import { HttpException, HttpStatus } from '@nestjs/common';
+import { TDocumentDefinitions } from 'pdfmake/interfaces';
+import PdfPrinter from 'pdfmake';
+import { PassThrough } from 'stream';
+import * as fs from 'fs';
+
+export const fileExists = async (filePath: string): Promise<boolean> => {
+  try {
+    await fs.promises.access(filePath, fs.constants.F_OK);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+export async function getPdf(
+  docDefinition: TDocumentDefinitions,
+): Promise<Buffer> {
+  // Configuración de fuentes
+  const fonts = {
+    Roboto: {
+      normal: path.join(process.cwd(), 'public/fonts/Roboto-Regular.ttf'),
+      bold: path.join(process.cwd(), 'public/fonts/Roboto-Medium.ttf'),
+      italics: path.join(process.cwd(), 'public/fonts/Roboto-Italic.ttf'),
+      bolditalics: path.join(
+        process.cwd(),
+        'public/fonts/Roboto-MediumItalic.ttf',
+      ),
+    },
+  };
+
+  const printer = new PdfPrinter(fonts);
+  const pdfDoc = printer.createPdfKitDocument(docDefinition);
+  const stream = new PassThrough();
+  const chunks: Buffer[] = [];
+
+  return new Promise<Buffer>((resolve, reject) => {
+    pdfDoc.pipe(stream);
+    pdfDoc.end();
+
+    stream.on('data', (chunk) => chunks.push(chunk));
+    stream.on('end', () => resolve(Buffer.concat(chunks)));
+    stream.on('error', (err) =>
+      reject(new Error(`Error al generar el PDF: ${err}`)),
+    );
+  });
+}
+
+export const guardarArchivo = async (
+  ruta: string,
+  archivo: string,
+  dataArchivoOrPath: string | Buffer,
+  buffer?: boolean,
+) => {
+  const pathDir = path.join(process.cwd(), ruta);
+
+  try {
+    // Creamos el directorio si no existe
+    await fsPromises.mkdir(pathDir, { recursive: true });
+
+    const archivoPath = path.join(pathDir, archivo);
+
+    // Escribimos el archivo
+    const contenido = buffer
+      ? dataArchivoOrPath
+      : await fsPromises.readFile(dataArchivoOrPath as string);
+
+    await fsPromises.writeFile(archivoPath, contenido);
+
+    return archivoPath;
+  } catch (error) {
+    const mensaje =
+      error.code === 'ENOENT'
+        ? `Error al leer el archivo path_${archivo} o no existe`
+        : 'Error al crear directorio o guardar archivo';
+
+    throw new HttpException(mensaje, HttpStatus.BAD_REQUEST);
+  }
+};
+
 export const validarFormatoUUID = (uuid: string) => {
   const regex =
     /^[0-9A-F]{8}-[0-9A-F]{4}-[4][0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$/i;

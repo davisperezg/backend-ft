@@ -68,12 +68,14 @@
     "reflect-metadata": "^0.1.13",
     "rimraf": "^4.4.0",
     "rxjs": "^7.8.0",
+    "saxon-js": "^2.7.0",
     "socket.io": "^4.8.1",
     "typeorm": "^0.3.12",
     "uuid": "^9.0.1",
     "xlsx": "^0.18.5",
     "xml-crypto": "^3.1.0",
-    "xml2js": "^0.6.2"
+    "xml2js": "^0.6.2",
+    "xslt3": "^2.7.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^9.2.0",

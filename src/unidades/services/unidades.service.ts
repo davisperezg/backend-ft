@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { UnidadEntity } from '../entities/unidades.entity';
-import { Repository } from 'typeorm';
+import { Equal, Repository } from 'typeorm';
 import { UNIDADES } from 'src/lib/const/consts';
 
 @Injectable()
@@ -29,7 +29,7 @@ export class UnidadesService implements OnModuleInit {
     try {
       return await this.unidadRepository.findOne({
         where: {
-          id,
+          id: Equal(id),
         },
       });
     } catch (e) {
@@ -44,7 +44,7 @@ export class UnidadesService implements OnModuleInit {
     try {
       return await this.unidadRepository.findOne({
         where: {
-          codigo,
+          codigo: Equal(codigo),
         },
       });
     } catch (e) {
