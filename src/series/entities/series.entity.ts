@@ -3,14 +3,23 @@ import { EstablecimientoEntity } from 'src/establecimiento/entities/establecimie
 import { PosEntity } from 'src/pos/entities/pos.entity';
 import { TipodocsEmpresaEntity } from 'src/tipodocs_empresa/entities/tipodocs_empresa.entity';
 import {
-  BeforeInsert,
   Column,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  Unique,
 } from 'typeorm';
 
+@Index(['empresa', 'establecimiento', 'pos', 'documento', 'serie'])
+@Unique('unique_series_constraint', [
+  'empresa',
+  'establecimiento',
+  'pos',
+  'documento',
+  'serie',
+])
 @Entity({ name: 'series' })
 export class SeriesEntity {
   @PrimaryGeneratedColumn()

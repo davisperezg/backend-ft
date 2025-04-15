@@ -13,6 +13,7 @@ import {
   JoinColumn,
   CreateDateColumn,
   OneToMany,
+  Unique,
 } from 'typeorm';
 import { InvoiceDetailsEntity } from './invoice_details.entity';
 import { DecimalColumnTransformer } from 'src/lib/helpers/decimal_format';
@@ -20,6 +21,14 @@ import { AnulacionEntity } from 'src/anulaciones/entities/anulacion.entity';
 import { PosEntity } from 'src/pos/entities/pos.entity';
 
 @Entity({ name: 'invoices' })
+@Unique('unique_invoice_constraint', [
+  'empresa',
+  'establecimiento',
+  'pos',
+  'tipo_doc',
+  'serie',
+  'correlativo',
+])
 export class InvoiceEntity {
   @PrimaryGeneratedColumn()
   id?: number;

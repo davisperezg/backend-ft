@@ -33,6 +33,8 @@ import { EmpresaDetailDTO } from '../dto/queryEmpresa.dto';
 import { ConfigService } from '@nestjs/config';
 import { PosService } from 'src/pos/services/pos.service';
 import { PosEntity } from 'src/pos/entities/pos.entity';
+import { spawn } from 'child_process';
+import { guardarArchivo } from 'src/lib/functions';
 
 @Injectable()
 export class EmpresaService {
@@ -106,10 +108,11 @@ export class EmpresaService {
     try {
       const result = await this.dataSource.transaction(
         async (entityManager) => {
-          const fileName_cert_timestamp = this.crearCert(
+          const certificado = await this.crearCert(
             body.data.ruc,
             body.data.modo,
             body.files.certificado,
+            body.data.cert_password,
           );
 
           //Creamos empresa
@@ -126,13 +129,10 @@ export class EmpresaService {
                 ? body.data.web_service
                 : 'https://e-factura.sunat.gob.pe/ol-ti-itcpfegem/billService', //1 = url produccion
             cert: body.files?.certificado
-              ? fileName_cert_timestamp
+              ? certificado.certPfxP12
               : 'certificado_beta.pfx', //file certificado
             fieldname_cert: body.files?.certificado
-              ? body.files.certificado.originalname.substring(
-                  0,
-                  body.files.certificado.originalname.lastIndexOf('.'), //obtenermos el nombre del certificado
-                )
+              ? certificado.certPem
               : 'certificado_beta',
             cert_password:
               body.data.modo === 0 ? '123456' : body.data.cert_password,
@@ -306,10 +306,11 @@ export class EmpresaService {
     try {
       const result = await this.dataSource.transaction(
         async (entityManager) => {
-          const fileName_cert_timestamp = this.crearCert(
+          const certificado = await this.crearCert(
             empresa.ruc,
             body.data.modo,
             body.files.certificado,
+            body.data.cert_password,
           );
 
           //Preparamos merge para actualizar empresa
@@ -325,13 +326,10 @@ export class EmpresaService {
                 ? body.data.web_service
                 : 'https://e-factura.sunat.gob.pe/ol-ti-itcpfegem/billService',
             cert: body.files?.certificado
-              ? fileName_cert_timestamp
+              ? certificado.certPfxP12
               : empresa.cert,
             fieldname_cert: body.files?.certificado
-              ? body.files.certificado.originalname.substring(
-                  0,
-                  body.files.certificado.originalname.lastIndexOf('.'), //obtenermos el nombre del certificado
-                )
+              ? certificado.certPem
               : empresa.fieldname_cert,
           });
 
@@ -1308,7 +1306,7 @@ export class EmpresaService {
     return documentos;
   }
 
-  crearLogo(ruc: string, logo: any, establecimiento?: string) {
+  async crearLogo(ruc: string, logo: any, establecimiento?: string) {
     //Creamos carpeta Logo
     let pathDirLog = '';
 
@@ -1332,32 +1330,104 @@ export class EmpresaService {
           fs.unlinkSync(file);
         });
       }
-      this.guardarArchivo(pathDirLog, logo.originalname, logo.buffer, true);
+      await guardarArchivo(pathDirLog, logo.originalname, logo.buffer, true);
     } else {
       if (logo) {
-        this.guardarArchivo(pathDirLog, logo.originalname, logo.buffer, true);
+        await guardarArchivo(pathDirLog, logo.originalname, logo.buffer, true);
       }
     }
     //Fin crear logo
   }
 
-  crearCert(ruc: string, modo: number, certificado: any) {
-    //Crear carpeta certificado
-    let fileName_cert_timestamp = '';
-    if (modo === 1 && certificado) {
-      const currentDate = new Date(); // Obtiene la fecha y hora actual en la zona horaria del servidor
-      const formattedDate = currentDate.getTime();
-      fileName_cert_timestamp = `${formattedDate}_${certificado.originalname}`;
+  private async crearCert(
+    ruc: string,
+    modo: number,
+    certificado: any,
+    password: string,
+  ) {
+    let certPfxP12 = '';
+    let certPem = '';
 
-      this.guardarArchivo(
+    // Si existe certificado y es modo 1 (produccion)
+    if (modo === 1 && certificado) {
+      const currentDate = new Date();
+      const formattedDate = currentDate.getTime();
+
+      certPfxP12 = `${formattedDate}_${certificado.originalname}`;
+      // Ruta para guardar certificado .pfx o .p12
+      const certFilePath = await guardarArchivo(
         `uploads/certificado_digital/produccion/${ruc}`,
-        fileName_cert_timestamp,
+        certPfxP12,
         certificado.buffer,
         true,
       );
+
+      // Extraer nombre certificado sin extension
+      const certName = certificado.originalname.substring(
+        0,
+        certificado.originalname.lastIndexOf('.'),
+      );
+
+      certPem = `${formattedDate}_${certName}.pem`;
+      // Ruta para guardar certificado .pem
+      const pemFilePath = path.join(
+        process.cwd(),
+        `uploads/certificado_digital/produccion/${ruc}/${certPem}`,
+      );
+
+      await this.convertToPemAsync(certFilePath, pemFilePath, password);
     }
-    //Fin crear certificado
-    return fileName_cert_timestamp;
+
+    return {
+      certPfxP12,
+      certPem,
+    };
+  }
+
+  private async convertToPemAsync(
+    ubicacion: string,
+    destino: string,
+    password: string,
+  ): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const openssl = spawn('openssl', [
+        'pkcs12',
+        '-in',
+        ubicacion,
+        '-out',
+        destino,
+        '-nodes',
+        '-passin',
+        `pass:${password}`,
+      ]);
+
+      let stderr = '';
+      openssl.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+
+      openssl.on('error', (error) => {
+        reject(
+          new HttpException(
+            `Error al ejecutar OpenSSL: ${error.message}`,
+            HttpStatus.INTERNAL_SERVER_ERROR,
+          ),
+        );
+      });
+
+      openssl.on('close', (code) => {
+        if (code === 0) {
+          resolve(destino);
+        } else {
+          reject(
+            new HttpException(
+              `OpenSSL terminó con código ${code}. Error: ${stderr}`,
+              HttpStatus.INTERNAL_SERVER_ERROR,
+            ),
+          );
+        }
+      });
+    });
   }
 
   validarRutaCert(ruc: string, certActual: string) {
@@ -1367,7 +1437,6 @@ export class EmpresaService {
     if (existDirLogo) {
       let existe = false;
       const files = fs.readdirSync(pathDirLog);
-      console.log(files);
       files.map((file) => {
         if (file === certActual) {
           existe = true;
@@ -1376,28 +1445,5 @@ export class EmpresaService {
 
       return existe;
     }
-  }
-
-  guardarArchivo(
-    ruta: string,
-    nombreArchivo: string,
-    dataArchivo: string | Buffer,
-    buffer?: boolean,
-  ) {
-    const pathDir = path.join(process.cwd(), ruta);
-    const existDir = fs.existsSync(pathDir);
-
-    if (!existDir) {
-      //Creamos directorio
-      fs.mkdirSync(pathDir, { recursive: true });
-    }
-
-    //Agregamos el archivo al directorio
-    fs.writeFileSync(
-      `${pathDir}/${nombreArchivo}`,
-      buffer ? dataArchivo : fs.readFileSync(dataArchivo),
-    );
-
-    return `${pathDir}/${nombreArchivo}`;
   }
 }
