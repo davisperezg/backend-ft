@@ -65,6 +65,7 @@ import { CodesReturnSunatModule } from './codes-return-sunat/codes-return-sunat.
 import { ProductModule } from './product/product.module';
 import { PresentationModule } from './presentation/presentation.module';
 import { PosModule } from './pos/pos.module';
+import { RedisModule } from './redis/redis.module';
 
 @Module({
   imports: [
@@ -159,6 +160,7 @@ import { PosModule } from './pos/pos.module';
     ProductModule,
     PresentationModule,
     PosModule,
+    RedisModule,
   ],
   controllers: [AppController],
   providers: [
