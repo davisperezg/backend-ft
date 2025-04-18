@@ -1,4 +1,10 @@
-import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  HttpException,
+  HttpStatus,
+  Logger,
+  Inject,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Equal, Repository, In, EntityManager } from 'typeorm';
 import { InvoiceEntity } from '../entities/invoice.entity';
@@ -64,6 +70,7 @@ import { PosService } from 'src/pos/services/pos.service';
 import { ClientePermission } from 'src/lib/enum/cliente.enum';
 import { PosEntity } from 'src/pos/entities/pos.entity';
 import { QueryResultInvoice } from '../dto/query-result-invoice';
+import Redis from 'ioredis';
 
 @Injectable()
 export class InvoiceService {
@@ -96,6 +103,7 @@ export class InvoiceService {
     private anulacionRepository: Repository<AnulacionEntity>,
     private readonly invoiceGateway: InvoiceGateway,
     private codeReturnSunatService: CodesReturnSunatService,
+    @Inject('REDIS_CLIENT') private readonly redisClient: Redis,
   ) {
     dayjs.extend(utc);
     dayjs.extend(timezone);
@@ -133,16 +141,13 @@ export class InvoiceService {
     );
 
     // 4. Iniciar una única transacción para todo el proceso
-    let correlativoResult: {
-      correlativo: string;
-      oldCorrelativo: string;
-    } = {
+    let correlativoResult: { correlativo: string; oldCorrelativo: string } = {
       correlativo: null,
       oldCorrelativo: null,
     };
 
     let invoiceEntity: InvoiceEntity | null = null;
-    let responseInvoiceSunat: QueryResultInvoice | null = null;
+
     let validation: {
       fileName: string;
       xmlSigned: string;
@@ -153,170 +158,134 @@ export class InvoiceService {
       xmlUnsigned: null,
     };
 
-    // Configuración para retries
-    let maxRetries = 5;
-    let retryDelay = 100; // ms
-
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        // Usar una única transacción para todo el proceso
-        invoiceEntity = await this.dataSource.transaction(
-          async (entityManager) => {
-            if (
-              !existInvoice ||
-              (existInvoice && existInvoice.serie !== invoice.serie)
-            ) {
-              // Leer y bloquear la serie
-              const foundSerie = await entityManager
-                .getRepository(SeriesEntity)
-                .findOne({
-                  where: {
-                    pos: { id: Equal(pos.id) },
-                    serie: Equal(invoice.serie),
-                  },
-                  lock: { mode: 'pessimistic_write' },
-                });
-
-              if (!foundSerie) {
-                throw new Error('No se pudo obtener la serie');
-              }
-
-              // Incrementar el correlativo
-              const oldNumero = foundSerie.numero; //numero registrado
-              const newNumero = String(Number(oldNumero) + 1);
-
-              // Validar serie y correlativo existente
-              const invoiceExisting = await entityManager
-                .getRepository(InvoiceEntity)
-                .findOne({
-                  where: {
-                    pos: { id: Equal(pos.id) },
-                    establecimiento: { id: Equal(establecimiento.id) },
-                    empresa: { id: Equal(empresa.id) },
-                    tipo_doc: { id: Equal(tipoDocumento.id) },
-                    serie: Equal(invoice.serie),
-                    correlativo: completarConCeros(oldNumero),
-                  },
-                });
-
-              if (invoiceExisting) {
-                const cpe = `${invoice.serie}-${completarConCeros(
-                  oldNumero,
-                )} | TDoc: ${tipoDocumento.id} | POS: ${pos.id} | EST: ${
-                  establecimiento.id
-                } | EMP: ${empresa.id}`;
-
-                throw new HttpException(
-                  `Ya existe un comprobante con la misma serie y correlativo. ${cpe}`,
-                  HttpStatus.BAD_REQUEST,
-                );
-              }
-
-              // Guardar el nuevo numero de serie
-              foundSerie.numero = newNumero;
-              await entityManager.save(SeriesEntity, foundSerie);
-
-              correlativoResult = {
-                correlativo: completarConCeros(newNumero),
-                oldCorrelativo: completarConCeros(oldNumero),
-              };
-            } else {
-              correlativoResult = {
-                correlativo: existInvoice.correlativo,
-                oldCorrelativo: existInvoice.correlativo,
-              };
-            }
-
-            const saleResult = existInvoice
-              ? await this.updateSale(
-                  existInvoice,
-                  invoice,
-                  clienteEntity,
-                  usuario,
-                  pos,
-                  establecimiento,
-                  empresa,
-                  tipoDocumento,
-                  formaPago,
-                  tipoMoneda,
-                  DECIMAL,
-                  hasPermissionToCreateClient,
-                  correlativoResult.oldCorrelativo,
-                  entityManager,
-                )
-              : await this.createSale(
-                  invoice,
-                  clienteEntity,
-                  usuario,
-                  pos,
-                  establecimiento,
-                  empresa,
-                  tipoDocumento,
-                  formaPago,
-                  tipoMoneda,
-                  DECIMAL,
-                  hasPermissionToCreateClient,
-                  correlativoResult.oldCorrelativo,
-                  entityManager,
-                );
-
-            // Se valida documento excepto borradores
-            if (!saleResult.borrador) {
-              validation = await this.validateInvoiceDocument(saleResult);
-
-              // Enviar a SUNAT dentro de la transacción si está habilitado
-              if (shouldSendToSunat) {
-                const invoiceFormatted = await this.formatListInvoices(
-                  { ...saleResult, estado_operacion: 0 },
-                  validation.fileName,
-                );
-                responseInvoiceSunat = await this.procesarEnvioSunat(
-                  saleResult,
-                  invoiceFormatted,
-                  validation.fileName,
-                  validation.xmlSigned,
-                  validation.xmlUnsigned,
-                  entityManager,
-                );
-              }
-            }
-
-            // La transacción se confirmará automáticamente al finalizar este bloque
-            return saleResult;
-          },
+    try {
+      // Obtener correlativo si es necesario (fuera de la transacción para reducir tiempo de bloqueo)
+      if (
+        !existInvoice ||
+        (existInvoice && existInvoice.serie !== invoice.serie)
+      ) {
+        correlativoResult = await this.getCorrelativoWithRedis(
+          pos,
+          invoice.serie,
         );
+      } else {
+        correlativoResult = {
+          correlativo: existInvoice.correlativo,
+          oldCorrelativo: existInvoice.correlativo,
+        };
+      }
 
-        // Si llegamos aquí, la transacción fue exitosa
-        break;
-      } catch (error) {
-        if (error.code === 'ER_LOCK_WAIT_TIMEOUT') {
-          if (attempt === maxRetries) {
-            throw new HttpException(
-              `No se pudo obtener un correlativo después de ${maxRetries} intentos. Intente nuevamente.`,
-              HttpStatus.CONFLICT,
-            );
+      // Usar una única transacción para todo el proceso
+      invoiceEntity = await this.dataSource.transaction(
+        async (entityManager) => {
+          // Validar serie y correlativo existente
+          if (
+            !existInvoice ||
+            (existInvoice && existInvoice.serie !== invoice.serie)
+          ) {
+            const { oldCorrelativo } = correlativoResult;
+
+            const invoiceExisting = await entityManager
+              .getRepository(InvoiceEntity)
+              .findOne({
+                where: {
+                  pos: { id: Equal(pos.id) },
+                  establecimiento: { id: Equal(establecimiento.id) },
+                  empresa: { id: Equal(empresa.id) },
+                  tipo_doc: { id: Equal(tipoDocumento.id) },
+                  serie: Equal(invoice.serie),
+                  correlativo: oldCorrelativo,
+                },
+              });
+
+            if (invoiceExisting) {
+              const serie = `${invoice.serie}-${oldCorrelativo}`;
+              throw new HttpException(
+                `Ya existe un comprobante con la misma serie y correlativo: ${serie}`,
+                HttpStatus.BAD_REQUEST,
+              );
+            }
           }
 
-          // Esperar con un retardo exponencial antes de reintentar
-          await new Promise((resolve: any) => setTimeout(resolve, retryDelay));
-          retryDelay *= 2; // Retardo exponencial
-          continue;
-        }
+          const saleResult = existInvoice
+            ? await this.updateSale(
+                existInvoice,
+                invoice,
+                clienteEntity,
+                usuario,
+                pos,
+                establecimiento,
+                empresa,
+                tipoDocumento,
+                formaPago,
+                tipoMoneda,
+                DECIMAL,
+                hasPermissionToCreateClient,
+                correlativoResult.oldCorrelativo,
+                entityManager,
+              )
+            : await this.createSale(
+                invoice,
+                clienteEntity,
+                usuario,
+                pos,
+                establecimiento,
+                empresa,
+                tipoDocumento,
+                formaPago,
+                tipoMoneda,
+                DECIMAL,
+                hasPermissionToCreateClient,
+                correlativoResult.oldCorrelativo,
+                entityManager,
+              );
 
-        // Si es otro tipo de error, lo propagamos
-        throw error;
+          // Se valida documento excepto borradores
+          if (!saleResult.borrador) {
+            validation = await this.validateInvoiceDocument(saleResult);
+          }
+
+          // La transacción se confirmará automáticamente al finalizar este bloque
+          return saleResult;
+        },
+      );
+
+      // Enviar a SUNAT dentro de la transacción si está habilitado
+      let responseInvoiceSunat: QueryResultInvoice | null = null;
+      if (shouldSendToSunat && !invoiceEntity.borrador) {
+        const invoiceFormatted = await this.formatListInvoices(
+          { ...invoiceEntity, estado_operacion: 0 },
+          validation.fileName,
+        );
+
+        responseInvoiceSunat = await this.procesarEnvioSunat(
+          invoiceEntity,
+          invoiceFormatted,
+          validation.fileName,
+          validation.xmlSigned,
+          validation.xmlUnsigned,
+        );
       }
+
+      // Si la opción es envío directo a SUNAT y ya se procesó, retornamos ese resultado
+      if (
+        shouldSendToSunat &&
+        !invoiceEntity.borrador &&
+        responseInvoiceSunat
+      ) {
+        return responseInvoiceSunat;
+      }
+    } catch (e) {
+      this.logger.error(`Error upsertSale.transaction: ${e.message}`);
+
+      // Si es otro tipo de error, lo propagamos
+      throw e;
     }
-
-    // Si finaliza la transaccion y envia sunat retorna directamente el valor terminando el proceso
-    if (invoiceEntity && shouldSendToSunat) return responseInvoiceSunat;
-
-    const { fileName } = validation;
 
     // 5. Format invoice for response
     const invoiceFormatted = await this.formatListInvoices(
       { ...invoiceEntity, estado_operacion: 0 },
-      fileName,
+      validation.fileName,
     );
 
     // 6. Generate room identifier for notifications
@@ -324,13 +293,68 @@ export class InvoiceService {
 
     return this.handleInvoiceResponse({
       invoiceEntity,
-      fileName: fileName,
+      fileName: validation.fileName,
       correlativoResult,
       username: usuario.username,
       roomId,
       invoiceFormated: invoiceFormatted,
       responseType: invoiceEntity.borrador ? 'draft' : 'normal',
     });
+  }
+
+  async getCorrelativoWithRedis(pos: PosEntity, serie: string) {
+    try {
+      const foundSerie = await this.serieRepository.findOne({
+        where: {
+          pos: { id: Equal(pos.id) },
+          serie: Equal(serie),
+        },
+      });
+
+      if (!foundSerie) {
+        throw new Error('Serie no encontrada en base de datos.');
+      }
+
+      const redisKey = `serie:${pos.id}:${serie}`;
+      const currentRedisValue = await this.redisClient.get(redisKey);
+
+      if (
+        !currentRedisValue ||
+        Number(currentRedisValue) !== Number(foundSerie.numero)
+      ) {
+        this.logger.warn(
+          `⚠️ Desincronización detectada: Redis(${currentRedisValue}) ≠ BD(${foundSerie.numero})`,
+        );
+        await this.redisClient.set(redisKey, foundSerie.numero);
+      }
+
+      // Generar el correlativo usando Redis (ya sincronizado)
+      const newNumero = await this.redisClient.incr(redisKey);
+      const correlativo = String(newNumero);
+      const oldCorrelativo = String(newNumero - 1);
+
+      // Guardar el nuevo correlativo en la base de datos
+      await this.serieRepository.update(
+        { id: foundSerie.id },
+        {
+          numero: correlativo,
+        },
+      );
+
+      console.log(correlativo, oldCorrelativo);
+
+      return {
+        correlativo: completarConCeros(correlativo),
+        oldCorrelativo: completarConCeros(oldCorrelativo),
+      };
+    } catch (e) {
+      this.logger.error(`Error getCorrelativoWithRedis: ${e.message}`);
+
+      throw new HttpException(
+        `Error al obtener el correlativo.`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
   }
 
   // Unified helper method to handle both draft and normal responses
@@ -488,8 +512,9 @@ export class InvoiceService {
 
       return invoiceEntity;
     } catch (e) {
+      this.logger.error(e);
       throw new HttpException(
-        `Error al crear la venta.`,
+        `Error al crear la venta intente nuevamente.`,
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -646,7 +671,7 @@ export class InvoiceService {
       return invoiceEntity;
     } catch (e) {
       throw new HttpException(
-        `Error al actualizar la venta.`,
+        `Error al actualizar la venta intente nuevamente.`,
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -736,12 +761,7 @@ export class InvoiceService {
     fileName: string,
     xmlSigned: string,
     xmlUnsigned: string,
-    manager: EntityManager,
   ): Promise<QueryResultInvoice> {
-    if (!manager) {
-      throw new Error('Este método debe ejecutarse dentro de una transacción');
-    }
-
     const empresa = invoiceEntity.empresa;
     const establecimiento = invoiceEntity.establecimiento;
     const usuario = invoiceEntity.usuario;
@@ -754,8 +774,7 @@ export class InvoiceService {
 
     try {
       //Cambiamos el estado de creado a enviando a sunat
-      await manager.update(
-        InvoiceEntity,
+      await this.invoiceRepository.update(
         { id: invoiceEntity.id },
         { estado_operacion: 1 },
       );
@@ -788,8 +807,7 @@ export class InvoiceService {
           : null;
 
       if (codigo_respuesta_sunat === 'HTTP') {
-        await manager.update(
-          InvoiceEntity,
+        await this.invoiceRepository.update(
           { id: invoiceEntity.id },
           {
             estado_operacion: 1,
@@ -815,8 +833,7 @@ export class InvoiceService {
         // ACEPTADA
         if (sunat_code_int === 0) {
           //Cambiamos el estado de enviado a aceptado
-          await manager.update(
-            InvoiceEntity,
+          await this.invoiceRepository.update(
             { id: invoiceEntity.id },
             {
               estado_operacion: 2,
@@ -858,8 +875,7 @@ export class InvoiceService {
         // RECHAZADA
         else if (sunat_code_int >= 2000 && sunat_code_int <= 3999) {
           //Cambiamos el estado de enviado a rechazado
-          await manager.update(
-            InvoiceEntity,
+          await this.invoiceRepository.update(
             { id: invoiceEntity.id },
             {
               estado_operacion: 3,
@@ -900,8 +916,7 @@ export class InvoiceService {
         }
         //EXCEPCION(error contribuyente)
         else if (sunat_code_int >= 1000 && sunat_code_int <= 1999) {
-          await manager.update(
-            InvoiceEntity,
+          await this.invoiceRepository.update(
             { id: invoiceEntity.id },
             {
               estado_operacion: 4,
@@ -942,8 +957,7 @@ export class InvoiceService {
         }
         //EXCEPCION 0100 al 999 corregir y volver a enviar cpe
         else {
-          await manager.update(
-            InvoiceEntity,
+          await this.invoiceRepository.update(
             { id: invoiceEntity.id },
             {
               estado_operacion: 1,
