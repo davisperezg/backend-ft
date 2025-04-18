@@ -303,6 +303,28 @@ export class InvoiceService {
   }
 
   async getCorrelativoWithRedis(pos: PosEntity, serie: string) {
+    // Crear una clave única para el lock de Redis
+    const lockKey = `lock:serie:${pos.id}:${serie}`;
+    // Crear una clave única para el contador de correlativo
+    const redisKey = `serie:${pos.id}:${serie}`;
+
+    // Adquirir un lock distribuido con tiempo de expiración de 2 segundos
+    const lockAcquired = await this.redisClient.set(
+      lockKey,
+      '1',
+      'EX',
+      2,
+      'NX',
+    );
+
+    if (!lockAcquired) {
+      // Si no podemos adquirir el lock, otro proceso está actualizando el correlativo
+      throw new HttpException(
+        'Sistema procesando otra venta con la misma serie. Intente nuevamente en unos segundos.',
+        HttpStatus.CONFLICT, // 409 Conflict - mejor código para esta situación
+      );
+    }
+
     try {
       const foundSerie = await this.serieRepository.findOne({
         where: {
@@ -312,48 +334,66 @@ export class InvoiceService {
       });
 
       if (!foundSerie) {
-        throw new Error('Serie no encontrada en base de datos.');
+        throw new HttpException('Serie no encontrada', HttpStatus.BAD_REQUEST);
       }
 
-      const redisKey = `serie:${pos.id}:${serie}`;
+      // Obtener el valor actual en Redis
       const currentRedisValue = await this.redisClient.get(redisKey);
 
+      // Implementar una transacción Redis para operaciones atómicas
+      const multi = this.redisClient.multi();
+
+      // Si Redis y DB están desincronizados, sincronizar Redis con DB
       if (
         !currentRedisValue ||
         Number(currentRedisValue) !== Number(foundSerie.numero)
       ) {
         this.logger.warn(
-          `⚠️ Desincronización detectada: Redis(${currentRedisValue}) ≠ BD(${foundSerie.numero})`,
+          `⚠️ Desincronización detectada: Redis(${currentRedisValue}) ≠ BD(${foundSerie.numero}) para serie ${serie}`,
         );
-        await this.redisClient.set(redisKey, foundSerie.numero);
+        multi.set(redisKey, foundSerie.numero);
       }
 
-      // Generar el correlativo usando Redis (ya sincronizado)
-      const newNumero = await this.redisClient.incr(redisKey);
-      const correlativo = String(newNumero);
-      const oldCorrelativo = String(newNumero - 1);
+      // Incrementar y obtener el nuevo valor en una sola operación atómica
+      multi.incr(redisKey);
 
-      // Guardar el nuevo correlativo en la base de datos
+      // Ejecutar todas las operaciones Redis en una transacción
+      const results = await multi.exec();
+
+      // El último resultado contiene el nuevo valor incrementado
+      const newNumero = results[results.length - 1][1] as number;
+      const oldNumero = newNumero - 1;
+      console.log(oldNumero, newNumero);
+      // Actualizar la base de datos con el nuevo correlativo
       await this.serieRepository.update(
         { id: foundSerie.id },
-        {
-          numero: correlativo,
-        },
+        { numero: String(newNumero) },
       );
 
-      console.log(correlativo, oldCorrelativo);
-
+      // Formatear los correlativos y retornarlos
       return {
-        correlativo: completarConCeros(correlativo),
-        oldCorrelativo: completarConCeros(oldCorrelativo),
+        correlativo: completarConCeros(String(newNumero)),
+        oldCorrelativo: completarConCeros(String(oldNumero)),
       };
-    } catch (e) {
-      this.logger.error(`Error getCorrelativoWithRedis: ${e.message}`);
-
-      throw new HttpException(
-        `Error al obtener el correlativo.`,
-        HttpStatus.BAD_REQUEST,
+    } catch (error) {
+      this.logger.error(
+        `Error getCorrelativoWithRedis: ${error.message}`,
+        error.stack,
       );
+
+      // Re-lanzar excepciones HTTP directamente
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      // Transformar otros errores en HTTP exceptions
+      throw new HttpException(
+        `Error al obtener el correlativo: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    } finally {
+      // Liberar el lock independientemente del resultado
+      await this.redisClient.del(lockKey);
     }
   }
 
