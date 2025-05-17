@@ -67,10 +67,11 @@ export class AuthService {
     ) {
       return { access_token: this.getToken(findUser._id) };
     } else {
-      throw new HttpException(
-        'Ocurrio un error, recargue la pagina',
-        HttpStatus.UNAUTHORIZED,
-      );
+      refreshTokens[refreshToken] = username;
+      return {
+        access_token: this.getToken(findUser._id),
+        refresh_token: refreshToken,
+      };
     }
   }
 

@@ -40,6 +40,8 @@ export class QueryInvoiceList {
   cliente_direccion: string;
   empresa: number;
   establecimiento: number;
+  pos: number;
+  envio_sunat_modo: string;
   moneda_abrstandar: string;
   moneda_simbolo: string;
   forma_pago: string;
