@@ -95,9 +95,9 @@ export class EntidadEntity {
   @OneToMany(() => InvoiceEntity, (invoice) => invoice.cliente)
   invoices?: InvoiceEntity[];
 
-  @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @CreateDateColumn({ type: 'timestamp' })
   createdAt?: Date;
 
-  @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @CreateDateColumn({ type: 'timestamp' })
   updatedAt?: Date;
 }
