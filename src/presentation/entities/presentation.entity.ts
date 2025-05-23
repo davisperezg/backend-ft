@@ -76,10 +76,10 @@ export class PresentationEntity {
   @Column({ default: true })
   estado?: boolean;
 
-  @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @CreateDateColumn({ type: 'timestamp' })
   createdAt?: Date;
 
-  @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @CreateDateColumn({ type: 'timestamp' })
   updatedAt?: Date;
 
   @ManyToOne(() => UnidadEntity, (unidad) => unidad.products, {
