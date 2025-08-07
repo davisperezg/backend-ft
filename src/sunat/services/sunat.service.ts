@@ -57,7 +57,7 @@ export class SunatService {
     private readonly typeIgvService: IgvsService, //@Inject(forwardRef(() => InvoiceGateway))
     private readonly invoiceGateway: InvoiceGateway,
     private readonly invoiceSocketService: InvoiceSocketService,
-  ) {}
+  ) { }
 
   async processSendSunat(
     invoiceEntity: InvoiceEntity,
@@ -378,8 +378,7 @@ export class SunatService {
       }
 
       throw new HttpException(
-        `Error de comunicación con el servicio: sunat.firmar - ${
-          e.response?.data?.message ?? 'Internal'
+        `Error de comunicación con el servicio: sunat.firmar - ${e.response?.data?.message ?? 'Internal'
         }`,
         HttpStatus.BAD_GATEWAY,
       );
@@ -404,132 +403,142 @@ export class SunatService {
 
     //Validamos si el producto tiene stock
     const dataApi = {
-      cliente: {
-        tipo_documento:
+      client: {
+        tipo_doc:
           invoice.cliente?.tipo_entidad?.codigo ?? invoice.entidad_tipo, //ruc es 6
-        numero_documento:
+        num_doc:
           invoice.cliente?.numero_documento ?? invoice.entidad_documento, //ruc cliente
         razon_social: invoice.cliente?.entidad ?? invoice.entidad,
         direccion: invoice.cliente?.direccion ?? invoice.entidad_direccion,
       },
-      empresa: {
+      company: {
         ruc: invoice.empresa.ruc,
         razon_social: invoice.empresa.razon_social,
         nombre_comercial: invoice.empresa.nombre_comercial,
-      },
-      establecimiento: {
-        ubigeo: invoice.establecimiento.ubigeo,
-        departamento: invoice.establecimiento.departamento,
-        provincia: invoice.establecimiento.provincia,
-        distrito: invoice.establecimiento.distrito,
-        direccion: invoice.establecimiento.direccion,
-        urbanizacion: '-',
-        codLocal: invoice.establecimiento.codigo,
-      },
-      serie: invoice.serie,
-      numero: invoice.correlativo,
-      tipo_operacion: invoice.tipo_operacion,
-      fecha_emision: invoice.fecha_emision,
-      tipo_documento: invoice.tipo_doc.codigo, //para facturas 01
-      forma_pago: invoice.forma_pago.forma_pago, //1 = Contado; 2 = Credito
-      moneda: invoice.tipo_moneda.abrstandar, //PEN
-      productos: invoice.invoices_details.reduce((acc, producto) => {
-        //onerosas y exportacion
-        const ONEROSAS_EXPORTACION = [
-          CODIGO_GRAVADA_ONEROSA,
-          CODIGO_EXONERADA_ONEROSA,
-          CODIGO_INAFECTA_ONEROSA,
-          CODIGO_EXPORTACION,
-        ];
-        if (ONEROSAS_EXPORTACION.includes(producto.tipAfeIgv.codigo)) {
-          const mtoValorUnitario = round(producto.mtoValorUnitario);
-          const mtoValorVenta = mtoValorUnitario * producto.cantidad;
-          const mtoBaseIgv = mtoValorVenta;
-          const porcentajeIgv = producto.porcentajeIgv;
-
-          //onerosa = 18; exonerada = 0; inafecta = 0; exportacion = 0
-          const igvUnitario = (mtoValorUnitario * porcentajeIgv) / 100;
-          const igv = igvUnitario * producto.cantidad;
-          const totalImpuestos = igv + 0;
-          const mtoPrecioUnitario = mtoValorUnitario + igvUnitario;
-
-          const objProduct = {
-            codigo: producto.codigo,
-            unidad: producto.unidad.codigo,
-            producto: producto.descripcion,
-            cantidad: producto.cantidad,
-            mtoValorUnitario: mtoValorUnitario, //3decimales
-            mtoValorVenta: round(mtoValorVenta),
-            mtoBaseIgv: round(mtoBaseIgv),
-            porcentajeIgv: porcentajeIgv,
-            igv: round(igv),
-            tipAfeIgv: producto.tipAfeIgv.codigo,
-            totalImpuestos: round(totalImpuestos),
-            mtoPrecioUnitario: round(mtoPrecioUnitario),
-          };
-
-          acc.push(objProduct);
+        address: {
+          ubigeo: invoice.establecimiento.ubigeo,
+          departamento: invoice.establecimiento.departamento,
+          provincia: invoice.establecimiento.provincia,
+          distrito: invoice.establecimiento.distrito,
+          urbanizacion: '-',
+          direccion: invoice.establecimiento.direccion,
+          cod_local: invoice.establecimiento.codigo,
         }
+      },
+      invoice: {
+        ubl_version: invoice.UBLVersionID,
+        fecha_vencimiento: invoice.fecha_vencimiento,
+        tipo_operacion: invoice.tipo_operacion,
+        tipo_doc: invoice.tipo_doc.codigo, //01 = Factura
+        serie: invoice.serie,
+        correlativo: invoice.correlativo,
+        fecha_emision: invoice.fecha_emision,
+        forma_pago: invoice.forma_pago.forma_pago, //1 = Contado; 2 = Credito
+        tipo_moneda: invoice.tipo_moneda.abrstandar, //PEN
+        montos: {
+          oper_gravadas: invoice.mto_operaciones_gravadas,
+          oper_exoneradas: invoice.mto_operaciones_exoneradas,
+          oper_inafectas: invoice.mto_operaciones_inafectas,
+          oper_gratuitas: invoice.mto_operaciones_gratuitas,
+          oper_exportacion: invoice.mto_operaciones_exportacion,
+          igv: invoice.mto_igv,
+          igv_gratuitas: invoice.mto_igv_gratuitas,
+          total_impuestos: totales.totalImpuestos,
+          valor_venta: totales.valorVenta,
+          sub_total: totales.subTotal,
+          imp_venta: totales.mtoImpVenta
 
-        //11,12,13,14,15,16,17,21,31,32,33,34,35,36,37
-        const CODIGOS_GRAVADAS_INAFECTAS_GRATUITAS = [
-          ...CODIGOS_GRAVADAS_GRATUITAS,
-          ...CODIGOS_INAFECTAS_GRATUITAS,
-        ];
+        },
+        details: invoice.invoices_details.reduce((acc, producto) => {
+          //onerosas y exportacion
+          const ONEROSAS_EXPORTACION = [
+            CODIGO_GRAVADA_ONEROSA,
+            CODIGO_EXONERADA_ONEROSA,
+            CODIGO_INAFECTA_ONEROSA,
+            CODIGO_EXPORTACION,
+          ];
+          if (ONEROSAS_EXPORTACION.includes(producto.tipAfeIgv.codigo)) {
+            const mtoValorUnitario = round(producto.mtoValorUnitario);
+            const mtoValorVenta = mtoValorUnitario * producto.cantidad;
+            const mtoBaseIgv = mtoValorVenta;
+            const porcentajeIgv = producto.porcentajeIgv;
 
-        if (
-          CODIGOS_GRAVADAS_INAFECTAS_GRATUITAS.includes(
-            producto.tipAfeIgv.codigo,
-          )
-        ) {
-          const mtoValorGratuito = round(producto.mtoValorUnitario);
-          const mtoValorVenta = mtoValorGratuito * producto.cantidad;
-          const mtoBaseIgv = mtoValorVenta;
-          const porcentajeIgv = producto.porcentajeIgv;
+            //onerosa = 18; exonerada = 0; inafecta = 0; exportacion = 0
+            const igvUnitario = (mtoValorUnitario * porcentajeIgv) / 100;
+            const igv = igvUnitario * producto.cantidad;
+            const totalImpuestos = igv + 0;
+            const mtoPrecioUnitario = mtoValorUnitario + igvUnitario;
 
-          //grabavos gratuitos = 18; inafecta gratuitos = 0
-          const igvUnitario = (mtoValorGratuito * porcentajeIgv) / 100;
-          const igv = igvUnitario * producto.cantidad;
-          const totalImpuestos = igv + 0;
+            const objProduct = {
+              cod_producto: producto.codigo,
+              unidad: producto.unidad.codigo,
+              descripcion: producto.descripcion,
+              cantidad: producto.cantidad,
+              mto_valor_unitario: mtoValorUnitario, //3decimales
+              mto_valor_venta: round(mtoValorVenta),
+              mto_base_igv: round(mtoBaseIgv),
+              porcentaje_igv: porcentajeIgv,
+              igv: round(igv),
+              tip_afe_igv: producto.tipAfeIgv.codigo,
+              total_impuestos: round(totalImpuestos),
+              mto_precio_unitario: round(mtoPrecioUnitario),
+            };
 
-          const objProduct = {
-            codigo: producto.codigo,
-            unidad: producto.unidad.codigo,
-            producto: producto.descripcion,
-            cantidad: producto.cantidad,
-            mtoValorUnitario: 0,
-            mtoValorGratuito: mtoValorGratuito,
-            mtoValorVenta: round(mtoValorVenta),
-            mtoBaseIgv: round(mtoBaseIgv),
-            porcentajeIgv: porcentajeIgv,
-            igv: round(igv),
-            tipAfeIgv: producto.tipAfeIgv.codigo,
-            totalImpuestos: round(totalImpuestos),
-            mtoPrecioUnitario: 0,
-          };
+            acc.push(objProduct);
+          }
 
-          acc.push(objProduct);
-        }
+          //11,12,13,14,15,16,17,21,31,32,33,34,35,36,37
+          const CODIGOS_GRAVADAS_INAFECTAS_GRATUITAS = [
+            ...CODIGOS_GRAVADAS_GRATUITAS,
+            ...CODIGOS_INAFECTAS_GRATUITAS,
+          ];
 
-        return acc;
-      }, []),
-      MtoOperGravadas: invoice.mto_operaciones_gravadas,
-      MtoIGV: invoice.mto_igv,
-      TotalImpuestos: totales.totalImpuestos,
-      ValorVenta: totales.valorVenta,
-      SubTotal: totales.subTotal,
-      MtoImpVenta: totales.mtoImpVenta,
-      LegendValue: numeroALetras(totales.mtoImpVenta),
-      LegendCode: 1000, // Monto en letras - Catalog. 52
-      MtoOperExoneradas: invoice.mto_operaciones_exoneradas,
-      MtoOperInafectas: invoice.mto_operaciones_inafectas,
-      MtoOperExportacion: invoice.mto_operaciones_exportacion,
-      MtoOperGratuitas: invoice.mto_operaciones_gratuitas,
-      MtoIGVGratuitas: invoice.mto_igv_gratuitas,
-      observaciones: invoice.observaciones_invoice
-        ? invoice.observaciones_invoice.split('|')
-        : [],
-      fecha_vencimiento: invoice.fecha_vencimiento,
+          if (
+            CODIGOS_GRAVADAS_INAFECTAS_GRATUITAS.includes(
+              producto.tipAfeIgv.codigo,
+            )
+          ) {
+            const mtoValorGratuito = round(producto.mtoValorUnitario);
+            const mtoValorVenta = mtoValorGratuito * producto.cantidad;
+            const mtoBaseIgv = mtoValorVenta;
+            const porcentajeIgv = producto.porcentajeIgv;
+
+            //grabavos gratuitos = 18; inafecta gratuitos = 0
+            const igvUnitario = (mtoValorGratuito * porcentajeIgv) / 100;
+            const igv = igvUnitario * producto.cantidad;
+            const totalImpuestos = igv + 0;
+
+            const objProduct = {
+              cod_producto: producto.codigo,
+              unidad: producto.unidad.codigo,
+              descripcion: producto.descripcion,
+              cantidad: producto.cantidad,
+              mto_valor_unitario: 0,
+              mto_valor_venta: round(mtoValorVenta),
+              mto_base_igv: round(mtoBaseIgv),
+              porcentaje_igv: porcentajeIgv,
+              igv: round(igv),
+              tip_afe_igv: producto.tipAfeIgv.codigo,
+              total_impuestos: round(totalImpuestos),
+              mto_precio_unitario: 0,
+              mto_valor_gratuito: mtoValorGratuito,
+            };
+
+            acc.push(objProduct);
+          }
+
+          return acc;
+        }, []),
+        legends: [
+          {
+            code: 1000, // Monto en letras - Catalog. 52
+            value: numeroALetras(totales.mtoImpVenta),
+          },
+        ],
+        observations: invoice.observaciones_invoice
+          ? invoice.observaciones_invoice.split('|')
+          : [],
+      },
     };
 
     //opcionales
@@ -539,52 +548,55 @@ export class SunatService {
       invoice.mto_operaciones_gravadas === null ||
       invoice.mto_operaciones_gravadas === 0
     ) {
-      delete dataApi.MtoOperGravadas;
+      delete dataApi.invoice.montos.oper_gravadas;
     }
 
     if (
       invoice.mto_operaciones_exoneradas === null ||
       invoice.mto_operaciones_exoneradas === 0
     ) {
-      delete dataApi.MtoOperExoneradas;
+      delete dataApi.invoice.montos.oper_exoneradas;
     }
 
     if (
       invoice.mto_operaciones_inafectas === null ||
       invoice.mto_operaciones_inafectas === 0
     ) {
-      delete dataApi.MtoOperInafectas;
+      delete dataApi.invoice.montos.oper_inafectas;
     }
 
     if (
       invoice.mto_operaciones_exportacion === null ||
       invoice.mto_operaciones_exportacion === 0
     ) {
-      delete dataApi.MtoOperExportacion;
+      delete dataApi.invoice.montos.oper_exportacion;
     }
 
     if (
       invoice.mto_operaciones_gratuitas === null ||
       invoice.mto_operaciones_gratuitas === 0
     ) {
-      delete dataApi.MtoOperGratuitas;
+      delete dataApi.invoice.montos.oper_gratuitas;
     }
 
     if (invoice.mto_igv_gratuitas === null || invoice.mto_igv_gratuitas === 0) {
-      delete dataApi.MtoIGVGratuitas;
+      delete dataApi.invoice.montos.igv_gratuitas;
     }
 
     if (invoice.mto_igv === null || invoice.mto_igv === 0) {
-      delete dataApi.MtoIGV;
+      delete dataApi.invoice.montos.igv;
     }
 
     //fin opcionales
+    console.log(JSON.stringify(dataApi, null, 2));
     try {
       const res = await axios.post(
-        `${process.env.API_SERVICE_PHP}/gen-xml`,
+        `${process.env.API_SERVICE_PHP}/invoice/generate-xml`,
         dataApi,
       );
 
+      console.log(res.data);
+      return;
       const { xml: xmlUnsigned, fileName, fileNameExtension } = res.data;
 
       return {
@@ -601,8 +613,7 @@ export class SunatService {
       }
 
       throw new HttpException(
-        `Error de comunicación con el servicio: sunat.generarXML ${
-          e.response?.data?.message ?? 'Internal'
+        `Error de comunicación con el servicio: sunat.generarXML ${e.response?.data?.message ?? 'Internal'
         }`,
         HttpStatus.BAD_GATEWAY,
       );
@@ -636,8 +647,7 @@ export class SunatService {
 
       const message = `[${e.response.data.error?.code}]:${e.response.data.error?.message}`;
       throw new HttpException(
-        `Error de comunicación con el servicio: sunat.consultarCDR - ${
-          e.response?.data ? message : 'Internal'
+        `Error de comunicación con el servicio: sunat.consultarCDR - ${e.response?.data ? message : 'Internal'
         }`,
         HttpStatus.BAD_GATEWAY,
       );
@@ -705,8 +715,7 @@ export class SunatService {
 
       const message = `[${e.response.data.error?.code}]:${e.response.data.error?.message}`;
       throw new HttpException(
-        `Error InvoiceService.generateXmlLow - ${
-          e.response?.data ? message : 'Internal'
+        `Error InvoiceService.generateXmlLow - ${e.response?.data ? message : 'Internal'
         }`,
         HttpStatus.BAD_REQUEST,
       );
@@ -757,8 +766,7 @@ export class SunatService {
 
       const message = `[${e.response.data.error?.code}]:${e.response.data.error?.message}`;
       throw new HttpException(
-        `Error InvoiceService.generateTicketLow - ${
-          e.response?.data ? message : 'Internal'
+        `Error InvoiceService.generateTicketLow - ${e.response?.data ? message : 'Internal'
         }`,
         HttpStatus.BAD_REQUEST,
       );
@@ -794,8 +802,7 @@ export class SunatService {
 
       const message = `[${e.response.data.error.code}]:${e.response.data.error.message}`;
       throw new HttpException(
-        `Error sunat.sendSunatTicket - ${
-          e.response?.data ? message : 'Internal'
+        `Error sunat.sendSunatTicket - ${e.response?.data ? message : 'Internal'
         }`,
         HttpStatus.BAD_GATEWAY,
       );
@@ -867,10 +874,10 @@ export class SunatService {
     const detalles: any[] = Array.isArray(input)
       ? input // Caso: entrada DTO antes de la cabecera
       : input.invoices_details.map((detail) => ({
-          ...detail,
-          unidad: detail.unidad.codigo,
-          tipAfeIgv: detail.tipAfeIgv.codigo,
-        })); // Caso: factura completa
+        ...detail,
+        unidad: detail.unidad.codigo,
+        tipAfeIgv: detail.tipAfeIgv.codigo,
+      })); // Caso: factura completa
 
     // Procesamos todos los detalles
     const detallesFormateados = await Promise.all(
@@ -887,7 +894,7 @@ export class SunatService {
         if (producto.tipAfeIgv.codigo === '10') {
           const igv = round(
             ((producto.mtoValorUnitario * producto.porcentajeIgv) / 100) *
-              producto.cantidad,
+            producto.cantidad,
           );
 
           const opeGravadas = round(
@@ -902,7 +909,7 @@ export class SunatService {
         if (producto.tipAfeIgv.codigo === '20') {
           const igv = round(
             ((producto.mtoValorUnitario * producto.porcentajeIgv) / 100) *
-              producto.cantidad,
+            producto.cantidad,
           );
 
           const opeExoneradas = round(
@@ -917,7 +924,7 @@ export class SunatService {
         if (producto.tipAfeIgv.codigo === '30') {
           const igv = round(
             ((producto.mtoValorUnitario * producto.porcentajeIgv) / 100) *
-              producto.cantidad,
+            producto.cantidad,
           );
 
           const opeInafectas = round(
@@ -932,7 +939,7 @@ export class SunatService {
         if (producto.tipAfeIgv.codigo === '40') {
           const igv = round(
             ((producto.mtoValorUnitario * producto.porcentajeIgv) / 100) *
-              producto.cantidad,
+            producto.cantidad,
           );
 
           const opeExportacion = round(
@@ -963,7 +970,7 @@ export class SunatService {
         ) {
           const igv = round(
             ((producto.mtoValorUnitario * producto.porcentajeIgv) / 100) *
-              producto.cantidad,
+            producto.cantidad,
           );
 
           const opeGratuitas = round(
@@ -1066,10 +1073,9 @@ export class SunatService {
     // Ruta certificado .pem
     const pemFilePath = path.join(
       process.cwd(),
-      `uploads/certificado_digital/${
-        empresa.modo === 0
-          ? 'prueba/certificado_beta.pem'
-          : `produccion/${empresa.ruc}/${empresa.fieldname_cert}`
+      `uploads/certificado_digital/${empresa.modo === 0
+        ? 'prueba/certificado_beta.pem'
+        : `produccion/${empresa.ruc}/${empresa.fieldname_cert}`
       }`,
     );
 
