@@ -24,4 +24,10 @@ export class CreatePosDto {
   })
   @IsNotEmpty({ message: 'El establecimiento no debe estar vacio.' })
   establecimiento: number;
+
+  @IsInt({
+    message: 'La empresa debe contener un valor entero.',
+  })
+  @IsNotEmpty({ message: 'La empresa no debe estar vacia.' })
+  empresa: number;
 }
