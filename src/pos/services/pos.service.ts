@@ -1,10 +1,18 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import {
+  forwardRef,
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PosEntity } from '../entities/pos.entity';
 import { Equal, Repository } from 'typeorm';
 import { CreatePosDto } from '../dto/create-pos.dto';
 import { EstablecimientoService } from 'src/establecimiento/services/establecimiento.service';
 import { POSListDTO } from '../dto/query-pos.dto';
+import { EmpresaService } from 'src/empresa/services/empresa.service';
+import { EmpresaEntity } from 'src/empresa/entities/empresa.entity';
 
 @Injectable()
 export class PosService {
@@ -12,6 +20,8 @@ export class PosService {
     @InjectRepository(PosEntity)
     private readonly posRepository: Repository<PosEntity>,
     private readonly establecimientoService: EstablecimientoService,
+    @Inject(forwardRef(() => EmpresaService))
+    private readonly empresaService: EmpresaService,
   ) {}
 
   async createPOS(data: CreatePosDto) {
@@ -20,10 +30,16 @@ export class PosService {
         data.establecimiento,
       );
 
+    const empresa = (await this.empresaService.findOneEmpresaById(
+      data.empresa,
+      true,
+    )) as EmpresaEntity;
+
     const createObj = this.posRepository.create({
       codigo: data.codigo,
       nombre: data.nombre,
       establecimiento,
+      empresa,
     });
 
     try {
