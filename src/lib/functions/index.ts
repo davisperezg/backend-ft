@@ -1,10 +1,41 @@
 import path from 'path';
 import { promises as fsPromises } from 'fs';
-import { HttpException, HttpStatus } from '@nestjs/common';
+import { HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { TDocumentDefinitions } from 'pdfmake/interfaces';
 import PdfPrinter from 'pdfmake';
 import { PassThrough } from 'stream';
 import * as fs from 'fs';
+import { QueryInvoiceList } from 'src/invoice/dto/query-invoice-list';
+import { InvoiceEntity } from 'src/invoice/entities/invoice.entity';
+import { v4 as uuidv4 } from 'uuid';
+
+// Add this function near the top of your file or in a utility module
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  retries = 3,
+  delay = 5000,
+  shouldRetry = (err: any) => true,
+): Promise<T> {
+  let lastError: any;
+  const logger = new Logger('withRetry');
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+
+      if (attempt >= retries || !shouldRetry(error)) {
+        throw error;
+      }
+
+      logger.warn(`Attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+
+  throw lastError;
+}
 
 export const fileExists = async (filePath: string): Promise<boolean> => {
   try {
@@ -271,4 +302,118 @@ export const numeroALetras = (num: number) => {
     return (
       Millones(data.enteros) + ' CON ' + `${data.letrasDecimales}/100 SOLES`
     );
+};
+
+export const formatListInvoices = async (
+  invoice: InvoiceEntity,
+  fileName: string,
+): Promise<QueryInvoiceList> => {
+  try {
+    const urlStatic =
+      process.env.URL_FILES_STATIC || 'http://localhost:3000/files';
+
+    const { ruc } = invoice.empresa;
+    const { codigo: tipoDoc, tipo_documento: nomDoc } = invoice.tipo_doc;
+    const establecimiento = `${invoice.establecimiento.codigo}`;
+
+    let rutaFirma = '';
+    let rutaCDR = '';
+
+    //null(no enviado), 1(enviado con ticket), 2(anulacion aceptado), 3(anulacion rechazada)
+    if (invoice.estado_anulacion === 2) {
+      rutaFirma = `${ruc}/${establecimiento}/${nomDoc}/BAJA/FIRMA/${fileName}.xml`;
+      rutaCDR = `${ruc}/${establecimiento}/${nomDoc}/BAJA/RPTA/R-${fileName}.zip`;
+    }
+    //0(creado), 1(enviando), 2(aceptado), 3(rechazado)
+    else if ([0, 2, 3].includes(invoice.estado_operacion)) {
+      rutaFirma = `${ruc}/${establecimiento}/${nomDoc}/FIRMA/${fileName}.xml`;
+      rutaCDR = `${ruc}/${establecimiento}/${nomDoc}/RPTA/R-${fileName}.zip`;
+    }
+
+    const pathDirFirma = path.join(process.cwd(), `uploads/files/${rutaFirma}`);
+    const pathDirCDR = path.join(process.cwd(), `uploads/files/${rutaCDR}`);
+
+    const pathStaticFirma = `${urlStatic}/${rutaFirma}`;
+    const pathStaticCDR = `${urlStatic}/${rutaCDR}`;
+
+    const [firmaExists, cdrExists] = await Promise.all([
+      fileExists(pathDirFirma),
+      fileExists(pathDirCDR),
+    ]);
+
+    const result: QueryInvoiceList = {
+      id: invoice.id,
+      tipo_operacion: invoice.tipo_operacion,
+      serie: invoice.serie,
+      correlativo: invoice.correlativo,
+      fecha_vencimiento: invoice.fecha_vencimiento,
+      mto_operaciones_gravadas: invoice.mto_operaciones_gravadas,
+      mto_operaciones_exoneradas: invoice.mto_operaciones_exoneradas,
+      mto_operaciones_inafectas: invoice.mto_operaciones_inafectas,
+      mto_operaciones_exportacion: invoice.mto_operaciones_exportacion,
+      mto_operaciones_gratuitas: invoice.mto_operaciones_gratuitas,
+      mto_igv: invoice.mto_igv,
+      mto_igv_gratuitas: invoice.mto_igv_gratuitas,
+      porcentaje_igv: invoice.porcentaje_igv,
+      estado_operacion: invoice.estado_operacion,
+      estado_anulacion: invoice.estado_anulacion,
+      respuesta_sunat_codigo: invoice.respuesta_sunat_codigo,
+      respuesta_sunat_descripcion: invoice.respuesta_sunat_descripcion,
+      respuesta_anulacion_codigo: invoice.respuesta_anulacion_codigo,
+      respuesta_anulacion_descripcion: invoice.respuesta_anulacion_descripcion,
+      observaciones_sunat: invoice.observaciones_sunat,
+      observaciones: invoice.observaciones_invoice
+        ? invoice.observaciones_invoice.split('|').map((item) => ({
+            observacion: item,
+            uuid: uuidv4(),
+          }))
+        : [],
+      borrador: invoice.borrador,
+      documento: nomDoc,
+      tipo_documento: tipoDoc,
+      cliente: invoice.cliente ? invoice.cliente.entidad : invoice.entidad,
+      cliente_direccion: invoice.cliente
+        ? invoice.cliente.direccion
+        : invoice.entidad_direccion,
+      cliente_cod_doc: invoice.cliente
+        ? invoice.cliente.tipo_entidad.codigo
+        : invoice.entidad_tipo,
+      cliente_num_doc: invoice.cliente
+        ? invoice.cliente.numero_documento
+        : invoice.entidad_documento,
+      empresa: invoice.empresa.id,
+      establecimiento: invoice.establecimiento.id,
+      pos: invoice.pos.id,
+      envio_sunat_modo: invoice.envio_sunat_modo,
+      usuario: `${invoice.usuario.nombres} ${invoice.usuario.apellidos}`,
+      moneda_abrstandar: invoice.tipo_moneda.abrstandar,
+      moneda_simbolo: invoice.tipo_moneda.simbolo,
+      fecha_registro: invoice.createdAt,
+      fecha_emision: invoice.fecha_emision,
+      forma_pago: invoice.forma_pago.forma_pago,
+      cdr: cdrExists ? pathStaticCDR : '#',
+      xml: firmaExists ? pathStaticFirma : '#',
+      pdfA4: `${urlStatic}/${ruc}/${establecimiento}/${nomDoc}/PDF/A4/test.pdf`,
+      status: [0, 2, 3].includes(invoice.estado_operacion),
+      details: invoice.invoices_details.map((item, i) => ({
+        id: item.id,
+        posicionTabla: i,
+        uuid: uuidv4(),
+        cantidad: item.cantidad,
+        codigo: item.codigo,
+        descripcion: item.descripcion,
+        mtoValorUnitario: item.mtoValorUnitario,
+        porcentajeIgv: item.porcentajeIgv,
+        tipAfeIgv: item.tipAfeIgv.codigo,
+        unidad: item.unidad.codigo,
+      })),
+    };
+
+    return result;
+  } catch (error) {
+    throw new HttpException(
+      'Error al formatear comprobante',
+      HttpStatus.BAD_REQUEST,
+    );
+  }
 };
