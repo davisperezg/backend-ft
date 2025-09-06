@@ -1,5 +1,6 @@
 import { EmpresaEntity } from 'src/empresa/entities/empresa.entity';
 import { EstablecimientoEntity } from 'src/establecimiento/entities/establecimiento.entity';
+import { EnvioSunatModo } from 'src/lib/enum/envio_sunat_modo.enum';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -13,11 +14,20 @@ export class ConfigEstablecimientoEntity {
   @PrimaryGeneratedColumn()
   id?: number;
 
-  //opciones
+  // Modo de envío a SUNAT
   @Column({
-    default: true,
+    type: 'enum',
+    enum: EnvioSunatModo,
+    default: EnvioSunatModo.INMEDIATO, // Valor por defecto
   })
-  enviar_inmediatamente_a_sunat?: boolean;
+  envio_sunat_modo: string;
+
+  // Habilitar envios automáticos mediante jobs
+  @Column({
+    type: 'boolean',
+    default: false, // Por defecto no habilitado
+  })
+  envio_sunat_job: boolean;
 
   @ManyToOne(() => EmpresaEntity, (empresa) => empresa.configsEmpresa, {
     nullable: false,

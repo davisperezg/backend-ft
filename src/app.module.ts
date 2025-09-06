@@ -1,3 +1,4 @@
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import {
   ServicesUserSchema,
   Services_User,
@@ -41,7 +42,6 @@ import {
   Resource_RoleSchema,
 } from './resources-roles/schemas/resources-role';
 import { InvoiceModule } from './invoice/invoice.module';
-
 import { EstablecimientoModule } from './establecimiento/establecimiento.module';
 import { TipodocsModule } from './tipodocs/tipodocs.module';
 import { SeriesModule } from './series/series.module';
@@ -66,9 +66,23 @@ import { ProductModule } from './product/product.module';
 import { PresentationModule } from './presentation/presentation.module';
 import { PosModule } from './pos/pos.module';
 import { RedisModule } from './redis/redis.module';
-
+import { SunatModule } from './sunat/sunat.module';
+import { GatewayModule } from './gateway/gateway.module';
+import basicAuth from 'express-basic-auth';
+import { BullBoardModule } from '@bull-board/nestjs';
+import { ExpressAdapter } from '@bull-board/express';
+import { SocketSessionModule } from './socket-session/socket-session.module';
 @Module({
   imports: [
+    BullBoardModule.forRoot({
+      route: '/queues',
+      adapter: ExpressAdapter,
+      middleware: basicAuth({
+        challenge: true,
+        users: { admin: 'passwordhere' },
+      }),
+    }),
+    EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
     ServeStaticModule.forRootAsync({
       useFactory: () => {
@@ -161,6 +175,9 @@ import { RedisModule } from './redis/redis.module';
     PresentationModule,
     PosModule,
     RedisModule,
+    SunatModule,
+    GatewayModule,
+    SocketSessionModule,
   ],
   controllers: [AppController],
   providers: [

@@ -19,6 +19,7 @@ import { InvoiceDetailsEntity } from './invoice_details.entity';
 import { DecimalColumnTransformer } from 'src/lib/helpers/decimal_format';
 import { AnulacionEntity } from 'src/anulaciones/entities/anulacion.entity';
 import { PosEntity } from 'src/pos/entities/pos.entity';
+import { EnvioSunatModo } from 'src/lib/enum/envio_sunat_modo.enum';
 
 @Entity({ name: 'invoices' })
 @Unique('unique_invoice_constraint', [
@@ -300,4 +301,11 @@ export class InvoiceEntity {
   })
   @JoinColumn({ name: 'pos_id' })
   pos: PosEntity;
+
+  // Modo de envío a SUNAT
+  @Column({
+    type: 'enum',
+    enum: EnvioSunatModo,
+  })
+  envio_sunat_modo: string;
 }

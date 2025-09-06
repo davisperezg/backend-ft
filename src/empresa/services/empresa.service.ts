@@ -123,11 +123,15 @@ export class EmpresaService {
               : 'logo_default.png', //file logo empresa
             usuario: userMYSQL,
             web_service:
-              body.data.modo === 0 //0 = beta
-                ? 'https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService'
+              body.data.modo === 0
+                ? body.data.ose_enabled
+                  ? body.data.web_service ||
+                    'https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService'
+                  : 'https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService'
                 : body.data.ose_enabled
-                ? body.data.web_service
-                : 'https://e-factura.sunat.gob.pe/ol-ti-itcpfegem/billService', //1 = url produccion
+                ? body.data.web_service ||
+                  'https://e-factura.sunat.gob.pe/ol-ti-itcpfegem/billService'
+                : 'https://e-factura.sunat.gob.pe/ol-ti-itcpfegem/billService',
             cert: body.files?.certificado
               ? certificado.certPfxP12
               : 'certificado_beta.pfx', //file certificado
@@ -239,6 +243,7 @@ export class EmpresaService {
         nombre: `POS Principal - ${establecimiento.codigo}`,
         codigo: '001',
         establecimiento: establecimiento.id,
+        empresa: result.id,
       });
 
       return result;
@@ -320,10 +325,14 @@ export class EmpresaService {
               ? body.files.logo.originalname
               : empresa.logo,
             web_service:
-              body.data.modo === 0 //0 = beta
-                ? 'https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService'
+              body.data.modo === 0
+                ? body.data.ose_enabled
+                  ? body.data.web_service ||
+                    'https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService'
+                  : 'https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService'
                 : body.data.ose_enabled
-                ? body.data.web_service
+                ? body.data.web_service ||
+                  'https://e-factura.sunat.gob.pe/ol-ti-itcpfegem/billService'
                 : 'https://e-factura.sunat.gob.pe/ol-ti-itcpfegem/billService',
             cert: body.files?.certificado
               ? certificado.certPfxP12
@@ -331,6 +340,22 @@ export class EmpresaService {
             fieldname_cert: body.files?.certificado
               ? certificado.certPem
               : empresa.fieldname_cert,
+            cert_password:
+              body.data.modo === 0 ? '123456' : body.data.cert_password,
+            usu_secundario_user:
+              body.data.modo === 0
+                ? '20000000001MODDATOS'
+                : empresa.ruc + body.data.usu_secundario_user,
+            usu_secundario_password:
+              body.data.modo === 0
+                ? 'moddatos'
+                : body.data.usu_secundario_password,
+            usu_secundario_ose_user: body.data.ose_enabled
+              ? body.data.usu_secundario_ose_user
+              : '',
+            usu_secundario_ose_password: body.data.ose_enabled
+              ? body.data.usu_secundario_ose_password
+              : '',
           });
 
           const newEmpresa = await entityManager.save(EmpresaEntity, empresa);
@@ -358,7 +383,7 @@ export class EmpresaService {
             },
             {
               ...establecimientoDefault,
-              denominacion: newEmpresa.razon_social,
+              denominacion: newEmpresa.nombre_comercial,
               departamento: departamento,
               provincia: provincia,
               distrito: distrito,
@@ -572,6 +597,7 @@ export class EmpresaService {
                 nombre: `POS Principal - ${establecimiento.codigo}`,
                 codigo: '001',
                 establecimiento: createObjEst,
+                empresa: newEmpresa,
               });
               await entityManager.save(PosEntity, createObjPOS);
             }
