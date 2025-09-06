@@ -383,7 +383,7 @@ export class EmpresaService {
             },
             {
               ...establecimientoDefault,
-              denominacion: newEmpresa.razon_social,
+              denominacion: newEmpresa.nombre_comercial,
               departamento: departamento,
               provincia: provincia,
               distrito: distrito,
