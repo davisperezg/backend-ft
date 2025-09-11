@@ -118,6 +118,9 @@ export class EmpresaService {
           //Creamos empresa
           const createEmpresa = this.empresaRepository.create({
             ...body.data,
+            domicilio_fiscal: body.data.domicilio_fiscal.trim()
+              ? body.data.domicilio_fiscal.trim()
+              : '-',
             logo: body.files?.logo
               ? body.files.logo.originalname
               : 'logo_default.png', //file logo empresa
@@ -321,6 +324,9 @@ export class EmpresaService {
           //Preparamos merge para actualizar empresa
           this.empresaRepository.merge(empresa, {
             ...body.data,
+            domicilio_fiscal: body.data.domicilio_fiscal.trim()
+              ? body.data.domicilio_fiscal.trim()
+              : '-',
             logo: body.files?.logo
               ? body.files.logo.originalname
               : empresa.logo,
