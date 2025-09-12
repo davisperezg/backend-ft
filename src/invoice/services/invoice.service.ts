@@ -1016,7 +1016,7 @@ export class InvoiceService {
         const clienteObj = this.clienteRepository.create({
           tipo_entidad: tipoEntidad,
           entidad: invoice.cliente,
-          direccion: invoice.direccion,
+          direccion: invoice.direccion.trim() ? invoice.direccion.trim() : '-',
           numero_documento: invoice.ruc,
           usuario,
           empresa,
