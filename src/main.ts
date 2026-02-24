@@ -11,7 +11,10 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.use(express.static('public'));
   app.enableCors({
-    origin: [process.env.URL_FRONTEND_ORIGIN, 'http://192.168.18.137:5173'],
+    origin: [
+      process.env.URL_FRONTEND_ORIGIN,
+      process.env.URL_FRONTEND_ORIGIN_HOST,
+    ],
     maxAge: 86400,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     optionsSuccessStatus: 200,
