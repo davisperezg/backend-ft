@@ -57,7 +57,7 @@ export class SunatService {
     private readonly typeIgvService: IgvsService, //@Inject(forwardRef(() => InvoiceGateway))
     private readonly invoiceGateway: InvoiceGateway,
     private readonly invoiceSocketService: InvoiceSocketService,
-  ) { }
+  ) {}
 
   async processSendSunat(
     invoiceEntity: InvoiceEntity,
@@ -144,7 +144,11 @@ export class SunatService {
         nuevoEstado = 1; // Estado "enviando"
         tipoNotificacion = 'sunat.warning';
         mensajeNotificacion = messageDefaultSunat;
-        this.logger.warn(`${usuario.username}: warning-${mensaje_sunat}.`);
+        this.logger.warn(
+          `${usuario.username}: warning - ${
+            sunat_code_int ?? 'CODE_INTERNAL'
+          }:${mensaje_sunat ?? 'ERROR_INTERNAL'}.`,
+        );
       } else if (sunat_code_int === 0) {
         // ACEPTADA
         statusSunat = 'ACEPTADO';
@@ -176,7 +180,11 @@ export class SunatService {
         statusSunat = 'ERROR_EXCEPCION';
         tipoNotificacion = 'sunat.warning';
         mensajeNotificacion = messageDefaultSunat;
-        this.logger.warn(`${usuario.username}: warning-${mensaje_sunat}.`);
+        this.logger.warn(
+          `${usuario.username}: warning - ${
+            sunat_code_int ?? 'CODE_INTERNAL'
+          }:${mensaje_sunat ?? 'ERROR_INTERNAL'}.`,
+        );
       }
 
       // Actualizar el estado en la base de datos
@@ -332,7 +340,7 @@ export class SunatService {
 
     try {
       const { data } = await axios.post<QuerySunat>(
-        `${process.env.API_SERVICE_PHP}/sendSunat`,
+        `${process.env.API_SERVICE_PHP}/invoice/send-xml`,
         {
           urlService,
           usuario,
@@ -352,7 +360,7 @@ export class SunatService {
       }
 
       throw new HttpException(
-        `Error en InvoiceService.enviarSolicitudSunat - ${e.message}`,
+        `Error en SunatService.sendSunatInvoice - ${e.message}`,
         HttpStatus.BAD_GATEWAY,
       );
     }
@@ -361,7 +369,7 @@ export class SunatService {
   async signXml(xmlUnsigned: string, certificado: string): Promise<string> {
     try {
       const res = await axios.post<string>(
-        `${process.env.API_SERVICE_PHP}/sign`,
+        `${process.env.API_SERVICE_PHP}/sign/xml`,
         {
           xml: xmlUnsigned,
           certificado,
@@ -378,7 +386,8 @@ export class SunatService {
       }
 
       throw new HttpException(
-        `Error de comunicación con el servicio: sunat.firmar - ${e.response?.data?.message ?? 'Internal'
+        `Error de comunicación con el servicio: sunat.firmar - ${
+          e.response?.data?.message ?? 'Internal'
         }`,
         HttpStatus.BAD_GATEWAY,
       );
@@ -404,10 +413,8 @@ export class SunatService {
     //Validamos si el producto tiene stock
     const dataApi = {
       client: {
-        tipo_doc:
-          invoice.cliente?.tipo_entidad?.codigo ?? invoice.entidad_tipo, //ruc es 6
-        num_doc:
-          invoice.cliente?.numero_documento ?? invoice.entidad_documento, //ruc cliente
+        tipo_doc: invoice.cliente?.tipo_entidad?.codigo ?? invoice.entidad_tipo, //ruc es 6
+        num_doc: invoice.cliente?.numero_documento ?? invoice.entidad_documento, //ruc cliente
         razon_social: invoice.cliente?.entidad ?? invoice.entidad,
         direccion: invoice.cliente?.direccion ?? invoice.entidad_direccion,
       },
@@ -423,7 +430,7 @@ export class SunatService {
           urbanizacion: '-',
           direccion: invoice.establecimiento.direccion,
           cod_local: invoice.establecimiento.codigo,
-        }
+        },
       },
       invoice: {
         ubl_version: invoice.UBLVersionID,
@@ -446,8 +453,7 @@ export class SunatService {
           total_impuestos: totales.totalImpuestos,
           valor_venta: totales.valorVenta,
           sub_total: totales.subTotal,
-          imp_venta: totales.mtoImpVenta
-
+          imp_venta: totales.mtoImpVenta,
         },
         details: invoice.invoices_details.reduce((acc, producto) => {
           //onerosas y exportacion
@@ -588,15 +594,13 @@ export class SunatService {
     }
 
     //fin opcionales
-    console.log(JSON.stringify(dataApi, null, 2));
+
     try {
       const res = await axios.post(
         `${process.env.API_SERVICE_PHP}/invoice/generate-xml`,
         dataApi,
       );
 
-      console.log(res.data);
-      return;
       const { xml: xmlUnsigned, fileName, fileNameExtension } = res.data;
 
       return {
@@ -613,7 +617,8 @@ export class SunatService {
       }
 
       throw new HttpException(
-        `Error de comunicación con el servicio: sunat.generarXML ${e.response?.data?.message ?? 'Internal'
+        `Error de comunicación con el servicio: sunat.generarXML ${
+          e.response?.data?.message ?? 'Internal'
         }`,
         HttpStatus.BAD_GATEWAY,
       );
@@ -647,7 +652,8 @@ export class SunatService {
 
       const message = `[${e.response.data.error?.code}]:${e.response.data.error?.message}`;
       throw new HttpException(
-        `Error de comunicación con el servicio: sunat.consultarCDR - ${e.response?.data ? message : 'Internal'
+        `Error de comunicación con el servicio: sunat.consultarCDR - ${
+          e.response?.data ? message : 'Internal'
         }`,
         HttpStatus.BAD_GATEWAY,
       );
@@ -715,7 +721,8 @@ export class SunatService {
 
       const message = `[${e.response.data.error?.code}]:${e.response.data.error?.message}`;
       throw new HttpException(
-        `Error InvoiceService.generateXmlLow - ${e.response?.data ? message : 'Internal'
+        `Error InvoiceService.generateXmlLow - ${
+          e.response?.data ? message : 'Internal'
         }`,
         HttpStatus.BAD_REQUEST,
       );
@@ -766,7 +773,8 @@ export class SunatService {
 
       const message = `[${e.response.data.error?.code}]:${e.response.data.error?.message}`;
       throw new HttpException(
-        `Error InvoiceService.generateTicketLow - ${e.response?.data ? message : 'Internal'
+        `Error InvoiceService.generateTicketLow - ${
+          e.response?.data ? message : 'Internal'
         }`,
         HttpStatus.BAD_REQUEST,
       );
@@ -802,7 +810,8 @@ export class SunatService {
 
       const message = `[${e.response.data.error.code}]:${e.response.data.error.message}`;
       throw new HttpException(
-        `Error sunat.sendSunatTicket - ${e.response?.data ? message : 'Internal'
+        `Error sunat.sendSunatTicket - ${
+          e.response?.data ? message : 'Internal'
         }`,
         HttpStatus.BAD_GATEWAY,
       );
@@ -874,10 +883,10 @@ export class SunatService {
     const detalles: any[] = Array.isArray(input)
       ? input // Caso: entrada DTO antes de la cabecera
       : input.invoices_details.map((detail) => ({
-        ...detail,
-        unidad: detail.unidad.codigo,
-        tipAfeIgv: detail.tipAfeIgv.codigo,
-      })); // Caso: factura completa
+          ...detail,
+          unidad: detail.unidad.codigo,
+          tipAfeIgv: detail.tipAfeIgv.codigo,
+        })); // Caso: factura completa
 
     // Procesamos todos los detalles
     const detallesFormateados = await Promise.all(
@@ -894,7 +903,7 @@ export class SunatService {
         if (producto.tipAfeIgv.codigo === '10') {
           const igv = round(
             ((producto.mtoValorUnitario * producto.porcentajeIgv) / 100) *
-            producto.cantidad,
+              producto.cantidad,
           );
 
           const opeGravadas = round(
@@ -909,7 +918,7 @@ export class SunatService {
         if (producto.tipAfeIgv.codigo === '20') {
           const igv = round(
             ((producto.mtoValorUnitario * producto.porcentajeIgv) / 100) *
-            producto.cantidad,
+              producto.cantidad,
           );
 
           const opeExoneradas = round(
@@ -924,7 +933,7 @@ export class SunatService {
         if (producto.tipAfeIgv.codigo === '30') {
           const igv = round(
             ((producto.mtoValorUnitario * producto.porcentajeIgv) / 100) *
-            producto.cantidad,
+              producto.cantidad,
           );
 
           const opeInafectas = round(
@@ -939,7 +948,7 @@ export class SunatService {
         if (producto.tipAfeIgv.codigo === '40') {
           const igv = round(
             ((producto.mtoValorUnitario * producto.porcentajeIgv) / 100) *
-            producto.cantidad,
+              producto.cantidad,
           );
 
           const opeExportacion = round(
@@ -970,7 +979,7 @@ export class SunatService {
         ) {
           const igv = round(
             ((producto.mtoValorUnitario * producto.porcentajeIgv) / 100) *
-            producto.cantidad,
+              producto.cantidad,
           );
 
           const opeGratuitas = round(
@@ -1073,9 +1082,10 @@ export class SunatService {
     // Ruta certificado .pem
     const pemFilePath = path.join(
       process.cwd(),
-      `uploads/certificado_digital/${empresa.modo === 0
-        ? 'prueba/certificado_beta.pem'
-        : `produccion/${empresa.ruc}/${empresa.fieldname_cert}`
+      `uploads/certificado_digital/${
+        empresa.modo === 0
+          ? 'prueba/certificado_beta.pem'
+          : `produccion/${empresa.ruc}/${empresa.fieldname_cert}`
       }`,
     );
 
@@ -1176,6 +1186,7 @@ export class SunatService {
       // 1.- Generamos XML
       this.logger.debug(`${username}: generando XML...`);
       const xmlGenerado = await this.generateXmlInvoice(invoice);
+
       const { fileName, xmlUnsigned, fileNameExtension } = xmlGenerado;
       this.logger.debug(`${username}: ${fileName} XML generado!`);
 
