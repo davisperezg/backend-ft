@@ -79,7 +79,7 @@ import { SocketSessionModule } from './socket-session/socket-session.module';
       adapter: ExpressAdapter,
       middleware: basicAuth({
         challenge: true,
-        users: { admin: 'passwordhere' },
+        users: { admin: process.env.REDDIS_PASSWORD },
       }),
     }),
     EventEmitterModule.forRoot(),
