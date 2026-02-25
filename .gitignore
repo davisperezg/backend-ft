@@ -1,7 +1,6 @@
 # compiled output
 /dist
 /node_modules
-/ecosystem.config.js
 
 # Logs
 logs
@@ -47,3 +46,4 @@ lerna-debug.log*
 
 # Excepto la carpeta prueba
 !/uploads/certificado_digital/prueba/
+*.env
