@@ -1,14 +1,13 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
-export class InitialMigration1772034210168 implements MigrationInterface {
-    name = 'InitialMigration1772034210168'
+export class InitialMigration1772039362984 implements MigrationInterface {
+    name = 'InitialMigration1772039362984'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`CREATE TABLE \`tipo_entidades\` (\`id\` int NOT NULL AUTO_INCREMENT, \`tipo_entidad\` varchar(255) NOT NULL, \`codigo\` char(1) NOT NULL, \`descripcion\` varchar(255) NOT NULL, \`abreviatura\` varchar(255) NOT NULL, \`estado\` tinyint NOT NULL DEFAULT 1, PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
-        await queryRunner.query(`CREATE TABLE \`entidades\` (\`id\` int NOT NULL AUTO_INCREMENT, \`entidad\` varchar(255) NOT NULL, \`nombre_comercial\` varchar(255) NULL, \`numero_documento\` varchar(255) NOT NULL, \`direccion\` varchar(255) NOT NULL, \`email_1\` varchar(255) NULL, \`email_2\` varchar(255) NULL, \`telefono_movil_1\` varchar(255) NULL, \`telefono_movil_2\` varchar(255) NULL, \`pagina_web\` varchar(255) NULL, \`facebook\` varchar(255) NULL, \`twitter\` varchar(255) NULL, \`estado\` tinyint NOT NULL DEFAULT 1, \`createdAt\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`updatedAt\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`tipo_entidad_id\` int NOT NULL, \`user_id\` int NULL, \`empresa_id\` int NULL, PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
         await queryRunner.query(`CREATE TABLE \`configuraciones_establecimiento\` (\`id\` int NOT NULL AUTO_INCREMENT, \`envio_sunat_modo\` enum ('INMEDIATO', 'MANUAL', 'PROGRAMADO', 'NO_ENVIA') NOT NULL DEFAULT 'INMEDIATO', \`envio_sunat_job\` tinyint NOT NULL DEFAULT 0, \`empresa_id\` int NOT NULL, \`establecimiento_id\` int NOT NULL, PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
+        await queryRunner.query(`CREATE TABLE \`tipo_documentos\` (\`id\` int NOT NULL AUTO_INCREMENT, \`codigo\` varchar(255) NOT NULL, \`tipo_documento\` varchar(255) NOT NULL, \`abreviado\` varchar(255) NOT NULL, \`estado\` tinyint NOT NULL DEFAULT 1, UNIQUE INDEX \`IDX_a402605a20c5cfb36fede9deed\` (\`codigo\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
+        await queryRunner.query(`CREATE TABLE \`tipodoc_empresa\` (\`id\` int NOT NULL AUTO_INCREMENT, \`estado\` tinyint NOT NULL DEFAULT 1, \`tipodoc_id\` int NOT NULL, \`empresa_id\` int NOT NULL, PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
         await queryRunner.query(`CREATE TABLE \`series\` (\`id\` int NOT NULL AUTO_INCREMENT, \`serie\` char(4) NOT NULL, \`estado\` tinyint NOT NULL DEFAULT 1, \`numero\` char(8) NOT NULL DEFAULT '1', \`doc_empresa_id\` int NULL, \`establecimiento_id\` int NULL, \`pos_id\` int NOT NULL, \`empresa_id\` int NOT NULL, INDEX \`IDX_f05f4d086086c4ae11a3a2727f\` (\`empresa_id\`, \`establecimiento_id\`, \`pos_id\`, \`doc_empresa_id\`, \`serie\`), UNIQUE INDEX \`unique_series_constraint\` (\`empresa_id\`, \`establecimiento_id\`, \`pos_id\`, \`doc_empresa_id\`, \`serie\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
-        await queryRunner.query(`CREATE TABLE \`users_empresa\` (\`id\` int NOT NULL AUTO_INCREMENT, \`usuario_id\` int NOT NULL, \`empresa_id\` int NOT NULL, \`establecimiento_id\` int NOT NULL, \`pos_id\` int NOT NULL, PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
         await queryRunner.query(`CREATE TABLE \`puntos_de_venta\` (\`id\` int NOT NULL AUTO_INCREMENT, \`nombre\` varchar(50) NOT NULL, \`codigo\` varchar(25) NOT NULL, \`estado\` tinyint NOT NULL DEFAULT 1, \`establecimiento_id\` int NOT NULL, \`empresa_id\` int NOT NULL, PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
         await queryRunner.query(`CREATE TABLE \`establecimientos\` (\`id\` int NOT NULL AUTO_INCREMENT, \`codigo\` varchar(255) NULL, \`denominacion\` varchar(255) NOT NULL, \`departamento\` varchar(255) NULL, \`provincia\` varchar(255) NULL, \`distrito\` varchar(255) NULL, \`direccion\` varchar(255) NULL, \`ubigeo\` varchar(255) NULL, \`logo\` varchar(255) NULL, \`estado\` tinyint NOT NULL DEFAULT 1, \`empresa_id\` int NULL, PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
         await queryRunner.query(`CREATE TABLE \`forma_pagos\` (\`id\` int NOT NULL AUTO_INCREMENT, \`forma_pago\` varchar(255) NOT NULL, \`estado\` tinyint NOT NULL DEFAULT 1, PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
@@ -20,30 +19,26 @@ export class InitialMigration1772034210168 implements MigrationInterface {
         await queryRunner.query(`CREATE TABLE \`invoices_details\` (\`id\` int NOT NULL AUTO_INCREMENT, \`cantidad\` int NOT NULL, \`codigo\` varchar(255) NULL, \`descripcion\` text NULL, \`mtoValorUnitario\` decimal(22,10) NULL, \`porcentajeIgv\` decimal(10,2) NOT NULL, \`invoice_id\` int NOT NULL, \`product_id\` int NULL, \`presentation_id\` int NULL, \`unidad_id\` int NOT NULL, \`tipo_igv_id\` int NOT NULL, PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
         await queryRunner.query(`CREATE TABLE \`anulaciones\` (\`id\` int NOT NULL AUTO_INCREMENT, \`fecha_comunicacion\` datetime NOT NULL, \`numero\` char(5) NOT NULL, \`ticket\` varchar(50) NOT NULL, \`respuesta\` varchar(500) NULL, \`invoice_id\` int NOT NULL, PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
         await queryRunner.query(`CREATE TABLE \`invoices\` (\`id\` int NOT NULL AUTO_INCREMENT, \`tipo_operacion\` char(4) NOT NULL, \`serie\` char(4) NOT NULL, \`correlativo\` char(8) NOT NULL, \`fecha_emision\` datetime NOT NULL, \`fecha_vencimiento\` date NULL, \`mto_operaciones_gravadas\` decimal(14,2) NULL, \`mto_operaciones_exoneradas\` decimal(14,2) NULL, \`mto_operaciones_inafectas\` decimal(14,2) NULL, \`mto_operaciones_exportacion\` decimal(14,2) NULL, \`mto_operaciones_gratuitas\` decimal(14,2) NULL, \`mto_igv\` decimal(14,2) NULL, \`mto_igv_gratuitas\` decimal(14,2) NULL, \`porcentaje_igv\` decimal(10,2) NOT NULL, \`estado_operacion\` tinyint NOT NULL DEFAULT '0', \`estado_anulacion\` tinyint NULL, \`respuesta_sunat_codigo\` varchar(20) NULL, \`respuesta_sunat_descripcion\` text NULL, \`respuesta_anulacion_codigo\` varchar(20) NULL, \`respuesta_anulacion_descripcion\` text NULL, \`UBLVersionID\` varchar(10) NOT NULL DEFAULT '2.1', \`CustomizationID\` varchar(10) NOT NULL DEFAULT '2.0', \`observaciones_invoice\` text NULL, \`observaciones_sunat\` text NULL, \`entidad\` varchar(255) NULL, \`entidad_tipo\` char(1) NULL, \`entidad_documento\` varchar(255) NULL, \`entidad_direccion\` varchar(255) NULL, \`createdAt\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`updatedAt\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`borrador\` tinyint NOT NULL DEFAULT 0, \`envio_sunat_modo\` enum ('INMEDIATO', 'MANUAL', 'PROGRAMADO', 'NO_ENVIA') NOT NULL, \`tipodoc_id\` int NOT NULL, \`formapago_id\` int NOT NULL, \`moneda_id\` int NOT NULL, \`empresa_id\` int NOT NULL, \`establecimiento_id\` int NOT NULL, \`cliente_id\` int NULL, \`usuario_id\` int NOT NULL, \`pos_id\` int NULL, UNIQUE INDEX \`unique_invoice_constraint\` (\`empresa_id\`, \`establecimiento_id\`, \`pos_id\`, \`tipodoc_id\`, \`serie\`, \`correlativo\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
-        await queryRunner.query(`CREATE TABLE \`tipo_documentos\` (\`id\` int NOT NULL AUTO_INCREMENT, \`codigo\` varchar(255) NOT NULL, \`tipo_documento\` varchar(255) NOT NULL, \`abreviado\` varchar(255) NOT NULL, \`estado\` tinyint NOT NULL DEFAULT 1, UNIQUE INDEX \`IDX_a402605a20c5cfb36fede9deed\` (\`codigo\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
-        await queryRunner.query(`CREATE TABLE \`tipodoc_empresa\` (\`id\` int NOT NULL AUTO_INCREMENT, \`estado\` tinyint NOT NULL DEFAULT 1, \`tipodoc_id\` int NOT NULL, \`empresa_id\` int NOT NULL, PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
-        await queryRunner.query(`CREATE TABLE \`configuraciones_empresa\` (\`id\` int NOT NULL AUTO_INCREMENT, \`imprimir_formato_a4\` tinyint NOT NULL, \`empresa_id\` int NOT NULL, PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
-        await queryRunner.query(`CREATE TABLE \`empresas\` (\`id\` int NOT NULL AUTO_INCREMENT, \`logo\` varchar(255) NULL, \`ruc\` varchar(255) NOT NULL, \`razon_social\` varchar(255) NOT NULL, \`nombre_comercial\` varchar(255) NOT NULL, \`domicilio_fiscal\` varchar(255) NOT NULL, \`ubigeo\` varchar(255) NOT NULL, \`urbanizacion\` varchar(255) NOT NULL, \`correo\` varchar(255) NOT NULL, \`telefono_movil_1\` varchar(255) NOT NULL, \`telefono_movil_2\` varchar(255) NULL, \`telefono_fijo_1\` varchar(255) NULL, \`telefono_fijo_2\` varchar(255) NULL, \`web_service\` varchar(255) NULL, \`fieldname_cert\` varchar(255) NULL, \`cert\` varchar(255) NULL, \`cert_password\` varchar(255) NULL, \`modo\` int NOT NULL, \`ose_enabled\` tinyint NOT NULL, \`usu_secundario_user\` varchar(255) NULL, \`usu_secundario_password\` varchar(255) NULL, \`usu_secundario_ose_user\` varchar(255) NULL, \`usu_secundario_ose_password\` varchar(255) NULL, \`estado\` tinyint NOT NULL DEFAULT 1, \`user_id\` int NOT NULL, PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
+        await queryRunner.query(`CREATE TABLE \`tipo_entidades\` (\`id\` int NOT NULL AUTO_INCREMENT, \`tipo_entidad\` varchar(255) NOT NULL, \`codigo\` char(1) NOT NULL, \`descripcion\` varchar(255) NOT NULL, \`abreviatura\` varchar(255) NOT NULL, \`estado\` tinyint NOT NULL DEFAULT 1, PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
+        await queryRunner.query(`CREATE TABLE \`entidades\` (\`id\` int NOT NULL AUTO_INCREMENT, \`entidad\` varchar(255) NOT NULL, \`nombre_comercial\` varchar(255) NULL, \`numero_documento\` varchar(255) NOT NULL, \`direccion\` varchar(255) NOT NULL, \`email_1\` varchar(255) NULL, \`email_2\` varchar(255) NULL, \`telefono_movil_1\` varchar(255) NULL, \`telefono_movil_2\` varchar(255) NULL, \`pagina_web\` varchar(255) NULL, \`facebook\` varchar(255) NULL, \`twitter\` varchar(255) NULL, \`estado\` tinyint NOT NULL DEFAULT 1, \`createdAt\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`updatedAt\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`tipo_entidad_id\` int NOT NULL, \`user_id\` int NULL, \`empresa_id\` int NULL, PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
         await queryRunner.query(`CREATE TABLE \`conexiones_ws\` (\`id\` int NOT NULL AUTO_INCREMENT, \`socketId\` varchar(255) NOT NULL, \`socketIdClient\` varchar(255) NOT NULL, \`uuid_client\` varchar(255) NOT NULL, \`createdAt\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`updatedAt\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`user_id\` int NULL, PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
         await queryRunner.query(`CREATE TABLE \`users\` (\`id\` int NOT NULL AUTO_INCREMENT, \`_id\` varchar(255) NOT NULL, \`nombres\` varchar(255) NOT NULL, \`apellidos\` varchar(255) NOT NULL, \`email\` varchar(255) NOT NULL, \`username\` varchar(255) NOT NULL, \`createdAt\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`updatedAt\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
+        await queryRunner.query(`CREATE TABLE \`configuraciones_empresa\` (\`id\` int NOT NULL AUTO_INCREMENT, \`imprimir_formato_a4\` tinyint NOT NULL, \`empresa_id\` int NOT NULL, PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
+        await queryRunner.query(`CREATE TABLE \`empresas\` (\`id\` int NOT NULL AUTO_INCREMENT, \`logo\` varchar(255) NULL, \`ruc\` varchar(255) NOT NULL, \`razon_social\` varchar(255) NOT NULL, \`nombre_comercial\` varchar(255) NOT NULL, \`domicilio_fiscal\` varchar(255) NOT NULL, \`ubigeo\` varchar(255) NOT NULL, \`urbanizacion\` varchar(255) NOT NULL, \`correo\` varchar(255) NOT NULL, \`telefono_movil_1\` varchar(255) NOT NULL, \`telefono_movil_2\` varchar(255) NULL, \`telefono_fijo_1\` varchar(255) NULL, \`telefono_fijo_2\` varchar(255) NULL, \`web_service\` varchar(255) NULL, \`fieldname_cert\` varchar(255) NULL, \`cert\` varchar(255) NULL, \`cert_password\` varchar(255) NULL, \`modo\` int NOT NULL, \`ose_enabled\` tinyint NOT NULL, \`usu_secundario_user\` varchar(255) NULL, \`usu_secundario_password\` varchar(255) NULL, \`usu_secundario_ose_user\` varchar(255) NULL, \`usu_secundario_ose_password\` varchar(255) NULL, \`estado\` tinyint NOT NULL DEFAULT 1, \`user_id\` int NOT NULL, PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
+        await queryRunner.query(`CREATE TABLE \`users_empresa\` (\`id\` int NOT NULL AUTO_INCREMENT, \`usuario_id\` int NOT NULL, \`empresa_id\` int NOT NULL, \`establecimiento_id\` int NOT NULL, \`pos_id\` int NOT NULL, PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
         await queryRunner.query(`CREATE TABLE \`provincias\` (\`id\` char(4) NOT NULL, \`provincia\` varchar(255) NOT NULL, PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
+        await queryRunner.query(`CREATE TABLE \`distritos\` (\`id\` char(6) NOT NULL, \`distrito\` varchar(255) NOT NULL, PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
         await queryRunner.query(`CREATE TABLE \`departamentos\` (\`id\` char(2) NOT NULL, \`departamento\` varchar(255) NOT NULL, PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
         await queryRunner.query(`CREATE TABLE \`configuraciones_usuario\` (\`id\` int NOT NULL AUTO_INCREMENT, \`vender_sin_stock\` tinyint NOT NULL DEFAULT 1, PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
         await queryRunner.query(`CREATE TABLE \`codes_return_sunat\` (\`codigo_retorno\` char(4) NOT NULL, \`tipo_retorno\` varchar(255) NOT NULL, \`mensaje_retorno\` varchar(255) NOT NULL, \`grupo\` enum ('F', 'B') NULL, PRIMARY KEY (\`codigo_retorno\`)) ENGINE=InnoDB`);
-        await queryRunner.query(`CREATE TABLE \`distritos\` (\`id\` char(6) NOT NULL, \`distrito\` varchar(255) NOT NULL, PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
-        await queryRunner.query(`ALTER TABLE \`entidades\` ADD CONSTRAINT \`FK_19b6e1b788cc18dab9abea859b8\` FOREIGN KEY (\`tipo_entidad_id\`) REFERENCES \`tipo_entidades\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`entidades\` ADD CONSTRAINT \`FK_bad7b4353d9488045c2e5998c71\` FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`entidades\` ADD CONSTRAINT \`FK_e2f8ac03907a7fcda802e3e23b0\` FOREIGN KEY (\`empresa_id\`) REFERENCES \`empresas\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE \`configuraciones_establecimiento\` ADD CONSTRAINT \`FK_319d751b8e68de74328ddf805f2\` FOREIGN KEY (\`empresa_id\`) REFERENCES \`empresas\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE \`configuraciones_establecimiento\` ADD CONSTRAINT \`FK_4fb3b267d011ed91b4f83232aae\` FOREIGN KEY (\`establecimiento_id\`) REFERENCES \`establecimientos\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE \`tipodoc_empresa\` ADD CONSTRAINT \`FK_421c020a1f44eda1401bbfc8b31\` FOREIGN KEY (\`tipodoc_id\`) REFERENCES \`tipo_documentos\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE \`tipodoc_empresa\` ADD CONSTRAINT \`FK_61c8992550accce142f80b6c630\` FOREIGN KEY (\`empresa_id\`) REFERENCES \`empresas\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE \`series\` ADD CONSTRAINT \`FK_3ac7730e2e95d315c2ef865d7ff\` FOREIGN KEY (\`doc_empresa_id\`) REFERENCES \`tipodoc_empresa\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE \`series\` ADD CONSTRAINT \`FK_ca80699b859b4072a28f46e2fac\` FOREIGN KEY (\`establecimiento_id\`) REFERENCES \`establecimientos\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE \`series\` ADD CONSTRAINT \`FK_7af6f0e022c99099232d2d06fc0\` FOREIGN KEY (\`pos_id\`) REFERENCES \`puntos_de_venta\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE \`series\` ADD CONSTRAINT \`FK_051fb87a537eb8017f11b51e79e\` FOREIGN KEY (\`empresa_id\`) REFERENCES \`empresas\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`users_empresa\` ADD CONSTRAINT \`FK_85943c876c0eece773abadd8611\` FOREIGN KEY (\`usuario_id\`) REFERENCES \`users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`users_empresa\` ADD CONSTRAINT \`FK_dc646ffff754e3458afe4ee773c\` FOREIGN KEY (\`empresa_id\`) REFERENCES \`empresas\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`users_empresa\` ADD CONSTRAINT \`FK_28667a668a76c04360a5f1e199e\` FOREIGN KEY (\`establecimiento_id\`) REFERENCES \`establecimientos\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`users_empresa\` ADD CONSTRAINT \`FK_be1adb5dd3a9e9acca260d4b587\` FOREIGN KEY (\`pos_id\`) REFERENCES \`puntos_de_venta\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE \`puntos_de_venta\` ADD CONSTRAINT \`FK_995f92ef0527994b704dc4bd4ff\` FOREIGN KEY (\`establecimiento_id\`) REFERENCES \`establecimientos\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE \`puntos_de_venta\` ADD CONSTRAINT \`FK_b0cd3295b640749b930a272b4ad\` FOREIGN KEY (\`empresa_id\`) REFERENCES \`empresas\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE \`establecimientos\` ADD CONSTRAINT \`FK_414faf429ea7f6057478e3c934f\` FOREIGN KEY (\`empresa_id\`) REFERENCES \`empresas\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
@@ -65,19 +60,29 @@ export class InitialMigration1772034210168 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE \`invoices\` ADD CONSTRAINT \`FK_7863ac43cdce7c5d303566da976\` FOREIGN KEY (\`cliente_id\`) REFERENCES \`entidades\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE \`invoices\` ADD CONSTRAINT \`FK_4aa3fc52de063e0c1deb26d0828\` FOREIGN KEY (\`usuario_id\`) REFERENCES \`users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE \`invoices\` ADD CONSTRAINT \`FK_c407267846cfeb839f864acc7b3\` FOREIGN KEY (\`pos_id\`) REFERENCES \`puntos_de_venta\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`tipodoc_empresa\` ADD CONSTRAINT \`FK_421c020a1f44eda1401bbfc8b31\` FOREIGN KEY (\`tipodoc_id\`) REFERENCES \`tipo_documentos\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`tipodoc_empresa\` ADD CONSTRAINT \`FK_61c8992550accce142f80b6c630\` FOREIGN KEY (\`empresa_id\`) REFERENCES \`empresas\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE \`entidades\` ADD CONSTRAINT \`FK_19b6e1b788cc18dab9abea859b8\` FOREIGN KEY (\`tipo_entidad_id\`) REFERENCES \`tipo_entidades\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE \`entidades\` ADD CONSTRAINT \`FK_bad7b4353d9488045c2e5998c71\` FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE \`entidades\` ADD CONSTRAINT \`FK_e2f8ac03907a7fcda802e3e23b0\` FOREIGN KEY (\`empresa_id\`) REFERENCES \`empresas\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE \`conexiones_ws\` ADD CONSTRAINT \`FK_77b5d9e2b49e8d2d4e76e550863\` FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE \`configuraciones_empresa\` ADD CONSTRAINT \`FK_2afe8553a6d7f231b314918dc98\` FOREIGN KEY (\`empresa_id\`) REFERENCES \`empresas\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE \`empresas\` ADD CONSTRAINT \`FK_7cbf50e3a99959587a52532a3cf\` FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`conexiones_ws\` ADD CONSTRAINT \`FK_77b5d9e2b49e8d2d4e76e550863\` FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE \`users_empresa\` ADD CONSTRAINT \`FK_85943c876c0eece773abadd8611\` FOREIGN KEY (\`usuario_id\`) REFERENCES \`users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE \`users_empresa\` ADD CONSTRAINT \`FK_dc646ffff754e3458afe4ee773c\` FOREIGN KEY (\`empresa_id\`) REFERENCES \`empresas\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE \`users_empresa\` ADD CONSTRAINT \`FK_28667a668a76c04360a5f1e199e\` FOREIGN KEY (\`establecimiento_id\`) REFERENCES \`establecimientos\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE \`users_empresa\` ADD CONSTRAINT \`FK_be1adb5dd3a9e9acca260d4b587\` FOREIGN KEY (\`pos_id\`) REFERENCES \`puntos_de_venta\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`ALTER TABLE \`conexiones_ws\` DROP FOREIGN KEY \`FK_77b5d9e2b49e8d2d4e76e550863\``);
+        await queryRunner.query(`ALTER TABLE \`users_empresa\` DROP FOREIGN KEY \`FK_be1adb5dd3a9e9acca260d4b587\``);
+        await queryRunner.query(`ALTER TABLE \`users_empresa\` DROP FOREIGN KEY \`FK_28667a668a76c04360a5f1e199e\``);
+        await queryRunner.query(`ALTER TABLE \`users_empresa\` DROP FOREIGN KEY \`FK_dc646ffff754e3458afe4ee773c\``);
+        await queryRunner.query(`ALTER TABLE \`users_empresa\` DROP FOREIGN KEY \`FK_85943c876c0eece773abadd8611\``);
         await queryRunner.query(`ALTER TABLE \`empresas\` DROP FOREIGN KEY \`FK_7cbf50e3a99959587a52532a3cf\``);
         await queryRunner.query(`ALTER TABLE \`configuraciones_empresa\` DROP FOREIGN KEY \`FK_2afe8553a6d7f231b314918dc98\``);
-        await queryRunner.query(`ALTER TABLE \`tipodoc_empresa\` DROP FOREIGN KEY \`FK_61c8992550accce142f80b6c630\``);
-        await queryRunner.query(`ALTER TABLE \`tipodoc_empresa\` DROP FOREIGN KEY \`FK_421c020a1f44eda1401bbfc8b31\``);
+        await queryRunner.query(`ALTER TABLE \`conexiones_ws\` DROP FOREIGN KEY \`FK_77b5d9e2b49e8d2d4e76e550863\``);
+        await queryRunner.query(`ALTER TABLE \`entidades\` DROP FOREIGN KEY \`FK_e2f8ac03907a7fcda802e3e23b0\``);
+        await queryRunner.query(`ALTER TABLE \`entidades\` DROP FOREIGN KEY \`FK_bad7b4353d9488045c2e5998c71\``);
+        await queryRunner.query(`ALTER TABLE \`entidades\` DROP FOREIGN KEY \`FK_19b6e1b788cc18dab9abea859b8\``);
         await queryRunner.query(`ALTER TABLE \`invoices\` DROP FOREIGN KEY \`FK_c407267846cfeb839f864acc7b3\``);
         await queryRunner.query(`ALTER TABLE \`invoices\` DROP FOREIGN KEY \`FK_4aa3fc52de063e0c1deb26d0828\``);
         await queryRunner.query(`ALTER TABLE \`invoices\` DROP FOREIGN KEY \`FK_7863ac43cdce7c5d303566da976\``);
@@ -99,31 +104,26 @@ export class InitialMigration1772034210168 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE \`establecimientos\` DROP FOREIGN KEY \`FK_414faf429ea7f6057478e3c934f\``);
         await queryRunner.query(`ALTER TABLE \`puntos_de_venta\` DROP FOREIGN KEY \`FK_b0cd3295b640749b930a272b4ad\``);
         await queryRunner.query(`ALTER TABLE \`puntos_de_venta\` DROP FOREIGN KEY \`FK_995f92ef0527994b704dc4bd4ff\``);
-        await queryRunner.query(`ALTER TABLE \`users_empresa\` DROP FOREIGN KEY \`FK_be1adb5dd3a9e9acca260d4b587\``);
-        await queryRunner.query(`ALTER TABLE \`users_empresa\` DROP FOREIGN KEY \`FK_28667a668a76c04360a5f1e199e\``);
-        await queryRunner.query(`ALTER TABLE \`users_empresa\` DROP FOREIGN KEY \`FK_dc646ffff754e3458afe4ee773c\``);
-        await queryRunner.query(`ALTER TABLE \`users_empresa\` DROP FOREIGN KEY \`FK_85943c876c0eece773abadd8611\``);
         await queryRunner.query(`ALTER TABLE \`series\` DROP FOREIGN KEY \`FK_051fb87a537eb8017f11b51e79e\``);
         await queryRunner.query(`ALTER TABLE \`series\` DROP FOREIGN KEY \`FK_7af6f0e022c99099232d2d06fc0\``);
         await queryRunner.query(`ALTER TABLE \`series\` DROP FOREIGN KEY \`FK_ca80699b859b4072a28f46e2fac\``);
         await queryRunner.query(`ALTER TABLE \`series\` DROP FOREIGN KEY \`FK_3ac7730e2e95d315c2ef865d7ff\``);
+        await queryRunner.query(`ALTER TABLE \`tipodoc_empresa\` DROP FOREIGN KEY \`FK_61c8992550accce142f80b6c630\``);
+        await queryRunner.query(`ALTER TABLE \`tipodoc_empresa\` DROP FOREIGN KEY \`FK_421c020a1f44eda1401bbfc8b31\``);
         await queryRunner.query(`ALTER TABLE \`configuraciones_establecimiento\` DROP FOREIGN KEY \`FK_4fb3b267d011ed91b4f83232aae\``);
         await queryRunner.query(`ALTER TABLE \`configuraciones_establecimiento\` DROP FOREIGN KEY \`FK_319d751b8e68de74328ddf805f2\``);
-        await queryRunner.query(`ALTER TABLE \`entidades\` DROP FOREIGN KEY \`FK_e2f8ac03907a7fcda802e3e23b0\``);
-        await queryRunner.query(`ALTER TABLE \`entidades\` DROP FOREIGN KEY \`FK_bad7b4353d9488045c2e5998c71\``);
-        await queryRunner.query(`ALTER TABLE \`entidades\` DROP FOREIGN KEY \`FK_19b6e1b788cc18dab9abea859b8\``);
-        await queryRunner.query(`DROP TABLE \`distritos\``);
         await queryRunner.query(`DROP TABLE \`codes_return_sunat\``);
         await queryRunner.query(`DROP TABLE \`configuraciones_usuario\``);
         await queryRunner.query(`DROP TABLE \`departamentos\``);
+        await queryRunner.query(`DROP TABLE \`distritos\``);
         await queryRunner.query(`DROP TABLE \`provincias\``);
-        await queryRunner.query(`DROP TABLE \`users\``);
-        await queryRunner.query(`DROP TABLE \`conexiones_ws\``);
+        await queryRunner.query(`DROP TABLE \`users_empresa\``);
         await queryRunner.query(`DROP TABLE \`empresas\``);
         await queryRunner.query(`DROP TABLE \`configuraciones_empresa\``);
-        await queryRunner.query(`DROP TABLE \`tipodoc_empresa\``);
-        await queryRunner.query(`DROP INDEX \`IDX_a402605a20c5cfb36fede9deed\` ON \`tipo_documentos\``);
-        await queryRunner.query(`DROP TABLE \`tipo_documentos\``);
+        await queryRunner.query(`DROP TABLE \`users\``);
+        await queryRunner.query(`DROP TABLE \`conexiones_ws\``);
+        await queryRunner.query(`DROP TABLE \`entidades\``);
+        await queryRunner.query(`DROP TABLE \`tipo_entidades\``);
         await queryRunner.query(`DROP INDEX \`unique_invoice_constraint\` ON \`invoices\``);
         await queryRunner.query(`DROP TABLE \`invoices\``);
         await queryRunner.query(`DROP TABLE \`anulaciones\``);
@@ -136,13 +136,13 @@ export class InitialMigration1772034210168 implements MigrationInterface {
         await queryRunner.query(`DROP TABLE \`forma_pagos\``);
         await queryRunner.query(`DROP TABLE \`establecimientos\``);
         await queryRunner.query(`DROP TABLE \`puntos_de_venta\``);
-        await queryRunner.query(`DROP TABLE \`users_empresa\``);
         await queryRunner.query(`DROP INDEX \`unique_series_constraint\` ON \`series\``);
         await queryRunner.query(`DROP INDEX \`IDX_f05f4d086086c4ae11a3a2727f\` ON \`series\``);
         await queryRunner.query(`DROP TABLE \`series\``);
+        await queryRunner.query(`DROP TABLE \`tipodoc_empresa\``);
+        await queryRunner.query(`DROP INDEX \`IDX_a402605a20c5cfb36fede9deed\` ON \`tipo_documentos\``);
+        await queryRunner.query(`DROP TABLE \`tipo_documentos\``);
         await queryRunner.query(`DROP TABLE \`configuraciones_establecimiento\``);
-        await queryRunner.query(`DROP TABLE \`entidades\``);
-        await queryRunner.query(`DROP TABLE \`tipo_entidades\``);
     }
 
 }
