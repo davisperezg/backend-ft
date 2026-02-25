@@ -20,7 +20,9 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "typeorm": "npm run build && npx typeorm -d dist/db/data-source.js",
-    "migration:generate": "npm run typeorm -- migration:generate"
+    "migration:generate": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli migration:generate src/migrations/InitialMigration -d src/data-source.ts",
+    "migration:run": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli migration:run -d src/data-source.ts",
+    "migration:revert": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli migration:revert -d src/data-source.ts"
   },
   "dependencies": {
     "@bull-board/api": "^6.9.2",
