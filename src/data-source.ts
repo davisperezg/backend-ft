@@ -2,7 +2,8 @@ import { DataSource } from 'typeorm';
 import * as dotenv from 'dotenv';
 import { resolve } from 'path';
 
-dotenv.config({ path: '.development.env' });
+const env = process.env.NODE_ENV || 'development';
+dotenv.config({ path: `.${env}.env` });
 
 export const AppDataSource = new DataSource({
   type: 'mysql',
