@@ -8,6 +8,8 @@ import * as fs from 'fs';
 import { QueryInvoiceList } from 'src/invoice/dto/query-invoice-list';
 import { InvoiceEntity } from 'src/invoice/entities/invoice.entity';
 import { v4 as uuidv4 } from 'uuid';
+import { NotaVentaEntity } from 'src/nota-venta/entities/nota-venta.entity';
+import { ListNotaVentaDto } from 'src/nota-venta/dto/list-nota-venta.dto';
 
 // Add this function near the top of your file or in a utility module
 export async function withRetry<T>(
@@ -394,8 +396,93 @@ export const formatListInvoices = async (
       cdr: cdrExists ? pathStaticCDR : '#',
       xml: firmaExists ? pathStaticFirma : '#',
       pdfA4: `${urlStatic}/${ruc}/${establecimiento}/${nomDoc}/PDF/A4/test.pdf`,
+      pdf58mm: `${urlStatic}/${ruc}/${establecimiento}/${nomDoc}/PDF/58mm/${fileName}.pdf`,
+      pdf80mm: `${urlStatic}/${ruc}/${establecimiento}/${nomDoc}/PDF/80mm/${fileName}.pdf`,
+      tipo_comprobante: '',
       status: [0, 2, 3].includes(invoice.estado_operacion),
       details: invoice.invoices_details.map((item, i) => ({
+        id: item.id,
+        posicionTabla: i,
+        uuid: uuidv4(),
+        cantidad: item.cantidad,
+        codigo: item.codigo,
+        descripcion: item.descripcion,
+        mtoValorUnitario: item.mtoValorUnitario,
+        porcentajeIgv: item.porcentajeIgv,
+        tipAfeIgv: item.tipAfeIgv.codigo,
+        unidad: item.unidad.codigo,
+      })),
+    };
+
+    return result;
+  } catch (error) {
+    throw new HttpException(
+      'Error al formatear comprobante',
+      HttpStatus.BAD_REQUEST,
+    );
+  }
+};
+
+export const formatListNotaVentas = async (
+  notaVenta: NotaVentaEntity,
+  fileName: string,
+): Promise<ListNotaVentaDto> => {
+  try {
+    const urlStatic =
+      process.env.URL_FILES_STATIC || 'http://localhost:3000/files';
+
+    const { ruc } = notaVenta.empresa;
+    const { codigo: tipoDoc, tipo_documento: nomDoc } = notaVenta.tipo_doc;
+    const establecimiento = `${notaVenta.establecimiento.codigo}`;
+
+    const result = {
+      id: notaVenta.id,
+      tipo_operacion: notaVenta.tipo_doc.codigo,
+      serie: notaVenta.serie,
+      correlativo: notaVenta.correlativo,
+      fecha_emision: notaVenta.fecha_emision,
+      mto_operaciones_gravadas: notaVenta.mto_operaciones_gravadas,
+      mto_operaciones_exoneradas: notaVenta.mto_operaciones_exoneradas,
+      mto_operaciones_inafectas: notaVenta.mto_operaciones_inafectas,
+      mto_operaciones_exportacion: notaVenta.mto_operaciones_exportacion,
+      mto_operaciones_gratuitas: notaVenta.mto_operaciones_gratuitas,
+      mto_igv: notaVenta.mto_igv,
+      mto_igv_gratuitas: notaVenta.mto_igv_gratuitas,
+      porcentaje_igv: notaVenta.porcentaje_igv,
+      estado_operacion: notaVenta.estado_operacion,
+      estado_anulacion: notaVenta.estado_anulacion,
+      observaciones: notaVenta.observaciones
+        ? notaVenta.observaciones.split('|').map((item) => ({
+            observacion: item,
+            uuid: uuidv4(),
+          }))
+        : [],
+      documento: nomDoc,
+      tipo_documento: tipoDoc,
+      cliente: notaVenta.cliente
+        ? notaVenta.cliente.entidad
+        : notaVenta.entidad,
+      cliente_direccion: notaVenta.cliente
+        ? notaVenta.cliente.direccion
+        : notaVenta.entidad_direccion,
+      cliente_cod_doc: notaVenta.cliente
+        ? notaVenta.cliente.tipo_entidad.codigo
+        : notaVenta.entidad_tipo,
+      cliente_num_doc: notaVenta.cliente
+        ? notaVenta.cliente.numero_documento
+        : notaVenta.entidad_documento,
+      empresa: notaVenta.empresa.id,
+      establecimiento: notaVenta.establecimiento.id,
+      pos: notaVenta.pos.id,
+      usuario: `${notaVenta.usuario.nombres} ${notaVenta.usuario.apellidos}`,
+      moneda_abrstandar: notaVenta.tipo_moneda.abrstandar,
+      moneda_simbolo: notaVenta.tipo_moneda.simbolo,
+      fecha_registro: notaVenta.createdAt,
+      pdf80mm: `${urlStatic}/${ruc}/${establecimiento}/${nomDoc}/PDF/80mm/${fileName}.pdf`,
+      pdf58mm: `${urlStatic}/${ruc}/${establecimiento}/${nomDoc}/PDF/58mm/${fileName}.pdf`,
+      status: [0, 2, 3].includes(notaVenta.estado_operacion),
+      envio_sunat_modo: 'NO_ENVIA',
+      details: notaVenta.notaVentaDetail.map((item, i) => ({
         id: item.id,
         posicionTabla: i,
         uuid: uuidv4(),
