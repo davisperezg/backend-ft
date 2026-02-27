@@ -1,5 +1,6 @@
 import { EmpresaEntity } from 'src/empresa/entities/empresa.entity';
 import { InvoiceEntity } from 'src/invoice/entities/invoice.entity';
+import { NotaVentaEntity } from 'src/nota-venta/entities/nota-venta.entity';
 import { TipoEntidadEntity } from 'src/tipo-entidades/entities/tipo-entidades.entity';
 import { UserEntity } from 'src/user/entities/user.entity';
 import {
@@ -100,4 +101,7 @@ export class EntidadEntity {
 
   @CreateDateColumn({ type: 'timestamp' })
   updatedAt?: Date;
+
+  @OneToMany(() => NotaVentaEntity, (notaVenta) => notaVenta.cliente)
+  notaVenta?: NotaVentaEntity[];
 }

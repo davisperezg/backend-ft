@@ -6,7 +6,7 @@ import {
   OnApplicationBootstrap,
 } from '@nestjs/common';
 import { DepartamentoEntity } from '../entities/departamento.entity';
-import { Like, Repository } from 'typeorm';
+import { Equal, IsNull, Like, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ProvinciaEntity } from '../entities/provincia.entity';
 import { DistritoEntity } from '../entities/distrito.entity';
@@ -157,11 +157,7 @@ export class EntidadesService implements OnModuleInit, OnApplicationBootstrap {
         relations: {
           tipo_entidad: true,
         },
-        where: {
-          empresa: {
-            id: idEmpresa,
-          },
-        },
+        where: [{ empresa: { id: Equal(idEmpresa) } }, { empresa: IsNull() }],
       });
     } catch (e) {
       throw new HttpException(

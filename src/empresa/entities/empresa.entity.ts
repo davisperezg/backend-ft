@@ -16,6 +16,7 @@ import { ConfigEmpresaEntity } from 'src/configuraciones/entities/configuracione
 import { ConfigEstablecimientoEntity } from 'src/configuraciones/entities/configuraciones_establecimiento.entity';
 import { SeriesEntity } from 'src/series/entities/series.entity';
 import { PosEntity } from 'src/pos/entities/pos.entity';
+import { NotaVentaEntity } from 'src/nota-venta/entities/nota-venta.entity';
 
 @Entity({ name: 'empresas' })
 export class EmpresaEntity {
@@ -130,4 +131,7 @@ export class EmpresaEntity {
 
   @OneToMany(() => PosEntity, (pos) => pos.empresa)
   pos?: PosEntity[];
+
+  @OneToMany(() => NotaVentaEntity, (notaVenta) => notaVenta.empresa)
+  notaVenta?: NotaVentaEntity[];
 }

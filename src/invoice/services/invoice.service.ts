@@ -9,6 +9,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Equal, Repository, In, EntityManager } from 'typeorm';
 import { InvoiceEntity } from '../entities/invoice.entity';
+import { NotaVentaEntity } from 'src/nota-venta/entities/nota-venta.entity';
 import { CreateInvoiceDto } from '../dto/create-invoice.dto';
 import { QueryToken } from 'src/auth/dto/queryToken';
 import path from 'path';
@@ -93,6 +94,8 @@ export class InvoiceService {
     @InjectQueue('invoice-submission')
     private readonly sunatQueue: Queue,
     private readonly invoiceSocketService: InvoiceSocketService,
+    @InjectRepository(NotaVentaEntity)
+    private notaVentaRepository: Repository<NotaVentaEntity>,
   ) {
     dayjs.extend(utc);
     dayjs.extend(timezone);
@@ -1250,40 +1253,44 @@ export class InvoiceService {
     }
 
     try {
-      const invoices = await this.invoiceRepository.find({
-        take: pageSize,
-        skip: offset,
-        relations: {
-          tipo_doc: true,
-          cliente: { tipo_entidad: true },
-          empresa: true,
-          establecimiento: true,
-          tipo_moneda: true,
-          forma_pago: true,
-          usuario: true,
-          invoices_details: { tipAfeIgv: true, unidad: true },
-          pos: true,
-        },
-        where: {
-          empresa: { id: Equal(idEmpresa) },
-          establecimiento: { id: Equal(idEstablecimiento) },
-        },
-        order: { createdAt: 'DESC' },
-      });
+      const urlStatic = this.configService.get<string>('URL_FILES_STATIC');
 
-      const countInvoices = await this.invoiceRepository.count({
-        where: {
-          empresa: { id: idEmpresa },
-          establecimiento: { id: idEstablecimiento },
-        },
-      });
+      const whereClause = {
+        empresa: { id: Equal(idEmpresa) },
+        establecimiento: { id: Equal(idEstablecimiento) },
+      };
 
-      const urlStatic = await this.configService.get<string>(
-        'URL_FILES_STATIC',
-      );
-      const pageCount = Math.ceil(countInvoices / pageSize);
+      const [invoices, notasVenta] = await Promise.all([
+        this.invoiceRepository.find({
+          relations: {
+            tipo_doc: true,
+            cliente: { tipo_entidad: true },
+            empresa: true,
+            establecimiento: true,
+            tipo_moneda: true,
+            forma_pago: true,
+            usuario: true,
+            invoices_details: { tipAfeIgv: true, unidad: true },
+            pos: true,
+          },
+          where: whereClause,
+        }),
+        this.notaVentaRepository.find({
+          relations: {
+            tipo_doc: true,
+            cliente: { tipo_entidad: true },
+            empresa: true,
+            establecimiento: true,
+            tipo_moneda: true,
+            usuario: true,
+            notaVentaDetail: { tipAfeIgv: true, unidad: true },
+            pos: true,
+          },
+          where: whereClause,
+        }),
+      ]);
 
-      const items: QueryInvoiceList[] = await Promise.all(
+      const invoiceItems: QueryInvoiceList[] = await Promise.all(
         invoices.map(async (invoice) => {
           const ruc = invoice.empresa.ruc;
           const tipoDoc = invoice.tipo_doc.codigo;
@@ -1308,10 +1315,8 @@ export class InvoiceService {
               );
               const correlativoAnulacion = anulacion.numero;
               const fileName = `${ruc}-RA-${fechaAnulacion}-${correlativoAnulacion}`;
-
               const rutaFirma = `${ruc}/${establecimientoCode}/${nomDoc}/BAJA/FIRMA/${fileName}.xml`;
               const rutaCDR = `${ruc}/${establecimientoCode}/${nomDoc}/BAJA/RPTA/R-${fileName}.zip`;
-
               pathDirFirma = path.join(
                 process.cwd(),
                 `uploads/files/${rutaFirma}`,
@@ -1326,7 +1331,6 @@ export class InvoiceService {
             const fileName = `${ruc}-${tipoDoc}-${serie}-${correlativo}`;
             const rutaFirma = `${ruc}/${establecimientoCode}/${nomDoc}/FIRMA/${fileName}.xml`;
             const rutaCDR = `${ruc}/${establecimientoCode}/${nomDoc}/RPTA/R-${fileName}.zip`;
-
             pathDirFirma = path.join(
               process.cwd(),
               `uploads/files/${rutaFirma}`,
@@ -1343,6 +1347,7 @@ export class InvoiceService {
 
           return {
             id: invoice.id,
+            tipo_comprobante: 'invoice',
             tipo_operacion: invoice.tipo_operacion,
             serie: invoice.serie,
             correlativo: invoice.correlativo,
@@ -1397,6 +1402,8 @@ export class InvoiceService {
             cdr: cdrExists ? pathStaticCDR : '#',
             xml: firmaExists ? pathStaticFirma : '#',
             pdfA4: `${urlStatic}/${ruc}/${establecimientoCode}/${nomDoc}/PDF/A4/test.pdf`,
+            pdf80mm: null,
+            pdf58mm: null,
             status: [0, 2, 3].includes(invoice.estado_operacion),
             details: invoice.invoices_details.map((item, i) => ({
               id: item.id,
@@ -1414,11 +1421,100 @@ export class InvoiceService {
         }),
       );
 
+      const notaVentaItems: QueryInvoiceList[] = notasVenta.map((nv) => {
+        const ruc = nv.empresa.ruc;
+        const tipoDoc = nv.tipo_doc.codigo;
+        const nomDoc = nv.tipo_doc.tipo_documento;
+        const establecimientoCode = nv.establecimiento.codigo;
+        const fileName = `${ruc}-${tipoDoc}-${nv.serie}-${nv.correlativo}`;
+
+        return {
+          id: nv.id,
+          tipo_comprobante: 'nota_venta',
+          tipo_operacion: null,
+          serie: nv.serie,
+          correlativo: nv.correlativo,
+          fecha_vencimiento: null,
+          mto_operaciones_gravadas: nv.mto_operaciones_gravadas,
+          mto_operaciones_exoneradas: nv.mto_operaciones_exoneradas,
+          mto_operaciones_inafectas: nv.mto_operaciones_inafectas,
+          mto_operaciones_exportacion: nv.mto_operaciones_exportacion,
+          mto_operaciones_gratuitas: nv.mto_operaciones_gratuitas,
+          mto_igv: nv.mto_igv,
+          mto_igv_gratuitas: nv.mto_igv_gratuitas,
+          porcentaje_igv: nv.porcentaje_igv,
+          estado_operacion: nv.estado_operacion,
+          estado_anulacion: nv.estado_anulacion,
+          respuesta_sunat_codigo: null,
+          respuesta_sunat_descripcion: null,
+          respuesta_anulacion_codigo: null,
+          respuesta_anulacion_descripcion: null,
+          observaciones_sunat: null,
+          observaciones: nv.observaciones
+            ? nv.observaciones.split('|').map((item) => ({
+                observacion: item,
+                uuid: uuidv4(),
+              }))
+            : [],
+          borrador: false,
+          documento: nomDoc,
+          tipo_documento: tipoDoc,
+          cliente: nv.cliente ? nv.cliente.entidad : nv.entidad,
+          cliente_direccion: nv.cliente
+            ? nv.cliente.direccion
+            : nv.entidad_direccion,
+          cliente_cod_doc: nv.cliente
+            ? nv.cliente.tipo_entidad.codigo
+            : nv.entidad_tipo,
+          cliente_num_doc: nv.cliente
+            ? nv.cliente.numero_documento
+            : nv.entidad_documento,
+          empresa: nv.empresa.id,
+          establecimiento: nv.establecimiento.id,
+          pos: nv.pos.id,
+          envio_sunat_modo: 'NO_ENVIA',
+          usuario: `${nv.usuario.nombres} ${nv.usuario.apellidos}`,
+          moneda_abrstandar: nv.tipo_moneda.abrstandar,
+          moneda_simbolo: nv.tipo_moneda.simbolo,
+          fecha_registro: nv.createdAt,
+          fecha_emision: nv.fecha_emision,
+          forma_pago: null,
+          xml: null,
+          cdr: null,
+          pdfA4: null,
+          pdf80mm: `${urlStatic}/${ruc}/${establecimientoCode}/${nomDoc}/PDF/80mm/${fileName}.pdf`,
+          pdf58mm: `${urlStatic}/${ruc}/${establecimientoCode}/${nomDoc}/PDF/58mm/${fileName}.pdf`,
+          status: [0, 2, 3].includes(nv.estado_operacion),
+          details: nv.notaVentaDetail.map((item, i) => ({
+            id: item.id,
+            posicionTabla: i,
+            uuid: uuidv4(),
+            cantidad: item.cantidad,
+            codigo: item.codigo,
+            descripcion: item.descripcion,
+            mtoValorUnitario: item.mtoValorUnitario,
+            porcentajeIgv: item.porcentajeIgv,
+            tipAfeIgv: item.tipAfeIgv.codigo,
+            unidad: item.unidad.codigo,
+          })),
+        };
+      });
+
+      const allItems = [...invoiceItems, ...notaVentaItems].sort(
+        (a, b) =>
+          new Date(b.fecha_registro).getTime() -
+          new Date(a.fecha_registro).getTime(),
+      );
+
+      const rowCount = allItems.length;
+      const pageCount = Math.ceil(rowCount / pageSize);
+      const items = allItems.slice(offset, offset + pageSize);
+
       return {
         statusCode: 'success',
         pageSize,
         pageCount,
-        rowCount: countInvoices,
+        rowCount,
         items,
       };
     } catch (e) {

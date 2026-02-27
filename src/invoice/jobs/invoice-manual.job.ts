@@ -29,7 +29,7 @@ export class InvoiceManualJobs {
 
   //Se ejecutara esta tarea todos los dias a las 1am -> enviara todos cpes pendientes a sunat
   //@Cron('0 0,20,40,59 2 * * *')
-  @Cron('0 53 1 * * *')
+  @Cron('0 0,20,40,59 2 * * *')
   async handleCron() {
     this.logger.debug(
       'INICIANDO ENVIO DE COMPROBANTES A SUNAT TIPO MANUAL MEDIANTE CRON...',
