@@ -1,4 +1,5 @@
 import { InvoiceDetailsEntity } from 'src/invoice/entities/invoice_details.entity';
+import { NotaVentaDetailEntity } from 'src/nota-venta/entities/nota-venta-detail.entity';
 import { ProductEntity } from 'src/product/entities/product.entity';
 import { Entity, Column, PrimaryGeneratedColumn, OneToMany } from 'typeorm';
 
@@ -35,4 +36,7 @@ export class IGVEntity {
 
   @OneToMany(() => ProductEntity, (product) => product.tipAfeIgv)
   products?: ProductEntity[];
+
+  @OneToMany(() => NotaVentaDetailEntity, (detail) => detail.tipAfeIgv)
+  notaVentaDetail?: NotaVentaDetailEntity[];
 }

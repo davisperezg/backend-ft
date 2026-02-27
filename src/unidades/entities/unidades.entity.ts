@@ -1,4 +1,5 @@
 import { InvoiceDetailsEntity } from 'src/invoice/entities/invoice_details.entity';
+import { NotaVentaDetailEntity } from 'src/nota-venta/entities/nota-venta-detail.entity';
 import { ProductEntity } from 'src/product/entities/product.entity';
 import { Entity, Column, PrimaryGeneratedColumn, OneToMany } from 'typeorm';
 
@@ -26,4 +27,7 @@ export class UnidadEntity {
 
   @OneToMany(() => ProductEntity, (product) => product.unidad)
   products?: ProductEntity[];
+
+  @OneToMany(() => NotaVentaDetailEntity, (detail) => detail.unidad)
+  notaVentaDetail?: NotaVentaDetailEntity[];
 }

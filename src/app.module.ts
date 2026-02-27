@@ -72,6 +72,7 @@ import basicAuth from 'express-basic-auth';
 import { BullBoardModule } from '@bull-board/nestjs';
 import { ExpressAdapter } from '@bull-board/express';
 import { SocketSessionModule } from './socket-session/socket-session.module';
+import { NotaVentaModule } from './nota-venta/nota-venta.module';
 @Module({
   imports: [
     BullBoardModule.forRoot({
@@ -178,6 +179,7 @@ import { SocketSessionModule } from './socket-session/socket-session.module';
     SunatModule,
     GatewayModule,
     SocketSessionModule,
+    NotaVentaModule,
   ],
   controllers: [AppController],
   providers: [

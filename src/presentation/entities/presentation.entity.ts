@@ -1,5 +1,6 @@
 import { InvoiceDetailsEntity } from 'src/invoice/entities/invoice_details.entity';
 import { DecimalColumnTransformer } from 'src/lib/helpers/decimal_format';
+import { NotaVentaDetailEntity } from 'src/nota-venta/entities/nota-venta-detail.entity';
 import { ProductEntity } from 'src/product/entities/product.entity';
 import { UnidadEntity } from 'src/unidades/entities/unidades.entity';
 import {
@@ -96,4 +97,7 @@ export class PresentationEntity {
 
   @OneToMany(() => InvoiceDetailsEntity, (detail) => detail.presentation)
   invoices_details?: InvoiceDetailsEntity[];
+
+  @OneToMany(() => NotaVentaDetailEntity, (detail) => detail.presentation)
+  notaVentaDetail?: NotaVentaDetailEntity[];
 }

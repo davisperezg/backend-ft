@@ -1,4 +1,5 @@
 import { InvoiceEntity } from 'src/invoice/entities/invoice.entity';
+import { NotaVentaEntity } from 'src/nota-venta/entities/nota-venta.entity';
 import { SeriesEntity } from 'src/series/entities/series.entity';
 import { TipodocsEmpresaEntity } from 'src/tipodocs_empresa/entities/tipodocs_empresa.entity';
 import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
@@ -28,4 +29,7 @@ export class TipodocsEntity {
 
   @OneToMany(() => InvoiceEntity, (invoice) => invoice.tipo_doc)
   invoices?: InvoiceEntity[];
+
+  @OneToMany(() => NotaVentaEntity, (notaVenta) => notaVenta.tipo_doc)
+  notaVenta?: NotaVentaEntity[];
 }
