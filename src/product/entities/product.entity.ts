@@ -1,6 +1,7 @@
 import { IGVEntity } from 'src/igvs/entities/igvs.entity';
 import { InvoiceDetailsEntity } from 'src/invoice/entities/invoice_details.entity';
 import { DecimalColumnTransformer } from 'src/lib/helpers/decimal_format';
+import { NotaVentaDetailEntity } from 'src/nota-venta/entities/nota-venta-detail.entity';
 import { PresentationEntity } from 'src/presentation/entities/presentation.entity';
 import { UnidadEntity } from 'src/unidades/entities/unidades.entity';
 import {
@@ -123,4 +124,7 @@ export class ProductEntity {
 
   @OneToMany(() => PresentationEntity, (presentation) => presentation.product)
   presentations?: PresentationEntity[];
+
+  @OneToMany(() => NotaVentaDetailEntity, (detail) => detail.producto)
+  notaVentaDetail?: NotaVentaDetailEntity[];
 }

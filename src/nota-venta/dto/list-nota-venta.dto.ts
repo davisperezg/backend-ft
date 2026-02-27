@@ -1,11 +1,10 @@
-import { QueryDetailsInvoice } from './query-detail-invoice-list';
+import { DetailNotaVentaDto } from './detail-nota-venta.dto';
 
-export class QueryInvoiceList {
+export class ListNotaVentaDto {
   id: number;
   tipo_operacion: string;
   serie: string;
   correlativo: string;
-  fecha_vencimiento: Date | null;
   mto_operaciones_gravadas: number;
   mto_operaciones_exoneradas: number;
   mto_operaciones_inafectas: number;
@@ -16,22 +15,12 @@ export class QueryInvoiceList {
   porcentaje_igv: number;
   estado_operacion: number;
   estado_anulacion: number | null;
-  respuesta_sunat_codigo: string;
-  respuesta_sunat_descripcion: string;
-  respuesta_anulacion_codigo: string | null;
-  respuesta_anulacion_descripcion: string | null;
-  observaciones_sunat: string | null;
   observaciones:
     | {
         observacion: string;
         uuid: string;
       }[]
     | null;
-  // entidad: string | null;
-  // entidad_tipo: string | null;
-  // entidad_documento: string | null;
-  // entidad_direccion: string | null;
-  borrador: boolean;
   documento: string;
   tipo_documento: string;
   cliente: string;
@@ -44,16 +33,11 @@ export class QueryInvoiceList {
   envio_sunat_modo: string;
   moneda_abrstandar: string;
   moneda_simbolo: string;
-  forma_pago: string;
   usuario: string;
-  details: QueryDetailsInvoice[];
+  details: DetailNotaVentaDto[];
   status: boolean;
-  xml: string | null;
-  cdr: string | null;
-  pdfA4: string | null;
   pdf80mm: string | null;
   pdf58mm: string | null;
-  tipo_comprobante: string;
   fecha_registro: Date;
   fecha_emision: Date;
 }

@@ -3,6 +3,7 @@ import { Module, forwardRef } from '@nestjs/common';
 import { InvoiceService } from './services/invoice.service';
 import { InvoiceController } from './controllers/invoice.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { NotaVentaEntity } from 'src/nota-venta/entities/nota-venta.entity';
 import { InvoiceEntity } from './entities/invoice.entity';
 import { EmpresaModule } from 'src/empresa/empresa.module';
 import { EstablecimientoModule } from 'src/establecimiento/establecimiento.module';
@@ -45,6 +46,7 @@ import { InvoicePendingJobs } from './jobs/invoice-pending.job';
       SeriesEntity,
       InvoiceDetailsEntity,
       AnulacionEntity,
+      NotaVentaEntity,
     ]),
     EmpresaModule,
     EstablecimientoModule,

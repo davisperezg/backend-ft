@@ -10,6 +10,7 @@ import { EstablecimientoPermission } from '../enum/establecimiento.enum';
 import { TipoDocsPermission } from '../enum/tipodocs.enum';
 import { SeriesPermission } from '../enum/serie.enum';
 import { ClientePermission } from '../enum/cliente.enum';
+import { NotaVentaPermission } from '../enum/nota-venta.enum';
 
 const Permission = {
   ...UserPermission,
@@ -24,6 +25,7 @@ const Permission = {
   ...TipoDocsPermission,
   ...SeriesPermission,
   ...ClientePermission,
+  ...NotaVentaPermission,
 };
 
 type Permission =
@@ -38,6 +40,7 @@ type Permission =
   | EstablecimientoPermission
   | TipoDocsPermission
   | SeriesPermission
-  | ClientePermission;
+  | ClientePermission
+  | NotaVentaPermission;
 
 export default Permission;

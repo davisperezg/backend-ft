@@ -8,6 +8,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { SunatModule } from 'src/sunat/sunat.module';
 import { ResourcesUsersModule } from 'src/resources-users/resources-users.module';
 import { SocketSessionModule } from 'src/socket-session/socket-session.module';
+import { NotaVentaGateway } from './nota_venta.gateway';
+import { NotaVentaModule } from 'src/nota-venta/nota-venta.module';
 
 @Module({
   imports: [
@@ -16,9 +18,10 @@ import { SocketSessionModule } from 'src/socket-session/socket-session.module';
     SunatModule,
     ResourcesUsersModule,
     forwardRef(() => InvoiceModule),
+    forwardRef(() => NotaVentaModule),
     SocketSessionModule,
   ],
-  providers: [InvoiceGateway, JwtStrategy],
-  exports: [InvoiceGateway],
+  providers: [InvoiceGateway, NotaVentaGateway, JwtStrategy],
+  exports: [InvoiceGateway, NotaVentaGateway],
 })
 export class GatewayModule {}

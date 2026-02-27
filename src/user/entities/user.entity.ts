@@ -12,6 +12,7 @@ import { UsersEmpresaEntity } from 'src/users_empresa/entities/users_empresa.ent
 import { EntidadEntity } from 'src/entidades/entities/entidad.entity';
 import { InvoiceEntity } from 'src/invoice/entities/invoice.entity';
 import { ConnectionWS } from 'src/connection/entities/connection_ws.entity';
+import { NotaVentaEntity } from 'src/nota-venta/entities/nota-venta.entity';
 
 @Entity({ name: 'users' })
 export class UserEntity {
@@ -63,4 +64,7 @@ export class UserEntity {
 
   @CreateDateColumn({ type: 'timestamp' })
   updatedAt?: Date;
+
+  @OneToMany(() => NotaVentaEntity, (notaVenta) => notaVenta.usuario)
+  notaVenta?: NotaVentaEntity[];
 }
