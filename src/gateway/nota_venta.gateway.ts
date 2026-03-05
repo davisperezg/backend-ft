@@ -25,15 +25,6 @@ import { NotaVentaSocketService } from 'src/socket-session/services/notaVenta-so
 @UsePipes(WSValidationPipe)
 @WebSocketGateway({
   namespace: 'events/nota-ventas',
-  cors: {
-    origin: [
-      process.env.URL_FRONTEND_ORIGIN,
-      process.env.URL_FRONTEND_ORIGIN_HOST,
-    ].filter(Boolean),
-    methods: ['GET', 'POST'],
-    credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  },
 })
 export class NotaVentaGateway
   implements OnGatewayConnection, OnGatewayDisconnect
