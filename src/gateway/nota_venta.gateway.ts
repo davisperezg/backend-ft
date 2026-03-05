@@ -255,13 +255,10 @@ export class NotaVentaGateway
     user: QueryToken,
     permiso: Permission,
   ): void {
-    if (!user) return;
+    if (!user) throw new WsException('Usuario no autenticado');
 
     const tienePermiso = user.token_of_permisos.includes(permiso);
-
-    if (!tienePermiso) {
-      this.exceptionHandler(client, 'No tienes permisos suficientes');
-    }
+    if (!tienePermiso) throw new WsException('No tienes permisos suficientes');
   }
 
   private getHeaders(client: Socket) {
@@ -271,16 +268,11 @@ export class NotaVentaGateway
     ] as string;
 
     if (!empresaId || !establecimientoId) {
-      this.disconnect(
-        client,
+      throw new WsException(
         'No se ha enviado el id de la empresa o establecimiento',
       );
-      return;
     }
 
-    return {
-      empresaId,
-      establecimientoId,
-    };
+    return { empresaId, establecimientoId };
   }
 }
