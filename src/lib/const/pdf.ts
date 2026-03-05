@@ -137,15 +137,15 @@ export function crearDocTicket(
   const content: Content[] = [
     // ── ENCABEZADO ────────────────────────────────────────────────
     {
-      text: datos.empresa.razonSocial,
+      text: datos.empresa.nombreComercial,
       bold: true,
       fontSize: fs.titulo,
       alignment: 'center',
     },
-    ...(datos.empresa.nombreComercial
+    ...(datos.empresa.razonSocial
       ? [
           {
-            text: datos.empresa.nombreComercial,
+            text: datos.empresa.razonSocial,
             bold: true,
             fontSize: fs.titulo,
             alignment: 'center',
