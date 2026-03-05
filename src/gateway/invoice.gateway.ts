@@ -37,8 +37,6 @@ import { EnvioSunatModo } from 'src/lib/enum/envio_sunat_modo.enum';
 @UsePipes(WSValidationPipe)
 @WebSocketGateway({
   namespace: 'events/invoices',
-  cors: '*:*',
-  //cors: { origin: ['http://localhost:3000', 'http://localhost:4200'] },
 })
 export class InvoiceGateway
   implements OnGatewayConnection, OnGatewayDisconnect
