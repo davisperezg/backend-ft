@@ -162,7 +162,7 @@ export class NotaVentaGateway
       const user = (await this.handleConnection(client, false)) as QueryToken;
 
       //Validamos permiso de crear facturas
-      this.validarPermiso(client, user, Permission.CreateFacturas);
+      this.validarPermiso(client, user, Permission.CreateNotaVentas);
 
       //Se crea el CPE y valida si la empresa y establecimiento pertecene al usuario
       const res = await this.notaVentaService.createNotaVenta(
