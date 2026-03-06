@@ -6,9 +6,11 @@ import { ValidationErrorException } from './lib/class-validator/validation-error
 import { ValidationPipeOptions } from '@nestjs/common/pipes';
 import * as express from 'express';
 import { ExceptionInterceptor } from './lib/interceptors/http-exception.interceptor';
+import { CorsIoAdapter } from './lib/adapters/cors-io.adapter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.useWebSocketAdapter(new CorsIoAdapter(app));
   app.use(express.static('public'));
   app.enableCors({
     origin: [
@@ -18,6 +20,7 @@ async function bootstrap() {
     maxAge: 86400,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     optionsSuccessStatus: 200,
+    credentials: true,
     preflightContinue: false,
   });
 
